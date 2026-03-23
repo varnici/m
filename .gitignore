@@ -1,0 +1,22 @@
+# Python virtualenv
+.venv-core-banking/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Node
+frontend/node_modules/
+frontend/package-lock.json
+
+# Environment / secrets
+.env
+**/.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
