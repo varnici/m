@@ -29,7 +29,10 @@ const CreditDashboardScreen = () => {
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Main Score Card */}
-        <View className="bg-white rounded-2xl mx-4 p-6 mt-6 border border-gray-100 shadow-sm">
+        <TouchableOpacity 
+          className="bg-white rounded-2xl mx-4 p-6 mt-6 border border-gray-100 shadow-sm active:opacity-80"
+          onPress={() => navigation.navigate('CreditBreakdown')}
+        >
            <View className="flex-row justify-between items-baseline mb-6">
               <Text className="text-gray-900 font-bold text-base">What drives your 742</Text>
               <Text className="text-emerald-600 text-3xl font-black">742</Text>
@@ -54,7 +57,7 @@ const CreditDashboardScreen = () => {
                  </View>
               ))}
            </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Drivers List */}
         <View className="px-4 mt-8 mb-10">

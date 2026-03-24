@@ -37,9 +37,11 @@ import IntelligenceCard from '@/components/ui/IntelligenceCard';
 import CommunityCard from '@/components/ui/CommunityCard';
 import ActivityItem from '@/components/ui/ActivityItem';
 import RepaymentBanner from '@/components/ui/RepaymentBanner';
+import BottomNavBar from '@/components/ui/BottomNavBar';
 import { colors } from '@/theme/colors';
+import { UserProfile, WalletData, BusinessMetrics } from '@/data/mockData';
 
-// ─── Mock Data ───────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────
 
 const QUICK_ACCESS_ITEMS = [
   { icon: Banknote, label: 'Loans', bgColor: '#D1FAE5', iconColor: '#004D2C' },
@@ -138,18 +140,20 @@ const DashboardScreen = () => {
             >
               {/* Avatar with border */}
               <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center mr-3 border border-white/40">
-                <Text className="text-white font-bold text-sm">CO</Text>
+                <Text className="text-white font-bold text-sm">
+                  {UserProfile.name.split(' ').map(n => n[0]).join('')}
+                </Text>
               </View>
               <View>
                 <Text className="text-white/70 text-xs font-medium">Good evening 👋</Text>
-                <Text className="text-white font-bold text-base">Chidi Okonkwo</Text>
+                <Text className="text-white font-bold text-base">{UserProfile.name}</Text>
               </View>
             </TouchableOpacity>
 
             <View className="flex-row items-center gap-3">
-              {/* Gold Badge */}
+              {/* Tier Badge */}
               <View className="bg-ventureroot-gold rounded-full px-2.5 py-1 flex-row items-center">
-                <Text className="text-xs font-bold text-gray-900">🏆 GOLD</Text>
+                <Text className="text-xs font-bold text-gray-900">🏆 {UserProfile.tier.toUpperCase()}</Text>
               </View>
               {/* Bell */}
               <TouchableOpacity
@@ -166,7 +170,7 @@ const DashboardScreen = () => {
 
           {/* Wallet Card */}
           <VRWalletCard
-            balance={45200.0}
+            balance={WalletData.balance}
             dailyChange={18400}
             loanDueDate="Dec 25"
             balanceVisible={balanceVisible}
@@ -210,10 +214,10 @@ const DashboardScreen = () => {
           >
             <StatCard
                 title="CREDIT SCORE"
-                value="742"
+                value={UserProfile.creditScore.toString()}
                 subtitle="/1000"
-                progress={{ current: 742, max: 1000 }}
-                badge="Gold · 158 pts → Platinum"
+                progress={{ current: UserProfile.creditScore, max: 1000 }}
+                badge={`${UserProfile.tier} · 158 pts → Platinum`}
             />
           </TouchableOpacity>
           <TouchableOpacity 
@@ -222,7 +226,7 @@ const DashboardScreen = () => {
           >
             <StatCard
                 title="TODAY'S SALES"
-                value="₦18,400"
+                value={`₦${BusinessMetrics.dailySales.toLocaleString()}`}
                 trend={{ direction: 'up', label: '+12% vs yesterday' }}
             />
           </TouchableOpacity>
@@ -263,7 +267,7 @@ const DashboardScreen = () => {
 
         {/* ═══ AI DAILY BRIEFING ═══ */}
         <View className="mb-4">
-          <AIBriefingCard />
+          <AIBriefingCard insights={BusinessMetrics.aiInsights} />
         </View>
 
         {/* ═══ VOICE STOCK ENTRY ═══ */}
@@ -273,7 +277,7 @@ const DashboardScreen = () => {
 
         {/* ═══ SALES STREAK ═══ */}
         <View className="mb-4">
-          <SalesStreakCard streakDays={5} totalDays={7} pointsEarned={50} nextReward="Silver" />
+          <SalesStreakCard streakDays={BusinessMetrics.salesStreakDays} totalDays={30} pointsEarned={150} nextReward="Platinum" />
         </View>
 
         {/* ═══ DAILY INTELLIGENCE ═══ */}
@@ -423,39 +427,7 @@ const DashboardScreen = () => {
       </ScrollView>
 
       {/* ═══ BOTTOM TAB BAR ═══ */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex-row py-2 pb-6 px-4">
-        {[
-          { icon: Home, label: 'Home', active: true, screen: 'Dashboard' },
-          { icon: DollarSign, label: 'Loans', active: false, screen: 'LoanDashboard' },
-          { icon: TrendingUp, label: 'Sales', active: false, screen: 'SalesDashboard' },
-          { icon: Wallet, label: 'Wallet', active: false, screen: 'Wallet' },
-          { icon: MoreHorizontal, label: 'More', active: false, screen: 'More' },
-        ].map((tab, index) => (
-          <TouchableOpacity
-            key={index}
-            className="flex-1 items-center"
-            onPress={() => navigation.navigate(tab.screen)}
-            accessible={true}
-            accessibilityLabel={tab.label}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: tab.active }}
-          >
-            <tab.icon
-              size={22}
-              color={tab.active ? colors.ventureroot.green : '#9CA3AF'}
-            />
-            <Text
-              className={`text-xs mt-1 ${
-                tab.active
-                  ? 'text-ventureroot-green font-medium'
-                  : 'text-gray-400'
-              }`}
-            >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <BottomNavBar activeScreen="Dashboard" />
     </View>
   );
 };
