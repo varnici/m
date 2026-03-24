@@ -1,0 +1,13 @@
+project: ventureroot
+entities:
+  - name: user_id
+    join_keys:
+      - user_id
+features:
+  - name: units_sold_30d
+    type: int
+  - name: repayment_on_time_ratio_90d
+    type: float
+  - name: trust_level
+    type: string
+

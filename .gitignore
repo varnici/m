@@ -2,6 +2,8 @@
 
 # dependencies
 node_modules/
+frontend/node_modules/
+frontend/package-lock.json
 
 # Expo
 .expo/
@@ -26,16 +28,30 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
+# macOS / OS
 .DS_Store
+Thumbs.db
 *.pem
 
-# local env files
+# Environment / secrets
+.env
 .env*.local
+**/.env
+*.env
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 
-# generated native folders
+# Generated native folders
 /ios
 /android
+
+# Python virtualenv
+.venv-core-banking/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Logs
+*.log

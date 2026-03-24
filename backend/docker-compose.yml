@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ventureroot}
+      POSTGRES_USER: ${POSTGRES_USER:-ventureroot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ventureroot}
+    # Avoid host port conflicts; access from other services via `postgres:5432`
+    volumes:
+      - vr_postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    # Avoid host port conflicts; access from other services via `redis:6379`
+
+  core-banking:
+    build:
+      context: ./services/core-banking
+    env_file:
+      - ./.env
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8081:8001"
+
+  ai-ml-service:
+    build:
+      context: ./services/ai-ml-service
+    env_file:
+      - ./.env
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8082:8002"
+
+  rag-service:
+    build:
+      context: ./services/rag-service
+    env_file:
+      - ./.env
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8083:8003"
+
+  ussd-service:
+    build:
+      context: ./services/ussd-service
+    env_file:
+      - ./.env
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8084:8004"
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+    env_file:
+      - ./.env
+    depends_on:
+      - core-banking
+      - ai-ml-service
+      - rag-service
+      - ussd-service
+    ports:
+      - "8080:8000"
+
+volumes:
+  vr_postgres_data:
+
