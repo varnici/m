@@ -44,11 +44,11 @@ const SalesStreakCard = ({
         </View>
 
         {/* Streak Dots */}
-        <View className="flex-row items-center gap-1.5">
+        <View className="flex-row items-center flex-wrap gap-1.5 shrink max-w-[50%]">
           {dots.map((filled, index) => (
             <View
               key={index}
-              className={`w-5 h-5 rounded-full ${
+              className={`w-3.5 h-3.5 rounded-full ${
                 filled ? 'bg-ventureroot-green' : 'bg-gray-200'
               }`}
             />

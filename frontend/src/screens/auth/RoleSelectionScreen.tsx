@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, TouchableOpacity, StatusBar, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Store, Briefcase, ChevronLeft } from 'lucide-react-native';
-import { colors } from '@/theme/colors';
 
 const ROLES = [
   {
@@ -23,91 +22,129 @@ const ROLES = [
   },
 ];
 
-const RoleSelectionScreen = () => {
-  const navigation = useNavigation<any>();
+const RoleSelectionScreen = ({ navigation }: any) => {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Header */}
-      <View className="bg-ventureroot-green h-24 absolute top-0 left-0 right-0" />
-      <View className="px-6 pt-12 pb-8">
+      {/* Sticky Header */}
+      <View style={styles.headerArea}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          className="mb-8 w-10 h-10 bg-white/10 rounded-full items-center justify-center -ml-2"
+          style={styles.backButton}
         >
           <ChevronLeft color="white" size={24} />
         </TouchableOpacity>
-
-        <View className="mt-4">
-            <Text className="text-gray-900 text-3xl font-bold mb-2">How do you earn?</Text>
-            <Text className="text-gray-500 text-base leading-6">
-            This helps us build the right credit model for you
-            </Text>
-        </View>
       </View>
 
-      <View className="flex-1 px-6 pt-4 gap-4">
+      <View style={styles.titleContainer}>
+          <Text style={styles.title}>How do you earn?</Text>
+          <Text style={styles.subtitle}>
+          This helps us build the right credit model for you
+          </Text>
+      </View>
+
+      <View style={styles.listContainer}>
         {ROLES.map((role) => (
           <TouchableOpacity
             key={role.id}
             onPress={() => setSelectedRole(role.id)}
-            className={`flex-row items-center p-5 rounded-2xl border-2 ${
-              selectedRole === role.id ? 'border-ventureroot-green bg-ventureroot-green/5' : 'border-gray-50 bg-gray-50'
-            }`}
+            style={[
+              styles.roleCard,
+              selectedRole === role.id ? styles.roleCardActive : styles.roleCardInactive
+            ]}
             accessible={true}
             accessibilityLabel={role.title}
             accessibilityRole="radio"
             accessibilityState={{ checked: selectedRole === role.id }}
           >
             <View 
-                className="w-14 h-14 rounded-xl items-center justify-center mr-4"
-                style={{ backgroundColor: role.bgColor }}
+                style={[styles.iconContainer, { backgroundColor: role.bgColor }]}
             >
               <role.icon size={28} color={role.iconColor} />
             </View>
             
-            <View className="flex-1">
-              <Text className="text-gray-900 font-bold text-lg mb-1">{role.title}</Text>
-              <Text className="text-gray-500 text-sm">{role.description}</Text>
+            <View style={styles.textContainer}>
+              <Text style={styles.roleTitle}>{role.title}</Text>
+              <Text style={styles.roleDescription}>{role.description}</Text>
             </View>
 
-            <View className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                selectedRole === role.id ? 'border-ventureroot-green' : 'border-gray-300'
-            }`}>
-              {selectedRole === role.id && <View className="w-3 h-3 rounded-full bg-ventureroot-green" />}
+            <View style={[
+              styles.radioOuter,
+              selectedRole === role.id ? styles.radioOuterActive : styles.radioOuterInactive
+            ]}>
+              {selectedRole === role.id && <View style={styles.radioInner} />}
             </View>
           </TouchableOpacity>
         ))}
       </View>
 
-      <View className="px-6 pb-12">
+      <View style={styles.bottomContainer}>
         <TouchableOpacity
-          className={`py-4 rounded-xl items-center ${
-            selectedRole ? 'bg-ventureroot-green shadow-lg' : 'bg-gray-300'
-          }`}
+          style={[
+            styles.continueButton,
+            selectedRole ? styles.continueActive : styles.continueInactive
+          ]}
           disabled={!selectedRole}
           onPress={() => navigation.navigate('BVNVerification')}
           accessible={true}
           accessibilityLabel="Continue"
           accessibilityRole="button"
         >
-          <Text className={`text-base font-bold ${selectedRole ? 'text-white' : 'text-gray-500'}`}>
+          <Text style={[
+            styles.continueText,
+            selectedRole ? styles.continueTextActive : styles.continueTextInactive
+          ]}>
             Continue
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Progress Dots */}
-      <View className="flex-row justify-center pb-8 gap-2">
+      <View style={styles.progressContainer}>
         {[1, 2, 3, 4, 5].map((i) => (
-            <View key={i} className={`h-1.5 rounded-full ${i === 1 ? 'w-8 bg-ventureroot-green' : 'w-1.5 bg-gray-200'}`} />
+            <View key={i} style={[
+              styles.progressDot,
+              i === 1 ? styles.progressDotActive : styles.progressDotInactive
+            ]} />
         ))}
       </View>
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: 'white' },
+  headerArea: { backgroundColor: '#004D2C', paddingTop: 24, paddingBottom: 24, paddingHorizontal: 24, zIndex: 10 },
+  backButton: { width: 44, height: 44, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginLeft: -8 },
+  titleContainer: { marginTop: 16, paddingHorizontal: 24 },
+  title: { color: '#111827', fontSize: 30, fontWeight: 'bold', marginBottom: 8 },
+  subtitle: { color: '#6B7280', fontSize: 16, lineHeight: 24 },
+  listContainer: { flex: 1, paddingHorizontal: 24, paddingTop: 16, gap: 16 },
+  roleCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 16, borderWidth: 2, marginBottom: 16 },
+  roleCardActive: { borderColor: '#004D2C', backgroundColor: 'rgba(0, 77, 44, 0.05)' },
+  roleCardInactive: { borderColor: '#F9FAFB', backgroundColor: '#F9FAFB' },
+  iconContainer: { width: 56, height: 56, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+  textContainer: { flex: 1 },
+  roleTitle: { color: '#111827', fontWeight: 'bold', fontSize: 18, marginBottom: 4 },
+  roleDescription: { color: '#6B7280', fontSize: 14 },
+  radioOuter: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  radioOuterActive: { borderColor: '#004D2C' },
+  radioOuterInactive: { borderColor: '#D1D5DB' },
+  radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#004D2C' },
+  bottomContainer: { paddingHorizontal: 24, paddingBottom: 48 },
+  continueButton: { paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  continueActive: { backgroundColor: '#004D2C', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 4 },
+  continueInactive: { backgroundColor: '#D1D5DB' },
+  continueText: { fontSize: 16, fontWeight: 'bold' },
+  continueTextActive: { color: 'white' },
+  continueTextInactive: { color: '#6B7280' },
+  progressContainer: { flexDirection: 'row', justifyContent: 'center', paddingBottom: 32, gap: 8 },
+  progressDot: { height: 6, borderRadius: 3, marginHorizontal: 4 },
+  progressDotActive: { width: 32, backgroundColor: '#004D2C' },
+  progressDotInactive: { width: 6, backgroundColor: '#E5E7EB' }
+});
 
 export default RoleSelectionScreen;

@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { ShoppingBag, TrendingUp, DollarSign, ChevronRight, FileText, ChevronLeft } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import StatCard from '@/components/ui/StatCard';
+import BottomNavBar from '@/components/ui/BottomNavBar';
 
 const SalesDashboardScreen = () => {
   const navigation = useNavigation<any>();
@@ -117,16 +118,19 @@ const SalesDashboardScreen = () => {
                  Today's VAT liability: <Text className="text-blue-400 font-bold">₦1,656</Text> (7.5% of ₦22,080 taxable sales)
                </Text>
             </View>
-            <ChevronRight size={20} color="white" opacity={0.5} />
+             <ChevronRight size={20} color="white" opacity={0.5} />
         </TouchableOpacity>
+        <View className="h-20" />
       </ScrollView>
 
       <TouchableOpacity 
-        className="absolute bottom-6 right-6 w-14 h-14 bg-ventureroot-green rounded-full items-center justify-center shadow-lg"
+        className="absolute bottom-24 right-6 w-14 h-14 bg-ventureroot-green rounded-full items-center justify-center shadow-lg"
         onPress={() => navigation.navigate('RecordSale')}
       >
          <Text className="text-white text-3xl font-light">+</Text>
       </TouchableOpacity>
+
+      <BottomNavBar activeScreen="SalesDashboard" />
     </SafeAreaView>
   );
 };

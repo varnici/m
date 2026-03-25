@@ -3,6 +3,7 @@ import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, Imag
 import { useNavigation } from '@react-navigation/native';
 import { ChevronRight, Settings, Bell, Shield, Share2, Award, CheckCircle2 } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
+import BottomNavBar from '@/components/ui/BottomNavBar';
 
 const MoreScreen = () => {
   const navigation = useNavigation<any>();
@@ -99,24 +100,7 @@ const MoreScreen = () => {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Footer Navigation Overlay (Simulated) */}
-      <View className="absolute bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-100 flex-row items-center justify-around px-4">
-         <TouchableOpacity onPress={() => navigation.navigate('Dashboard')} className="items-center">
-            <Text className="text-gray-400 text-[10px]">Home</Text>
-         </TouchableOpacity>
-         <TouchableOpacity onPress={() => navigation.navigate('LoanDashboard')} className="items-center">
-            <Text className="text-gray-400 text-[10px]">Loans</Text>
-         </TouchableOpacity>
-         <TouchableOpacity onPress={() => navigation.navigate('SalesDashboard')} className="items-center">
-            <Text className="text-gray-400 text-[10px]">Sales</Text>
-         </TouchableOpacity>
-         <TouchableOpacity onPress={() => navigation.navigate('Wallet')} className="items-center">
-            <Text className="text-gray-400 text-[10px]">Wallet</Text>
-         </TouchableOpacity>
-         <TouchableOpacity className="items-center">
-            <Text className="text-ventureroot-green font-bold text-[10px]">More</Text>
-         </TouchableOpacity>
-      </View>
+      <BottomNavBar activeScreen="More" />
     </SafeAreaView>
   );
 };

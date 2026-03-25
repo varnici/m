@@ -4,37 +4,17 @@ import { useNavigation } from '@react-navigation/native';
 import { ArrowUpCircle, Send, ArrowDownCircle, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import ActivityItem from '@/components/ui/ActivityItem';
+import BottomNavBar from '@/components/ui/BottomNavBar';
+import { WalletData } from '@/data/mockData';
 
-const ACTIVITY_ITEMS = [
-  {
-    title: 'Sale Proceeds',
-    subtitle: 'Today, 2:34 PM',
-    amount: 18400,
-    type: 'credit',
-    icon: <View className="w-10 h-10 rounded-full bg-emerald-50 items-center justify-center"><Text>💚</Text></View>,
-  },
-  {
-    title: 'Repayment Sweep',
-    subtitle: 'Dec 15, 9:00 AM',
-    amount: 16000,
-    type: 'debit',
-    icon: <View className="w-10 h-10 rounded-full bg-blue-50 items-center justify-center"><Text>🔄</Text></View>,
-  },
-  {
-    title: 'Loan Disbursed',
-    subtitle: 'Dec 1',
-    amount: 120000,
-    type: 'loan',
-    icon: <View className="w-10 h-10 rounded-full bg-orange-50 items-center justify-center"><Text>💰</Text></View>,
-  },
-  {
-    title: 'Pool Contribution',
-    subtitle: 'Nov 28',
-    amount: 21150,
-    type: 'debit',
-    icon: <View className="w-10 h-10 rounded-full bg-amber-50 items-center justify-center"><Text>🤝</Text></View>,
-  },
-];
+const getActivityIcon = (type: string) => {
+  if (type === 'Credit') {
+    return <View className="w-10 h-10 rounded-full bg-emerald-50 items-center justify-center"><Text>💚</Text></View>;
+  } else if (type === 'Debit') {
+    return <View className="w-10 h-10 rounded-full bg-blue-50 items-center justify-center"><Text>🔄</Text></View>;
+  }
+  return <View className="w-10 h-10 rounded-full bg-orange-50 items-center justify-center"><Text>💰</Text></View>;
+};
 
 const WalletScreen = () => {
   const navigation = useNavigation<any>();
@@ -53,7 +33,9 @@ const WalletScreen = () => {
            <Text className="text-white/70 text-[10px] font-mono">VR-W-00284</Text>
         </View>
 
-        <Text className="text-white text-center text-4xl font-black mb-8">₦45,200.00</Text>
+         <Text className="text-white text-center text-4xl font-black mb-8">
+           ₦{WalletData.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+         </Text>
 
         <View className="flex-row justify-between px-6">
            {[
@@ -93,38 +75,22 @@ const WalletScreen = () => {
            </View>
 
            <View className="bg-white rounded-2xl px-4 border border-gray-100 shadow-sm">
-             {ACTIVITY_ITEMS.map((item, index) => (
+             {WalletData.recentTransactions.map((item, index) => (
                 <ActivityItem
-                  key={index}
+                  key={item.id}
                   title={item.title}
-                  subtitle={item.subtitle}
+                  subtitle={item.date}
                   amount={item.amount}
-                  type={item.type as any}
-                  icon={item.icon}
+                  type={item.type.toLowerCase() as any}
+                  icon={getActivityIcon(item.type)}
                 />
              ))}
            </View>
         </View>
+        <View className="h-20" />
       </ScrollView>
 
-      {/* Footer Navigation Overlay (Simulated for consistency) */}
-      <View className="absolute bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-100 flex-row items-center justify-around px-4">
-         <TouchableOpacity onPress={() => navigation.navigate('Dashboard')} className="items-center">
-            <Text className="text-gray-400 text-[10px]">Home</Text>
-         </TouchableOpacity>
-         <TouchableOpacity onPress={() => navigation.navigate('LoanDashboard')} className="items-center">
-            <Text className="text-gray-400 text-[10px]">Loans</Text>
-         </TouchableOpacity>
-         <TouchableOpacity onPress={() => navigation.navigate('SalesDashboard')} className="items-center">
-            <Text className="text-gray-400 text-[10px]">Sales</Text>
-         </TouchableOpacity>
-         <TouchableOpacity className="items-center">
-            <Text className="text-ventureroot-green font-bold text-[10px]">Wallet</Text>
-         </TouchableOpacity>
-         <TouchableOpacity onPress={() => navigation.navigate('More')} className="items-center">
-            <Text className="text-gray-400 text-[10px]">More</Text>
-         </TouchableOpacity>
-      </View>
+      <BottomNavBar activeScreen="Wallet" />
     </SafeAreaView>
   );
 };

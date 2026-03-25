@@ -8,11 +8,13 @@ import BiometricSetupScreen from '@/screens/auth/BiometricSetupScreen';
 import SalesDashboardScreen from '@/screens/sales/SalesDashboardScreen';
 import LoanDashboardScreen from '@/screens/loans/LoanDashboardScreen';
 import CreditDashboardScreen from '@/screens/credit/CreditDashboardScreen';
+import CreditBreakdownScreen from '@/screens/credit/CreditBreakdownScreen';
 import WalletScreen from '@/screens/wallet/WalletScreen';
 import MoreScreen from '@/screens/more/MoreScreen';
 import DashboardScreen from '@/screens/DashboardScreen';
 // New Screens
 import ApplyLoanScreen from '@/screens/loans/ApplyLoanScreen';
+import ActiveLoanScreen from '@/screens/loans/ActiveLoanScreen';
 import ContractViewerScreen from '@/screens/loans/ContractViewerScreen';
 import RecordSaleScreen from '@/screens/sales/RecordSaleScreen';
 import SalesHistoryScreen from '@/screens/sales/SalesHistoryScreen';
@@ -39,6 +41,7 @@ import ClusterPickupScreen from '@/screens/pools/ClusterPickupScreen';
 import WithdrawalScreen from '@/screens/wallet/WithdrawalScreen';
 import SavingsGoalsScreen from '@/screens/wallet/SavingsGoalsScreen';
 
+
 const Stack = createNativeStackNavigator();
 
 const RootNavigator = () => {
@@ -59,12 +62,14 @@ const RootNavigator = () => {
         <Stack.Screen name="SalesDashboard" component={SalesDashboardScreen} />
         <Stack.Screen name="LoanDashboard" component={LoanDashboardScreen} />
         <Stack.Screen name="CreditDashboard" component={CreditDashboardScreen} />
+        <Stack.Screen name="CreditBreakdown" component={CreditBreakdownScreen} />
         <Stack.Screen name="Wallet" component={WalletScreen} />
         <Stack.Screen name="More" component={MoreScreen} />
         <Stack.Screen name="Dashboard" component={DashboardScreen} />
         
         {/* Sub-screens */}
         <Stack.Screen name="ApplyLoan" component={ApplyLoanScreen} />
+        <Stack.Screen name="ActiveLoan" component={ActiveLoanScreen} />
         <Stack.Screen name="ContractViewer" component={ContractViewerScreen} />
         <Stack.Screen name="RecordSale" component={RecordSaleScreen} />
         <Stack.Screen name="SalesHistory" component={SalesHistoryScreen} />

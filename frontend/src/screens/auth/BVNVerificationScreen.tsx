@@ -13,18 +13,18 @@ const BVNVerificationScreen = () => {
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" />
       
-      {/* Header with Green Background */}
-      <View className="bg-ventureroot-green h-20 absolute top-0 left-0 right-0" />
-      
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="px-6 pt-12 pb-8">
+      {/* Sticky Header */}
+      <View className="bg-ventureroot-green pt-10 pb-4 px-6 fixed top-0 left-0 right-0 z-10">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            className="mb-6 w-10 h-10 bg-white/10 rounded-full items-center justify-center -ml-2"
+            className="w-10 h-10 bg-white/10 rounded-full items-center justify-center -ml-2"
           >
             <ChevronLeft color="white" size={24} />
           </TouchableOpacity>
-
+      </View>
+      
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <View className="px-6 pt-4 pb-8">
           {/* Icon & Title Section */}
           <View className="items-center mt-4 mb-8">
             <View className="w-16 h-16 bg-emerald-50 rounded-full items-center justify-center mb-4">
