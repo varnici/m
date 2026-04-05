@@ -1,20 +1,41 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Fingerprint, Delete } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
+import { supabase } from '@/lib/supabase';
 
 const LoginScreen = () => {
   const navigation = useNavigation<any>();
   const [pin, setPin] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const handlePress = (val: string) => {
-    if (pin.length < 4) {
+  const handlePress = async (val: string) => {
+    if (pin.length < 4 && !isLoggingIn) {
       const newPin = pin + val;
       setPin(newPin);
       if (newPin.length === 4) {
-        // Mock successful login
-        setTimeout(() => navigation.navigate('Dashboard'), 500);
+        setIsLoggingIn(true);
+        const dummyPhone = '+2348000000000';
+        const dummyEmail = `${dummyPhone}@ventureroot.local`;
+        const securePassword = `${newPin}vr26!`;
+        
+        try {
+          const { error } = await supabase.auth.signInWithPassword({
+            email: dummyEmail,
+            password: securePassword,
+          });
+          
+          if (error) throw error;
+          
+          navigation.navigate('Dashboard');
+        } catch (error: any) {
+          Alert.alert('Login Error', error.message);
+          setPin('');
+        } finally {
+          setIsLoggingIn(false);
+        }
       }
     }
   };
@@ -25,7 +46,7 @@ const LoginScreen = () => {
 
   const KeypadButton = ({ val, children }: { val?: string; children?: React.ReactNode }) => (
     <TouchableOpacity
-      className="w-[30%] aspect-square items-center justify-center rounded-2xl active:bg-gray-100"
+      className="w-[30%] aspect-square items-center justify-center rounded-2xl"
       onPress={() => val ? handlePress(val) : null}
       accessible={true}
       accessibilityLabel={val || 'Action'}
@@ -39,14 +60,14 @@ const LoginScreen = () => {
       <StatusBar barStyle="light-content" />
       
       {/* Header Section */}
-      <View className="bg-ventureroot-green pt-12 pb-10 items-center rounded-b-[40px]">
+      <View className="bg-ventureroot-green pt-12 pb-10 items-center" style={{ borderBottomLeftRadius: 40, borderBottomRightRadius: 40 }}>
          <View className="w-12 h-12 bg-white rounded-xl items-center justify-center mb-4">
             <View className="w-8 h-8 bg-ventureroot-green rounded-lg justify-center items-center">
-                 <View className="w-4 h-4 border-2 border-white rounded-sm rotate-45" />
+                 <View className="w-4 h-4 border-2 border-white rounded-sm" style={{ transform: [{ rotate: '45deg' }] }} />
             </View>
          </View>
          <Text className="text-white text-xl font-bold mb-1">Welcome back, Chidi 👋</Text>
-         <Text className="text-white/60 text-sm font-medium">+234 *** *** 4821</Text>
+         <Text className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>+234 *** *** 4821</Text>
       </View>
 
       <View className="flex-1 items-center pt-10">
@@ -71,7 +92,7 @@ const LoginScreen = () => {
           ))}
           
           <TouchableOpacity 
-            className="w-[30%] aspect-square items-center justify-center active:opacity-70"
+            className="w-[30%] aspect-square items-center justify-center"
             onPress={() => console.log('Face ID')}
           >
             <View className="items-center">
@@ -83,7 +104,7 @@ const LoginScreen = () => {
           <KeypadButton val="0" />
 
           <TouchableOpacity 
-            className="w-[30%] aspect-square items-center justify-center active:opacity-70"
+            className="w-[30%] aspect-square items-center justify-center"
             onPress={handleDelete}
           >
             <Delete size={24} color="gray" />
