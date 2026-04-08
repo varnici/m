@@ -1,113 +1,194 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { View, TouchableOpacity, SafeAreaView, StatusBar, ScrollView, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Store, Briefcase, ChevronLeft } from 'lucide-react-native';
-import { colors } from '@/theme/colors';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '@/navigation/RootNavigator';
+import { ChevronLeft, ChevronDown, Check } from 'lucide-react-native';
+import { colors, spacing } from '@/theme/colors';
+import { CleanCard, CleanButton, CleanText } from '@/components/ui/CleanComponents';
 
-const ROLES = [
-  {
-    id: 'trader',
-    title: 'Trader / Business Owner',
-    description: 'I sell products and need inventory finance',
-    icon: Store,
-    bgColor: '#FFFBEB',
-    iconColor: '#D97706',
-  },
-  {
-    id: 'salaried',
-    title: 'Salaried Worker',
-    description: 'I have steady income and want business credit',
-    icon: Briefcase,
-    bgColor: '#EFF6FF',
-    iconColor: '#2563EB',
-  },
+const ACCOUNT_TYPES = [
+  'Retail Business Owner',
+  'Personal',
+  'Distributor',
+  'Manufacturer',
+  'Logistic/Transportation Company',
+  'Artisian',
 ];
 
 const RoleSelectionScreen = () => {
-  const navigation = useNavigation<any>();
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const handleContinue = () => {
+    if (selectedType === 'Retail Business Owner') {
+      navigation.navigate('OnboardingPhone');
+    } else {
+      // Handle other types or show a "Coming Soon" toast
+      navigation.navigate('OnboardingPhone'); // Defaulting for demo purposes
+    }
+  };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Header */}
-      <View className="bg-ventureroot-green h-24 absolute top-0 left-0 right-0" />
-      <View className="px-6 pt-12 pb-8">
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          className="mb-8 w-10 h-10 bg-white/10 rounded-full items-center justify-center -ml-2"
-        >
-          <ChevronLeft color="white" size={24} />
-        </TouchableOpacity>
-
-        <View className="mt-4">
-            <Text className="text-gray-900 text-3xl font-bold mb-2">How do you earn?</Text>
-            <Text className="text-gray-500 text-base leading-6">
-            This helps us build the right credit model for you
-            </Text>
-        </View>
-      </View>
-
-      <View className="flex-1 px-6 pt-4 gap-4">
-        {ROLES.map((role) => (
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Header */}
+        <View style={styles.header}>
           <TouchableOpacity
-            key={role.id}
-            onPress={() => setSelectedRole(role.id)}
-            className={`flex-row items-center p-5 rounded-2xl border-2 ${
-              selectedRole === role.id ? 'border-ventureroot-green bg-ventureroot-green/5' : 'border-gray-50 bg-gray-50'
-            }`}
-            accessible={true}
-            accessibilityLabel={role.title}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: selectedRole === role.id }}
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
           >
-            <View 
-                className="w-14 h-14 rounded-xl items-center justify-center mr-4"
-                style={{ backgroundColor: role.bgColor }}
-            >
-              <role.icon size={28} color={role.iconColor} />
-            </View>
-            
-            <View className="flex-1">
-              <Text className="text-gray-900 font-bold text-lg mb-1">{role.title}</Text>
-              <Text className="text-gray-500 text-sm">{role.description}</Text>
-            </View>
-
-            <View className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                selectedRole === role.id ? 'border-ventureroot-green' : 'border-gray-300'
-            }`}>
-              {selectedRole === role.id && <View className="w-3 h-3 rounded-full bg-ventureroot-green" />}
-            </View>
+            <ChevronLeft color={colors.text.primary} size={24} />
           </TouchableOpacity>
-        ))}
-      </View>
+        </View>
 
-      <View className="px-6 pb-12">
-        <TouchableOpacity
-          className={`py-4 rounded-xl items-center ${
-            selectedRole ? 'bg-ventureroot-green shadow-lg' : 'bg-gray-300'
-          }`}
-          disabled={!selectedRole}
-          onPress={() => navigation.navigate('BVNVerification')}
-          accessible={true}
-          accessibilityLabel="Continue"
-          accessibilityRole="button"
-        >
-          <Text className={`text-base font-bold ${selectedRole ? 'text-white' : 'text-gray-500'}`}>
-            Continue
-          </Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.titleSection}>
+          <CleanText variant="h1">Welcome to VentureRoot</CleanText>
+          <CleanText variant="body" style={styles.subtitle}>
+            Select your account type to get started with the right experience.
+          </CleanText>
+        </View>
 
-      {/* Progress Dots */}
-      <View className="flex-row justify-center pb-8 gap-2">
-        {[1, 2, 3, 4, 5].map((i) => (
-            <View key={i} className={`h-1.5 rounded-full ${i === 1 ? 'w-8 bg-ventureroot-green' : 'w-1.5 bg-gray-200'}`} />
-        ))}
+        <View style={styles.formSection}>
+          <CleanText variant="caption" style={styles.label}>ACCOUNT TYPE</CleanText>
+          <TouchableOpacity 
+            onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+            activeOpacity={0.7}
+          >
+            <CleanCard style={styles.dropdownTrigger}>
+              <CleanText style={{ color: selectedType ? colors.text.primary : colors.text.muted }}>
+                {selectedType || 'Select Account Type'}
+              </CleanText>
+              <ChevronDown size={20} color={colors.text.secondary} />
+            </CleanCard>
+          </TouchableOpacity>
+
+          {isDropdownOpen && (
+            <CleanCard style={styles.dropdownMenu}>
+              {ACCOUNT_TYPES.map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  onPress={() => {
+                    setSelectedType(type);
+                    setIsDropdownOpen(false);
+                  }}
+                  style={styles.dropdownItem}
+                >
+                  <CleanText style={{ flex: 1 }}>{type}</CleanText>
+                  {selectedType === type && <Check size={18} color={colors.ventureroot.green} />}
+                </TouchableOpacity>
+              ))}
+            </CleanCard>
+          )}
+        </View>
+      </ScrollView>
+
+      <View style={styles.footer}>
+        <CleanButton 
+          title="Continue" 
+          onPress={handleContinue}
+          variant="primary"
+          style={{ width: '100%' }}
+        />
+        
+        <View style={styles.progressContainer}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <View 
+              key={i} 
+              style={[
+                styles.progressDot, 
+                i === 1 ? styles.progressDotActive : styles.progressDotInactive
+              ]} 
+            />
+          ))}
+        </View>
       </View>
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background.page,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  header: {
+    paddingVertical: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleSection: {
+    marginBottom: spacing.xl,
+  },
+  subtitle: {
+    marginTop: spacing.xs,
+    color: colors.text.secondary,
+  },
+  formSection: {
+    marginBottom: spacing.xl,
+  },
+  label: {
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+    marginLeft: spacing.xs,
+    letterSpacing: 1,
+  },
+  dropdownTrigger: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    backgroundColor: colors.ventureroot.white,
+  },
+  dropdownMenu: {
+    marginTop: spacing.xs,
+    padding: spacing.xs,
+    backgroundColor: colors.ventureroot.white,
+    zIndex: 1000,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
+  },
+  footer: {
+    padding: spacing.lg,
+    backgroundColor: colors.background.page,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: spacing.lg,
+    gap: spacing.xs,
+  },
+  progressDot: {
+    height: 6,
+    borderRadius: 3,
+  },
+  progressDotActive: {
+    width: 24,
+    backgroundColor: colors.ventureroot.green,
+  },
+  progressDotInactive: {
+    width: 6,
+    backgroundColor: colors.border.medium,
+  },
+});
 
 export default RoleSelectionScreen;

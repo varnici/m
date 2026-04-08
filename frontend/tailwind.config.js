@@ -11,6 +11,29 @@ module.exports = {
           surface: '#F8F9FA',
           white: '#FFFFFF',
           dark: '#1A1A1A',
+          industrial: {
+            primary: '#88d982',
+            background: '#131313',
+            surface: '#131313',
+            surfaceLow: '#1C1B1B',
+            surfaceHigh: '#2A2A2A',
+            surfaceHighest: '#353534',
+            onSurface: '#E5E2E1',
+            outline: '#454652',
+          },
+          clean: {
+            background: '#FFFFFF',
+            surface: '#F8FAFC',
+            text: '#1E293B',
+            textLight: '#64748B',
+            primary: '#004D2C',
+          },
+          rich: {
+            gradientStart: '#0F172A',
+            gradientEnd: '#1E1B4B',
+            glass: 'rgba(255, 255, 255, 0.1)',
+            glassText: '#FFFFFF',
+          }
         }
       },
       spacing: {
