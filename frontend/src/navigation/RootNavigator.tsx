@@ -43,6 +43,9 @@ import TermsScreen from '@/screens/onboarding/retail/TermsScreen';
 import FaceVerificationScreen from '@/screens/onboarding/retail/FaceVerificationScreen';
 import ActivationScreen from '@/screens/onboarding/retail/ActivationScreen';
 import OnboardingReviewScreen from '@/screens/onboarding/retail/OnboardingReviewScreen';
+import BankLinkScreen from '@/screens/onboarding/retail/BankLinkScreen';
+import InventorySnapshotScreen from '@/screens/onboarding/retail/InventorySnapshotScreen';
+import SalesEstimationScreen from '@/screens/onboarding/retail/SalesEstimationScreen';
 
 export type RootStackParamList = {
   Welcome: undefined;

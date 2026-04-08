@@ -16,7 +16,7 @@ const OnboardingReviewScreen = () => {
     // Simulate API Submission
     setTimeout(() => {
       setIsSubmitting(false);
-      navigation.navigate('PINSetup');
+      navigation.navigate('OnboardingTerms');
     }, 2500);
   };
 
@@ -65,7 +65,7 @@ const OnboardingReviewScreen = () => {
           <View style={{ width: 40, height: 4, backgroundColor: colors.ventureroot.industrial.primary, marginTop: 16 }} />
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ pb: 60 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
           <SummaryNode 
             icon={User} 
             title="INDIVIDUAL_IDENTITY" 
@@ -105,18 +105,18 @@ const OnboardingReviewScreen = () => {
             marginBottom: 40
           }}>
              <ShieldCheck size={20} color={colors.ventureroot.industrial.primary} />
-             <View style={{ ml: 16 }}>
+             <View style={{ marginLeft: 16 }}>
                 <IndustrialText style={{ fontSize: 11, fontWeight: '900' }}>INTEGRITY SEAL ACTIVE</IndustrialText>
-                <IndustrialText style={{ fontSize: 9, opacity: 0.4, mt: 2 }}>
+                <IndustrialText style={{ fontSize: 9, opacity: 0.4, marginTop: 2 }}>
                   SIGNED: {new Date().toLocaleTimeString()} • SHA-256 SYNC
                 </IndustrialText>
              </View>
           </View>
 
           {isSubmitting ? (
-            <View style={{ height: 64, itemsCenter: 'center', justifyContent: 'center' }}>
+            <View style={{ height: 64, alignItems: 'center', justifyContent: 'center' }}>
                <ActivityIndicator color={colors.ventureroot.industrial.primary} />
-               <IndustrialText variant="label" style={{ mt: 16, fontSize: 9 }}>TRANSMITTING PROTOCOL...</IndustrialText>
+               <IndustrialText variant="label" style={{ marginTop: 16, fontSize: 9 }}>TRANSMITTING PROTOCOL...</IndustrialText>
             </View>
           ) : (
             <IndustrialButton 
@@ -127,7 +127,7 @@ const OnboardingReviewScreen = () => {
           
           <TouchableOpacity 
             onPress={() => navigation.goBack()}
-            style={{ mt: 24, padding: 16, alignItems: 'center' }}
+            style={{ marginTop: 24, padding: 16, alignItems: 'center' }}
           >
             <IndustrialText variant="label" style={{ opacity: 0.3 }}>ADJUST_INFORMATION</IndustrialText>
           </TouchableOpacity>

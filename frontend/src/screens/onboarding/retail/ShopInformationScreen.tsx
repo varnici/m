@@ -160,7 +160,3 @@ const ShopInformationScreen = () => {
 };
 
 export default ShopInformationScreen;
-  );
-};
-
-export default ShopInformationScreen;

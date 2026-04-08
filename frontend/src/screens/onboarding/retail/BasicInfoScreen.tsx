@@ -114,7 +114,3 @@ const BasicInfoScreen = () => {
 };
 
 export default BasicInfoScreen;
-  );
-};
-
-export default BasicInfoScreen;
