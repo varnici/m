@@ -46,6 +46,7 @@ export type RetailOnboardingData = {
   bankName?: string;
   // Screen 10-11: Inventory/Sales (AI based)
   estimatedInventoryValue?: number;
+  salesTier?: string;
   // Note: monthlySalesRange and avgDailySales removed from manual entry
 
   // Screen 12: Tax/Compliance
@@ -128,6 +129,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
           id_number: data.idNumber,
           id_expiry: data.idExpiry,
           estimated_inventory_value: data.estimatedInventoryValue,
+          sales_tier: data.salesTier,
           
           terms_accepted: data.termsAccepted,
           onboarding_completed_at: new Date().toISOString(),

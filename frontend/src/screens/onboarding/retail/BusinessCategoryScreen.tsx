@@ -13,11 +13,7 @@ import {
   ChevronLeft,
   ChevronRight 
 } from 'lucide-react-native';
-import { styled } from 'nativewind';
 
-const StyledView = styled(View);
-const StyledText = styled(Text);
-const StyledTouchableOpacity = styled(TouchableOpacity);
 
 const CATEGORIES = [
   { id: 'provisions', title: 'Provision Store', icon: ShoppingBag, description: 'Groceries, FMCG, household items' },
@@ -38,7 +34,7 @@ const BusinessCategoryScreen = () => {
   };
 
   return (
-    <StyledView className="flex-1 bg-ventureroot-clean-background">
+    <View className="flex-1 bg-ventureroot-clean-background">
       <StatusBar barStyle="light-content" />
       
       <BowlHeader 
@@ -50,20 +46,20 @@ const BusinessCategoryScreen = () => {
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 30, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        <StyledTouchableOpacity 
+        <TouchableOpacity 
           onPress={() => navigation.goBack()}
           className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mb-6"
         >
           <ChevronLeft color="#1E293B" size={24} />
-        </StyledTouchableOpacity>
+        </TouchableOpacity>
 
-        <StyledText className="text-ventureroot-clean-textLight text-sm font-bold tracking-widest uppercase mb-6 ml-1">
+        <Text className="text-ventureroot-clean-textLight text-sm font-bold tracking-widest uppercase mb-6 ml-1">
           Select Category
-        </StyledText>
+        </Text>
 
-        <StyledView className="gap-4">
+        <View className="gap-4">
           {CATEGORIES.map((item) => (
-            <StyledTouchableOpacity
+            <TouchableOpacity
               key={item.id}
               onPress={() => handleSelect(item.id)}
               className={`flex-row items-center p-5 rounded-3xl ${
@@ -80,7 +76,7 @@ const BusinessCategoryScreen = () => {
               }}
               activeOpacity={0.8}
             >
-              <StyledView className={`w-14 h-14 rounded-2xl items-center justify-center mr-5 ${
+              <View className={`w-14 h-14 rounded-2xl items-center justify-center mr-5 ${
                 data.primaryCategory === item.id 
                 ? 'bg-ventureroot-green' 
                 : 'bg-white'
@@ -89,23 +85,23 @@ const BusinessCategoryScreen = () => {
                   size={26} 
                   color={data.primaryCategory === item.id ? '#FFFFFF' : '#004D2C'} 
                 />
-              </StyledView>
+              </View>
 
-              <StyledView className="flex-1">
-                <StyledText className="text-ventureroot-clean-text font-bold text-lg mb-0.5">
+              <View className="flex-1">
+                <Text className="text-ventureroot-clean-text font-bold text-lg mb-0.5">
                   {item.title}
-                </StyledText>
-                <StyledText className="text-ventureroot-clean-textLight text-xs">
+                </Text>
+                <Text className="text-ventureroot-clean-textLight text-xs">
                   {item.description}
-                </StyledText>
-              </StyledView>
+                </Text>
+              </View>
 
               <ChevronRight size={20} color="#64748B" opacity={0.5} />
-            </StyledTouchableOpacity>
+            </TouchableOpacity>
           ))}
-        </StyledView>
+        </View>
       </ScrollView>
-    </StyledView>
+    </View>
   );
 };
 

@@ -4,11 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { BowlHeader, CleanInput, RichButton } from '../../../components/ThemeComponents';
 import { ChevronLeft, User, Calendar, Flag, UserCheck } from 'lucide-react-native';
-import { styled } from 'nativewind';
 
-const StyledView = styled(View);
-const StyledText = styled(Text);
-const StyledTouchableOpacity = styled(TouchableOpacity);
 
 const BasicInfoScreen = () => {
   const navigation = useNavigation<any>();
@@ -30,7 +26,7 @@ const BasicInfoScreen = () => {
   const isFormValid = form.fullName && form.dateOfBirth && form.gender;
 
   return (
-    <StyledView className="flex-1 bg-ventureroot-clean-background">
+    <View className="flex-1 bg-ventureroot-clean-background">
       <StatusBar barStyle="light-content" />
       
       <BowlHeader 
@@ -46,18 +42,18 @@ const BasicInfoScreen = () => {
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 30, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
         >
-          <StyledTouchableOpacity 
+          <TouchableOpacity 
             onPress={() => navigation.goBack()}
             className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mb-6"
           >
             <ChevronLeft color="#1E293B" size={24} />
-          </StyledTouchableOpacity>
+          </TouchableOpacity>
 
-          <StyledText className="text-ventureroot-clean-textLight text-sm font-bold tracking-widest uppercase mb-6 ml-1">
+          <Text className="text-ventureroot-clean-textLight text-sm font-bold tracking-widest uppercase mb-6 ml-1">
             KYC Level 1
-          </StyledText>
+          </Text>
 
-          <StyledView className="gap-2">
+          <View className="gap-2">
             <CleanInput
               label="FULL LEGAL NAME (AS IN ID)"
               placeholder="e.g. John Doe Akpan"
@@ -65,24 +61,24 @@ const BasicInfoScreen = () => {
               onChangeText={(fullName: string) => setForm({ ...form, fullName })}
             />
 
-            <StyledView className="flex-row gap-4">
-              <StyledView className="flex-1">
+            <View className="flex-row gap-4">
+              <View className="flex-1">
                 <CleanInput
                   label="DATE OF BIRTH"
                   placeholder="DD/MM/YYYY"
                   value={form.dateOfBirth}
                   onChangeText={(dateOfBirth: string) => setForm({ ...form, dateOfBirth })}
                 />
-              </StyledView>
-              <StyledView className="flex-1">
+              </View>
+              <View className="flex-1">
                 <CleanInput
                   label="GENDER"
                   placeholder="Male/Female"
                   value={form.gender}
                   onChangeText={(gender: string) => setForm({ ...form, gender })}
                 />
-              </StyledView>
-            </StyledView>
+              </View>
+            </View>
 
             <CleanInput
               label="NATIONALITY"
@@ -98,18 +94,18 @@ const BasicInfoScreen = () => {
               onChangeText={(email: string) => setForm({ ...form, email })}
               keyboardType="email-address"
             />
-          </StyledView>
+          </View>
 
-          <StyledView className="mt-8">
+          <View className="mt-8">
             <RichButton
               title="Next: Business Profile"
               onPress={handleContinue}
               disabled={!isFormValid}
             />
-          </StyledView>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </StyledView>
+    </View>
   );
 };
 

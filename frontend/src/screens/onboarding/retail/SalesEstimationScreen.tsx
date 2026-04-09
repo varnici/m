@@ -42,7 +42,7 @@ const SalesEstimationScreen = () => {
           </IndustrialText>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ pb: 60 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
           {tiers.map((tier) => (
             <TouchableOpacity 
               key={tier.id}
@@ -80,9 +80,9 @@ const SalesEstimationScreen = () => {
             marginBottom: 40
           }}>
              <Target size={20} color={colors.ventureroot.industrial.primary} />
-             <View style={{ ml: 16 }}>
+             <View style={{ marginLeft: 16 }}>
                 <IndustrialText style={{ fontSize: 11, fontWeight: '900' }}>AI LIMIT CALIBRATION</IndustrialText>
-                <IndustrialText style={{ fontSize: 9, opacity: 0.4, mt: 2 }}>
+                <IndustrialText style={{ fontSize: 9, opacity: 0.4, marginTop: 2 }}>
                   Selected tier will initialize your baseline Root Credit Line.
                 </IndustrialText>
              </View>

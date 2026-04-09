@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { styled } from 'nativewind';
-import { MapPin, Camera, Navigation, ArrowRight, GpsFixed, Store, Smartphone, CheckCircle2 } from 'lucide-react-native';
+import { MapPin, Camera, Navigation, ArrowRight, LocateFixed, Store, Smartphone, CheckCircle2 } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
-import { BowlHeader, CleanCard, CleanInput, IndustrialButton } from '../../../components/ThemeComponents';
+import { BowlHeader, CleanCard, CleanInput, IndustrialButton, IndustrialCard } from '../../../components/ThemeComponents';
 
-const StyledView = styled(View);
-const StyledText = styled(Text);
-const StyledTouchableOpacity = styled(TouchableOpacity);
 
 const LocationScreen = () => {
   const navigation = useNavigation<any>();
@@ -26,7 +22,7 @@ const LocationScreen = () => {
 
   const handleContinue = () => {
     updateData({ ...form, isPhysicalStore: isPhysical });
-    navigation.navigate('OnboardingReview');
+    navigation.navigate('OnboardingKYC');
   };
 
   const isFormValid = form.state && form.lga && form.address;
@@ -43,33 +39,33 @@ const LocationScreen = () => {
         <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 }}>
           
           {/* Path Toggle - Tonal Shift Style */}
-          <StyledView className="flex-row bg-ventureroot-industrial-surfaceLow p-1.5 rounded-2xl mb-8">
-            <StyledTouchableOpacity 
+          <View className="flex-row bg-ventureroot-industrial-surfaceLow p-1.5 rounded-2xl mb-8">
+            <TouchableOpacity 
               onPress={() => setIsPhysical(true)}
               activeOpacity={0.7}
               className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${isPhysical ? 'bg-ventureroot-industrial-surfaceHigh shadow-lg' : ''}`}
             >
               <Store size={18} color={isPhysical ? '#88d982' : '#94A3B8'} />
-              <StyledText className={`ml-2 text-[10px] font-black uppercase tracking-widest ${isPhysical ? 'text-ventureroot-industrial-primary' : 'text-slate-500'}`}>
+              <Text className={`ml-2 text-[10px] font-black uppercase tracking-widest ${isPhysical ? 'text-ventureroot-industrial-primary' : 'text-slate-500'}`}>
                 Physical Store
-              </StyledText>
-            </StyledTouchableOpacity>
+              </Text>
+            </TouchableOpacity>
             
-            <StyledTouchableOpacity 
+            <TouchableOpacity 
               onPress={() => setIsPhysical(false)}
               activeOpacity={0.7}
               className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${!isPhysical ? 'bg-ventureroot-industrial-surfaceHigh shadow-lg' : ''}`}
             >
               <Smartphone size={18} color={!isPhysical ? '#88d982' : '#94A3B8'} />
-              <StyledText className={`ml-2 text-[10px] font-black uppercase tracking-widest ${!isPhysical ? 'text-ventureroot-industrial-primary' : 'text-slate-500'}`}>
+              <Text className={`ml-2 text-[10px] font-black uppercase tracking-widest ${!isPhysical ? 'text-ventureroot-industrial-primary' : 'text-slate-500'}`}>
                 Online / Mobile
-              </StyledText>
-            </StyledTouchableOpacity>
-          </StyledView>
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-          <StyledText className="text-ventureroot-industrial-primary text-[10px] font-black uppercase tracking-[2px] mb-4 ml-1">
+          <Text className="text-ventureroot-industrial-primary text-[10px] font-black uppercase tracking-[2px] mb-4 ml-1">
             {isPhysical ? 'STORE LOCATION' : 'OPERATING BASE'}
-          </StyledText>
+          </Text>
 
           <IndustrialCard className="mb-8">
             <View className="flex-row gap-4">
@@ -116,48 +112,48 @@ const LocationScreen = () => {
           </IndustrialCard>
 
           {/* Visual Verification - Industrial Style */}
-          <StyledText className="text-ventureroot-industrial-onSurface text-[10px] font-black uppercase tracking-[2px] mb-4 ml-1 opacity-50">
+          <Text className="text-ventureroot-industrial-onSurface text-[10px] font-black uppercase tracking-[2px] mb-4 ml-1 opacity-50">
             VISUAL VERIFICATION
-          </StyledText>
+          </Text>
           
-          <StyledTouchableOpacity 
+          <TouchableOpacity 
             activeOpacity={0.8}
             className="border border-ventureroot-industrial-outline/20 border-dashed p-10 rounded-3xl items-center justify-center bg-ventureroot-industrial-surfaceLow mb-8"
           >
-            <StyledView className="w-16 h-16 bg-ventureroot-industrial-surfaceHigh rounded-full items-center justify-center mb-4">
+            <View className="w-16 h-16 bg-ventureroot-industrial-surfaceHigh rounded-full items-center justify-center mb-4">
               <Camera size={32} color="#88d982" />
-            </StyledView>
-            <StyledText className="text-ventureroot-white font-bold text-center">
+            </View>
+            <Text className="text-ventureroot-white font-bold text-center">
               {isPhysical ? 'Upload Shop Front Photo' : 'Upload Proof of Stock'}
-            </StyledText>
-            <StyledText className="text-ventureroot-industrial-onSurface opacity-50 text-xs text-center mt-2 px-4 italic">
+            </Text>
+            <Text className="text-ventureroot-industrial-onSurface opacity-50 text-xs text-center mt-2 px-4 italic">
               {isPhysical 
                 ? 'Ensure signpost or shop contents are clearly visible' 
                 : 'Take a clear photo of your stock or digital storefront'}
-            </StyledText>
-          </StyledTouchableOpacity>
+            </Text>
+          </TouchableOpacity>
 
           {/* Global GPS Mapping - Monolith Style */}
-          <StyledView className="bg-ventureroot-industrial-surfaceHighest p-6 rounded-3xl mb-10 overflow-hidden relative">
-            <StyledView className="absolute top-0 right-0 p-4">
+          <View className="bg-ventureroot-industrial-surfaceHighest p-6 rounded-3xl mb-10 overflow-hidden relative">
+            <View className="absolute top-0 right-0 p-4">
                <MapPin size={120} color="#88d982" opacity={0.05} />
-            </StyledView>
+            </View>
             
-            <StyledView className="flex-row items-center z-10">
-              <StyledView className="w-12 h-12 bg-ventureroot-industrial-background rounded-xl items-center justify-center border border-ventureroot-industrial-outline/30">
-                <GpsFixed size={24} color="#88d982" />
-              </StyledView>
-              <StyledView className="ml-4 flex-1">
-                <StyledText className="text-ventureroot-white font-bold text-lg">Verification GPS Pin</StyledText>
-                <StyledText className="text-ventureroot-industrial-onSurface opacity-60 text-[11px] mt-1 leading-4">
+            <View className="flex-row items-center z-10">
+              <View className="w-12 h-12 bg-ventureroot-industrial-background rounded-xl items-center justify-center border border-ventureroot-industrial-outline/30">
+                <LocateFixed size={24} color="#88d982" />
+              </View>
+              <View className="ml-4 flex-1">
+                <Text className="text-ventureroot-white font-bold text-lg">Verification GPS Pin</Text>
+                <Text className="text-ventureroot-industrial-onSurface opacity-60 text-[11px] mt-1 leading-4">
                   Automatically capturing coordinates for node validation.
-                </StyledText>
-              </StyledView>
-              <StyledTouchableOpacity className="bg-ventureroot-industrial-primary/10 p-2 rounded-lg">
+                </Text>
+              </View>
+              <TouchableOpacity className="bg-ventureroot-industrial-primary/10 p-2 rounded-lg">
                 <ArrowRight size={20} color="#88d982" />
-              </StyledTouchableOpacity>
-            </StyledView>
-          </StyledView>
+              </TouchableOpacity>
+            </View>
+          </View>
 
           <IndustrialButton 
             title="Continue to KYC" 

@@ -4,11 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { BowlHeader, CleanCard, CleanInput, RichButton } from '../../../components/ThemeComponents';
 import { ChevronLeft, ShieldCheck, ArrowRight } from 'lucide-react-native';
-import { styled } from 'nativewind';
 
-const StyledView = styled(View);
-const StyledText = styled(Text);
-const StyledTouchableOpacity = styled(TouchableOpacity);
 
 const PhoneRegistrationScreen = () => {
   const navigation = useNavigation<any>();
@@ -30,7 +26,7 @@ const PhoneRegistrationScreen = () => {
   };
 
   return (
-    <StyledView className="flex-1 bg-ventureroot-clean-background">
+    <View className="flex-1 bg-ventureroot-clean-background">
       <StatusBar barStyle="light-content" />
       
       <BowlHeader 
@@ -46,21 +42,21 @@ const PhoneRegistrationScreen = () => {
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 30, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
         >
-          <StyledTouchableOpacity 
+          <TouchableOpacity 
             onPress={() => isOtpSent ? setIsOtpSent(false) : navigation.goBack()}
             className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mb-6"
           >
             <ChevronLeft color="#1E293B" size={24} />
-          </StyledTouchableOpacity>
+          </TouchableOpacity>
 
           {!isOtpSent ? (
-            <StyledView>
-              <StyledView className="flex-row items-center bg-ventureroot-green/5 self-start px-3 py-1.5 rounded-lg mb-6">
+            <View>
+              <View className="flex-row items-center bg-ventureroot-green/5 self-start px-3 py-1.5 rounded-lg mb-6">
                 <ShieldCheck size={14} color="#004D2C" />
-                <StyledText className="text-[10px] font-bold text-ventureroot-green ml-1.5 uppercase tracking-wider">
+                <Text className="text-[10px] font-bold text-ventureroot-green ml-1.5 uppercase tracking-wider">
                   SIM KYC Cross-Check Ready
-                </StyledText>
-              </StyledView>
+                </Text>
+              </View>
 
               <CleanInput
                 label="MOBILE NUMBER OR EMAIL"
@@ -70,25 +66,25 @@ const PhoneRegistrationScreen = () => {
                 keyboardType={value.includes('@') ? 'email-address' : 'phone-pad'}
               />
               
-              <StyledText className="text-ventureroot-clean-textLight text-xs italic opacity-70 mb-8 px-1">
+              <Text className="text-ventureroot-clean-textLight text-xs italic opacity-70 mb-8 px-1">
                 This will be used for your secure login and transaction authorization.
-              </StyledText>
-            </StyledView>
+              </Text>
+            </View>
           ) : (
-            <StyledView className="items-center">
-              <StyledView className="flex-row justify-center gap-3 mb-10">
+            <View className="items-center">
+              <View className="flex-row justify-center gap-3 mb-10">
                 {[...Array(6)].map((_, i) => (
-                  <StyledView 
+                  <View 
                     key={i} 
                     className={`w-12 h-16 rounded-2xl items-center justify-center border-2 ${
                       otp[i] ? 'border-ventureroot-green bg-ventureroot-green/5' : 'border-slate-100 bg-white'
                     }`}
                   >
-                    <StyledText className="text-2xl font-bold text-ventureroot-green">
+                    <Text className="text-2xl font-bold text-ventureroot-green">
                       {otp[i] || ''}
-                    </StyledText>
-                    {!otp[i] && <StyledView className="w-4 h-0.5 bg-slate-200 absolute bottom-4" />}
-                  </StyledView>
+                    </Text>
+                    {!otp[i] && <View className="w-4 h-0.5 bg-slate-200 absolute bottom-4" />}
+                  </View>
                 ))}
                 <TextInput
                   value={otp}
@@ -97,17 +93,17 @@ const PhoneRegistrationScreen = () => {
                   style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%' }}
                   autoFocus
                 />
-              </StyledView>
+              </View>
               
-              <StyledTouchableOpacity 
+              <TouchableOpacity 
                 onPress={() => setIsOtpSent(false)} 
                 className="mb-8"
               >
-                <StyledText className="text-ventureroot-green font-bold text-sm">
+                <Text className="text-ventureroot-green font-bold text-sm">
                   Resend Code
-                </StyledText>
-              </StyledTouchableOpacity>
-            </StyledView>
+                </Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           <RichButton
@@ -118,7 +114,7 @@ const PhoneRegistrationScreen = () => {
 
         </ScrollView>
       </KeyboardAvoidingView>
-    </StyledView>
+    </View>
   );
 };
 

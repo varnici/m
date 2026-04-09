@@ -18,7 +18,7 @@ const FaceVerificationScreen = () => {
     setTimeout(() => {
       setIsCapturing(false);
       setIsCaptured(true);
-      updateData({ faceVerified: true });
+      updateData({ faceMatchConfidence: 98 });
     }, 2500);
   };
 

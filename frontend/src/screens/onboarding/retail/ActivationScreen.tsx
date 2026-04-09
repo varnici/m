@@ -125,7 +125,7 @@ const ActivationScreen = () => {
                   onPress={startActivation}
                   className="bg-red-500/10 border border-red-500/30 px-6 py-3 flex-row items-center"
                 >
-                  <RefreshCw size={14} color="#ef4444" className="mr-2" />
+                  <RefreshCw size={14} color="#ef4444" style={{ marginRight: 8 }} />
                   <IndustrialText className="text-red-500 text-xs font-black tracking-widest">
                     RETRY_PROTOCOL
                   </IndustrialText>

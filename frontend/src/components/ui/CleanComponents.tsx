@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, TextStyle, TextInput, TextInputProps } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, TextStyle, TextInput, TextInputProps, Platform } from 'react-native';
 import { colors, spacing, borderRadius } from '../../theme/colors';
 
 interface CleanCardProps {

@@ -1,45 +1,39 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, TextInput, Platform } from 'react-native';
-import { styled } from 'nativewind';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const StyledView = styled(View);
-const StyledText = styled(Text);
-const StyledTouchableOpacity = styled(TouchableOpacity);
-const StyledTextInput = styled(TextInput);
 
 /**
  * signature design element for VentureRoot
  */
 export const BowlHeader = ({ title, subtitle }: { title: string; subtitle?: string }) => (
-  <StyledView className="bg-ventureroot-industrial-background pt-16 pb-10 px-6 rounded-b-[40px] shadow-2xl">
-    <StyledText className="text-ventureroot-white text-3xl font-bold tracking-tight">
+  <View className="bg-ventureroot-industrial-background pt-16 pb-10 px-6 rounded-b-[40px] shadow-2xl">
+    <Text className="text-ventureroot-white text-3xl font-bold tracking-tight">
       {title}
-    </StyledText>
+    </Text>
     {subtitle && (
-      <StyledText className="text-ventureroot-industrial-onSurface text-base mt-2 opacity-80">
+      <Text className="text-ventureroot-industrial-onSurface text-base mt-2 opacity-80">
         {subtitle}
-      </StyledText>
+      </Text>
     )}
-  </StyledView>
+  </View>
 );
 
 /**
  * CLEAN MOTIF: Minimalist, high legibility
  */
 export const CleanCard = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-  <StyledView className={`bg-ventureroot-clean-surface p-6 rounded-2xl ${className}`}>
+  <View className={`bg-ventureroot-clean-surface p-6 rounded-2xl ${className}`}>
     {children}
-  </StyledView>
+  </View>
 );
 
 export const CleanInput = ({ label, placeholder, value, onChangeText, secureTextEntry, keyboardType }: any) => (
-  <StyledView className="mb-6">
-    <StyledText className="text-ventureroot-clean-text font-semibold mb-2 ml-1">
+  <View className="mb-6">
+    <Text className="text-ventureroot-clean-text font-semibold mb-2 ml-1">
       {label}
-    </StyledText>
-    <StyledView className="bg-ventureroot-clean-background rounded-xl px-4 py-4 shadow-sm border border-slate-100">
-      <StyledTextInput
+    </Text>
+    <View className="bg-ventureroot-clean-background rounded-xl px-4 py-4 shadow-sm border border-slate-100">
+      <TextInput
         placeholder={placeholder}
         placeholderTextColor="#94A3B8"
         value={value}
@@ -48,21 +42,21 @@ export const CleanInput = ({ label, placeholder, value, onChangeText, secureText
         keyboardType={keyboardType}
         className="text-ventureroot-clean-text text-base"
       />
-    </StyledView>
-  </StyledView>
+    </View>
+  </View>
 );
 
 /**
  * INDUSTRIAL TRUST: Authoritative, tonal layering
  */
 export const IndustrialCard = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-  <StyledView className={`bg-ventureroot-industrial-surfaceHigh p-6 rounded-2xl ${className}`}>
+  <View className={`bg-ventureroot-industrial-surfaceHigh p-6 rounded-2xl ${className}`}>
     {children}
-  </StyledView>
+  </View>
 );
 
 export const IndustrialButton = ({ title, onPress, disabled = false, variant = 'primary' }: any) => (
-  <StyledTouchableOpacity
+  <TouchableOpacity
     onPress={onPress}
     disabled={disabled}
     className={`rounded-xl py-4 items-center justify-center ${
@@ -70,32 +64,32 @@ export const IndustrialButton = ({ title, onPress, disabled = false, variant = '
       variant === 'primary' ? 'bg-ventureroot-industrial-primary' : 'bg-ventureroot-industrial-surfaceHighest'
     }`}
   >
-    <StyledText className={`font-bold text-lg ${variant === 'primary' ? 'text-ventureroot-industrial-background' : 'text-ventureroot-white'}`}>
+    <Text className={`font-bold text-lg ${variant === 'primary' ? 'text-ventureroot-industrial-background' : 'text-ventureroot-white'}`}>
       {title}
-    </StyledText>
-  </StyledTouchableOpacity>
+    </Text>
+  </TouchableOpacity>
 );
 
 /**
  * RICH VIBE: Glassmorphism and gradients
  */
 export const RichButton = ({ title, onPress }: any) => (
-  <StyledTouchableOpacity onPress={onPress}>
+  <TouchableOpacity onPress={onPress}>
     <LinearGradient
       colors={['#004D2C', '#006D3C']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
       className="rounded-xl py-4 items-center justify-center shadow-lg"
     >
-      <StyledText className="text-white font-bold text-lg">
+      <Text className="text-white font-bold text-lg">
         {title}
-      </StyledText>
+      </Text>
     </LinearGradient>
-  </StyledTouchableOpacity>
+  </TouchableOpacity>
 );
 
 export const GlassContainer = ({ children }: { children: React.ReactNode }) => (
-  <StyledView className="bg-white/10 p-6 rounded-3xl border border-white/20">
+  <View className="bg-white/10 p-6 rounded-3xl border border-white/20">
     {children}
-  </StyledView>
+  </View>
 );

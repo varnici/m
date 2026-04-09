@@ -16,7 +16,7 @@ const TaxComplianceScreen = () => {
 
   const handleContinue = () => {
     updateData(form);
-    navigation.navigate('OnboardingTerms');
+    navigation.navigate('OnboardingReview');
   };
 
   return (

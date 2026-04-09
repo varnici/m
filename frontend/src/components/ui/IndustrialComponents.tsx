@@ -1,11 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
 import { colors, spacing, borderRadius } from '../../theme/colors';
-import { styled } from 'nativewind';
-
-const StyledView = styled(View);
-const StyledText = styled(Text);
-const StyledTouchableOpacity = styled(TouchableOpacity);
 
 interface IndustrialCardProps {
   children: React.ReactNode;
@@ -94,11 +89,13 @@ export const IndustrialButton: React.FC<IndustrialButtonProps> = ({
 export const IndustrialText = ({ 
   children, 
   variant = 'body', 
-  style 
+  style,
+  className,
 }: { 
   children: React.ReactNode, 
   variant?: 'h1' | 'h2' | 'h3' | 'body' | 'label', 
-  style?: TextStyle 
+  style?: TextStyle,
+  className?: string,
 }) => {
   const getStyles = (): TextStyle => {
     switch (variant) {
@@ -110,5 +107,5 @@ export const IndustrialText = ({
     }
   };
 
-  return <Text style={[getStyles(), style]}>{children}</Text>;
+  return <Text className={className} style={[getStyles(), style]}>{children}</Text>;
 };

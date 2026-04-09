@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ShieldCheck, ShieldAlert, ChevronRight, Fingerprint } from 'lucide-react-native';
+import { ShieldCheck, ShieldAlert, ChevronRight, FingerprintPattern } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 
 const ID_TYPES = [
@@ -51,7 +51,7 @@ const KYCVerificationScreen = () => {
                 <ShieldAlert size={120} color="#CFBFA6" />
              </View>
              <View className="flex-row items-center mb-4">
-                <Fingerprint size={20} color="#27AE60" />
+                <FingerprintPattern size={20} color="#27AE60" />
                 <Text className="text-ventureroot-industrial-onSurface font-black text-[10px] tracking-[3px] uppercase ml-4">Registry Protocols</Text>
              </View>
              <Text className="text-ventureroot-industrial-onSurface text-xs leading-5 opacity-50 font-medium">
