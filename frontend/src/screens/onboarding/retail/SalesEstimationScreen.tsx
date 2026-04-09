@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { TrendingUp, BarChart3, Target, Zap } from 'lucide-react-native';
+import { TrendingUp, ChartColumn, Target, Zap } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { colors, spacing } from '../../../theme/colors';
 import { IndustrialCard, IndustrialButton, IndustrialText } from '../../../components/ui/IndustrialComponents';

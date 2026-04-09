@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, FileText, CheckCircle2, Shield } from 'lucide-react-native';
+import { ChevronLeft, FileText, CircleCheck, Shield } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
 const ContractViewerScreen = () => {

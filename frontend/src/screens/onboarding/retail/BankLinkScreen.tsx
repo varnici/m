@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Landmark, ShieldCheck, ArrowRight, CheckCircle2, Link, ChevronRight } from 'lucide-react-native';
+import { Landmark, ShieldCheck, ArrowRight, CircleCheckBig, Link, ChevronRight } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 
 const BankLinkScreen = () => {
@@ -104,7 +104,7 @@ const BankLinkScreen = () => {
 
             <View className="bg-ventureroot-industrial-surfaceLow p-10 items-center">
               <View className="w-20 h-20 bg-ventureroot-industrial-primary items-center justify-center mb-6">
-                <CheckCircle2 size={40} color="#131313" />
+                <CircleCheckBig size={40} color="#131313" />
               </View>
               
               <Text className="text-ventureroot-industrial-onSurface text-2xl font-black uppercase tracking-tighter">BOND ESTABLISHED</Text>

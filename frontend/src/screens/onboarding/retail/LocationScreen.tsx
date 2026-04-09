@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { MapPin, Camera, Navigation, ArrowRight, LocateFixed, Store, Smartphone, CheckCircle2 } from 'lucide-react-native';
+import { MapPin, Camera, Navigation, ArrowRight, LocateFixed, Store, Smartphone } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { BowlHeader, CleanCard, CleanInput, IndustrialButton, IndustrialCard } from '../../../components/ThemeComponents';
 

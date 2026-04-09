@@ -6,9 +6,9 @@ import {
   DollarSign,
   TrendingUp,
   Wallet,
-  MoreHorizontal,
+  Ellipsis,
   Banknote,
-  BarChart3,
+  ChartColumn,
   Package,
   Users,
   Shield,
@@ -18,7 +18,7 @@ import {
   Heart,
   Landmark,
   Trophy as FootballIcon,
-  CheckCircle,
+  CircleCheck,
   RefreshCw,
   Flame,
   Star,
@@ -43,7 +43,7 @@ import { colors } from '@/theme/colors';
 
 const QUICK_ACCESS_ITEMS = [
   { icon: Banknote, label: 'Loans', bgColor: '#D1FAE5', iconColor: '#004D2C' },
-  { icon: BarChart3, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB' },
+  { icon: ChartColumn, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB' },
   { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706' },
   { icon: Users, label: 'Group Buy', bgColor: '#FCE7F3', iconColor: '#DB2777' },
   { icon: Shield, label: 'Insurance', bgColor: '#FEE2E2', iconColor: '#EF4444' },
@@ -397,7 +397,7 @@ const DashboardScreen = () => {
                         : 'bg-orange-100'
                     }`}
                   >
-                    {item.type === 'credit' && <CheckCircle size={18} color="#10B981" />}
+                    {item.type === 'credit' && <CircleCheck size={18} color="#10B981" />}
                     {item.type === 'debit' && <RefreshCw size={18} color="#3B82F6" />}
                     {item.type === 'loan' && <Flame size={18} color="#F97316" />}
                   </View>
@@ -429,7 +429,7 @@ const DashboardScreen = () => {
           { icon: DollarSign, label: 'Loans', active: false, screen: 'LoanDashboard' },
           { icon: TrendingUp, label: 'Sales', active: false, screen: 'SalesDashboard' },
           { icon: Wallet, label: 'Wallet', active: false, screen: 'Wallet' },
-          { icon: MoreHorizontal, label: 'More', active: false, screen: 'More' },
+          { icon: Ellipsis, label: 'More', active: false, screen: 'More' },
         ].map((tab, index) => (
           <TouchableOpacity
             key={index}

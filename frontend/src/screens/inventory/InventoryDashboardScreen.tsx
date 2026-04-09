@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, Box, AlertTriangle, List, Mic, Camera, TrendingDown } from 'lucide-react-native';
+import { ChevronLeft, Box, TriangleAlert, List, Mic, Camera, TrendingDown } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
 const InventoryDashboardScreen = () => {
@@ -57,7 +57,7 @@ const InventoryDashboardScreen = () => {
           onPress={() => navigation.navigate('StockLodger')}
         >
            <View className="w-10 h-10 bg-red-100 rounded-full items-center justify-center mr-3">
-              <AlertTriangle size={20} color="#EF4444" />
+              <TriangleAlert size={20} color="#EF4444" />
            </View>
            <View className="flex-1">
               <Text className="text-red-900 font-bold text-sm">4 Items Critical</Text>

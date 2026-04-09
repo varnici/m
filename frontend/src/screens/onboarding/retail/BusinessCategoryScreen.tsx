@@ -9,7 +9,7 @@ import {
   Zap, 
   UtensilsCrossed, 
   Shirt, 
-  MoreHorizontal,
+  Ellipsis,
   ChevronLeft,
   ChevronRight 
 } from 'lucide-react-native';
@@ -21,7 +21,7 @@ const CATEGORIES = [
   { id: 'pharma', title: 'Pharma & Health', icon: HeartPulse, description: 'Drugs, medical supplies' },
   { id: 'electronics', title: 'Electronics & Tech', icon: Zap, description: 'Gadgets, repairs, appliances' },
   { id: 'food', title: 'Food & Restaurant', icon: UtensilsCrossed, description: 'Cooked meals, catering' },
-  { id: 'others', title: 'Others', icon: MoreHorizontal, description: 'Niche retail categories' },
+  { id: 'others', title: 'Others', icon: Ellipsis, description: 'Niche retail categories' },
 ];
 
 const BusinessCategoryScreen = () => {

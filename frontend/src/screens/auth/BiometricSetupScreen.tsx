@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { FingerprintPattern, CheckCircle2 } from 'lucide-react-native';
+import { FingerprintPattern, CircleCheck } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
 const BiometricSetupScreen = () => {
@@ -44,7 +44,7 @@ const BiometricSetupScreen = () => {
         <View className="w-full gap-4 mb-12">
           {benefits.map((b, i) => (
              <View key={i} className="flex-row items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <CheckCircle2 size={20} color="#10B981" />
+                <CircleCheck size={20} color="#10B981" />
                 <Text className="ml-3 text-gray-700 font-medium text-sm">{b}</Text>
              </View>
           ))}

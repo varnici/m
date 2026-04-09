@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { View, SafeAreaView, StatusBar, Animated, Easing, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ShieldAlert, Cpu, Database, Link, CheckCircle2, TriangleAlert, RefreshCw } from 'lucide-react-native';
+import { ShieldAlert, Cpu, Database, Link, CircleCheckBig, TriangleAlert, RefreshCw } from 'lucide-react-native';
 import { colors } from '../../../theme/colors';
 import { IndustrialText } from '../../../components/ui/IndustrialComponents';
 import { useOnboarding } from '../../../context/OnboardingContext';
@@ -11,7 +11,7 @@ const STATUS_MESSAGES = [
   { text: "SYNCING_IDENTITY_NODES", icon: ShieldAlert },
   { text: "MAPPING_AI_INVENTORY_MESH", icon: Database },
   { text: "SECURING_LIQUIDITY_GATEWAYS", icon: Link },
-  { text: "VENTUREROOT_PROTOCOL_ACTIVE", icon: CheckCircle2 }
+  { text: "VENTUREROOT_PROTOCOL_ACTIVE", icon: CircleCheckBig }
 ];
 
 const ActivationScreen = () => {

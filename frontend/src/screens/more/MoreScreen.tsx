@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronRight, Settings, Bell, Shield, Share2, Award, CheckCircle2 } from 'lucide-react-native';
+import { ChevronRight, Settings, Bell, Shield, Share2, Award, CircleCheckBig } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
 const MoreScreen = () => {
@@ -50,7 +50,7 @@ const MoreScreen = () => {
            <View className="gap-3">
               {trustChecklist.map((item, i) => (
                  <View key={i} className="flex-row items-center">
-                    <CheckCircle2 size={16} color="#10B981" />
+                    <CircleCheckBig size={16} color="#10B981" />
                     <Text className="ml-3 text-gray-700 text-xs font-medium">{item}</Text>
                     <Text className="ml-1 text-emerald-500/50 text-[10px]">✓</Text>
                  </View>

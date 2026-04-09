@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ShieldCheck, Info, ChevronDown, CheckSquare, Square, ChevronLeft } from 'lucide-react-native';
+import { ShieldCheck, Info, ChevronDown, SquareCheck, Square, ChevronLeft } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
 const BVNVerificationScreen = () => {
@@ -78,7 +78,7 @@ const BVNVerificationScreen = () => {
           >
             <View className="mt-0.5 mr-3">
               {consented ? (
-                <CheckSquare size={20} color={colors.ventureroot.green} />
+                <SquareCheck size={20} color={colors.ventureroot.green} />
               ) : (
                 <Square size={20} color="gray" />
               )}
