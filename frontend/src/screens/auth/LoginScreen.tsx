@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Fingerprint, Delete } from 'lucide-react-native';
+import { FingerprintPattern, Delete } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import { supabase } from '@/lib/supabase';
 
@@ -96,7 +96,7 @@ const LoginScreen = () => {
             onPress={() => console.log('Face ID')}
           >
             <View className="items-center">
-                <Fingerprint size={24} color={colors.ventureroot.green} />
+                <FingerprintPattern size={24} color={colors.ventureroot.green} />
                 <Text className="text-ventureroot-green text-[10px] mt-1 font-bold">Face ID</Text>
             </View>
           </TouchableOpacity>

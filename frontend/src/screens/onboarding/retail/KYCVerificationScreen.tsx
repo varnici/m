@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, Keyb
 import { useNavigation } from '@react-navigation/native';
 import { ShieldCheck, ShieldAlert, ChevronRight, FingerprintPattern } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
+import { IndustrialText } from '../../../components/ui/IndustrialComponents';
 
 const ID_TYPES = [
   { label: 'National ID (NIN)', value: 'NIN', hint: 'INSTITUTIONAL STANDARD' },

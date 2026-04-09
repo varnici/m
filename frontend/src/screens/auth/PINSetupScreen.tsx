@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Delete, ShieldCheck, Fingerprint, Lock, ArrowRight } from 'lucide-react-native';
+import { Delete, ShieldCheck, FingerprintPattern, Lock, ArrowRight } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { IndustrialText } from '../../components/ui/IndustrialComponents';
 
@@ -113,7 +113,7 @@ const PINSetupScreen = () => {
             {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'SKIP', '0'].map((v, i) => (
                v === 'SKIP' ? (
                 <View key={i} style={{ width: '30%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}>
-                  <Fingerprint size={28} color="rgba(255,255,255,0.05)" />
+                  <FingerprintPattern size={28} color="rgba(255,255,255,0.05)" />
                 </View>
                ) : (
                 <TouchableOpacity

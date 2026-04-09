@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Fingerprint, CheckCircle2 } from 'lucide-react-native';
+import { FingerprintPattern, CheckCircle2 } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
 const BiometricSetupScreen = () => {
@@ -31,7 +31,7 @@ const BiometricSetupScreen = () => {
         {/* Fingerprint Illustration */}
         <View className="w-32 h-32 rounded-full bg-gray-50 items-center justify-center mb-10 border border-gray-100">
            <View className="w-24 h-24 rounded-full bg-gray-100 items-center justify-center">
-              <Fingerprint size={48} color="#D1D5DB" />
+              <FingerprintPattern size={48} color="#D1D5DB" />
            </View>
         </View>
 
