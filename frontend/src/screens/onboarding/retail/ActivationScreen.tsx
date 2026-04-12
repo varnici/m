@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, SafeAreaView, StatusBar, Animated, Easing, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, StatusBar, Animated, Easing, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ShieldAlert, Cpu, Database, Link, CheckCircle2, TriangleAlert, RefreshCw } from 'lucide-react-native';
 import { colors } from '../../../theme/colors';
 import { IndustrialText } from '../../../components/ui/IndustrialComponents';
@@ -14,8 +15,9 @@ const STATUS_MESSAGES = [
   { text: "VENTUREROOT_PROTOCOL_ACTIVE", icon: CheckCircle2 }
 ];
 
-const ActivationScreen = () => {
-  const navigation = useNavigation<any>();
+const ActivationScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingActivation'>) => {
   const { submitOnboarding } = useOnboarding();
   const nodeId = useMemo(() => Math.random().toString(16).substring(2, 10).toUpperCase(), []);
   const [currentStep, setCurrentStep] = useState(0);

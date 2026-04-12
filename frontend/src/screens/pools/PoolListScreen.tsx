@@ -1,11 +1,10 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Users, Zap, Clock, Search, Filter } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const PoolListScreen = () => {
-  const navigation = useNavigation<any>();
+const PoolListScreen = ({ navigation }: RootStackScreenProps<'PoolList'>) => {
 
   const pools = [
     { 

@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Box, AlertTriangle, List, Mic, Camera, TrendingDown } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const InventoryDashboardScreen = () => {
-  const navigation = useNavigation<any>();
-
+const InventoryDashboardScreen = ({
+  navigation,
+}: RootStackScreenProps<'InventoryDashboard'>) => {
   const categories = [
     { name: 'Grains', items: 124, status: 'Healthy', color: '#10B981' },
     { name: 'Canned Goods', items: 85, status: 'Low Stock', color: '#F59E0B' },

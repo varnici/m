@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Info, Users, ShieldCheck, MapPin, Truck, ChevronRight } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const PoolDetailScreen = () => {
-  const navigation = useNavigation<any>();
-
+const PoolDetailScreen = ({
+  navigation,
+}: RootStackScreenProps<'PoolDetail'>) => {
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />

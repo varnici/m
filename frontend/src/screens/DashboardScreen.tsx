@@ -109,12 +109,29 @@ const ACTIVITY_ITEMS = [
 
 const INTELLIGENCE_TABS = ['For You', 'News', 'Stocks', 'Trade'];
 
-import { useNavigation } from '@react-navigation/native';
+import type {
+  RootStackParamList,
+  RootStackScreenProps,
+} from '@/navigation/types';
+
+const FOOTER_TABS: Array<{
+  icon: typeof Home;
+  label: string;
+  active: boolean;
+  screen: keyof RootStackParamList;
+}> = [
+  { icon: Home, label: 'Home', active: true, screen: 'Dashboard' },
+  { icon: DollarSign, label: 'Loans', active: false, screen: 'LoanDashboard' },
+  { icon: TrendingUp, label: 'Sales', active: false, screen: 'SalesDashboard' },
+  { icon: Wallet, label: 'Wallet', active: false, screen: 'Wallet' },
+  { icon: MoreHorizontal, label: 'More', active: false, screen: 'More' },
+];
 
 // ─── Dashboard Screen ────────────────────────────────────────
 
-const DashboardScreen = () => {
-  const navigation = useNavigation<any>();
+const DashboardScreen = ({
+  navigation,
+}: RootStackScreenProps<'Dashboard'>) => {
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [activeIntelTab, setActiveIntelTab] = useState('For You');
 
@@ -424,17 +441,11 @@ const DashboardScreen = () => {
 
       {/* ═══ BOTTOM TAB BAR ═══ */}
       <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex-row py-2 pb-6 px-4">
-        {[
-          { icon: Home, label: 'Home', active: true, screen: 'Dashboard' },
-          { icon: DollarSign, label: 'Loans', active: false, screen: 'LoanDashboard' },
-          { icon: TrendingUp, label: 'Sales', active: false, screen: 'SalesDashboard' },
-          { icon: Wallet, label: 'Wallet', active: false, screen: 'Wallet' },
-          { icon: MoreHorizontal, label: 'More', active: false, screen: 'More' },
-        ].map((tab, index) => (
+        {FOOTER_TABS.map((tab, index) => (
           <TouchableOpacity
             key={index}
             className="flex-1 items-center"
-            onPress={() => navigation.navigate(tab.screen)}
+            onPress={() => navigation.navigate(tab.screen as never)}
             accessible={true}
             accessibilityLabel={tab.label}
             accessibilityRole="tab"

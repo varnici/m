@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, ShieldCheck, Landmark, FileText, History, Info, ChevronRight, AlertCircle } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const InsuranceSummaryScreen = () => {
-  const navigation = useNavigation<any>();
-
+const InsuranceSummaryScreen = ({
+  navigation,
+}: RootStackScreenProps<'InsuranceSummary'>) => {
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />

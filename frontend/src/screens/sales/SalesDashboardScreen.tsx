@@ -1,13 +1,13 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ShoppingBag, TrendingUp, DollarSign, ChevronRight, FileText, ChevronLeft } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import StatCard from '@/components/ui/StatCard';
 
-const SalesDashboardScreen = () => {
-  const navigation = useNavigation<any>();
-
+const SalesDashboardScreen = ({
+  navigation,
+}: RootStackScreenProps<'SalesDashboard'>) => {
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />

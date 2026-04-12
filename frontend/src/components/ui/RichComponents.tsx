@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, TextStyle, Platform } from 'react-native';
 import { colors, spacing, borderRadius } from '../../theme/colors';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 
 interface RichGlassCardProps {
@@ -12,15 +11,19 @@ interface RichGlassCardProps {
 export const RichGlassCard: React.FC<RichGlassCardProps> = ({ children, style }) => {
   return (
     <View style={[styles.glassContainer, style]}>
-      {Platform.OS === 'ios' ? (
-        <BlurView intensity={20} tint="light" style={styles.blur}>
-          {children}
-        </BlurView>
-      ) : (
-        <View style={[styles.blur, { backgroundColor: colors.ventureroot.rich.glass }]}>
-          {children}
-        </View>
-      )}
+      <View
+        style={[
+          styles.blur,
+          {
+            backgroundColor:
+              Platform.OS === 'ios'
+                ? 'rgba(255, 255, 255, 0.14)'
+                : colors.ventureroot.rich.glass,
+          },
+        ]}
+      >
+        {children}
+      </View>
     </View>
   );
 };

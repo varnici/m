@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ShieldCheck, Info, ChevronDown, CheckSquare, Square, ChevronLeft } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const BVNVerificationScreen = () => {
-  const navigation = useNavigation<any>();
+const BVNVerificationScreen = ({
+  navigation,
+}: RootStackScreenProps<'BVNVerification'>) => {
   const [bvn, setBvn] = useState('');
   const [consented, setConsented] = useState(false);
 

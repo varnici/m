@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, SafeAreaView, StatusBar, ScrollView, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '@/navigation/RootNavigator';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, ChevronDown, Check } from 'lucide-react-native';
 import { colors, spacing } from '@/theme/colors';
 import { CleanCard, CleanButton, CleanText } from '@/components/ui/CleanComponents';
@@ -16,8 +14,9 @@ const ACCOUNT_TYPES = [
   'Artisian',
 ];
 
-const RoleSelectionScreen = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+const RoleSelectionScreen = ({
+  navigation,
+}: RootStackScreenProps<'RoleSelection'>) => {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 

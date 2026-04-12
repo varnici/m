@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { Landmark, ShieldCheck, ArrowRight, CheckCircle2, Link, ChevronRight } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 
-const BankLinkScreen = () => {
-  const navigation = useNavigation<any>();
+const BankLinkScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingBankLink'>) => {
   const { data, updateData } = useOnboarding();
   const [isLinking, setIsLinking] = useState(false);
   const [isLinked, setIsLinked] = useState(data.bankLinked || false);

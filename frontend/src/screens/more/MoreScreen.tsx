@@ -1,11 +1,10 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronRight, Settings, Bell, Shield, Share2, Award, CheckCircle2 } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const MoreScreen = () => {
-  const navigation = useNavigation<any>();
+const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
   const trustChecklist = [
     'KYC Verified',
     'BVN Matched',

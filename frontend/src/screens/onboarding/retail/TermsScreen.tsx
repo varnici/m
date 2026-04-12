@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ShieldCheck, CheckCircle2, ArrowRight, Gavel, FileText } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 
-const TermsScreen = () => {
-  const navigation = useNavigation<any>();
+const TermsScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingTerms'>) => {
   const { data, updateData } = useOnboarding();
   const [accepted, setAccepted] = useState(data.termsAccepted || false);
 

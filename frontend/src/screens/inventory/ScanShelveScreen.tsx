@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Camera, Zap, RefreshCw, X } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const ScanShelveScreen = () => {
-  const navigation = useNavigation<any>();
-
+const ScanShelveScreen = ({
+  navigation,
+}: RootStackScreenProps<'ScanShelve'>) => {
   return (
     <View className="flex-1 bg-black">
       <StatusBar barStyle="light-content" />

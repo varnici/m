@@ -77,7 +77,6 @@ export const IndustrialButton: React.FC<IndustrialButtonProps> = ({
           color: isPrimary ? colors.ventureroot.industrial.background : colors.ventureroot.industrial.primary,
           fontSize: 16,
           fontWeight: '700',
-          fontFamily: 'Inter-Bold', // Assuming Inter is loaded
         }}
       >
         {title.toUpperCase()}

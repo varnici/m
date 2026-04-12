@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { BowlHeader, CleanCard } from '../../../components/ThemeComponents';
 import { 
@@ -24,8 +24,9 @@ const CATEGORIES = [
   { id: 'others', title: 'Others', icon: MoreHorizontal, description: 'Niche retail categories' },
 ];
 
-const BusinessCategoryScreen = () => {
-  const navigation = useNavigation<any>();
+const BusinessCategoryScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingCategory'>) => {
   const { data, updateData } = useOnboarding();
 
   const handleSelect = (id: string) => {

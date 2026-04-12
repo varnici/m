@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ShieldCheck, User, Store, Landmark, ChevronRight } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { colors, spacing } from '../../../theme/colors';
 import { IndustrialCard, IndustrialButton, IndustrialText } from '../../../components/ui/IndustrialComponents';
 
-const OnboardingReviewScreen = () => {
-  const navigation = useNavigation<any>();
+const OnboardingReviewScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingReview'>) => {
   const { data } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -138,4 +139,3 @@ const OnboardingReviewScreen = () => {
 };
 
 export default OnboardingReviewScreen;
-

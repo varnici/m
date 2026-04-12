@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { FingerprintPattern, Delete } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import { supabase } from '@/lib/supabase';
 
-const LoginScreen = () => {
-  const navigation = useNavigation<any>();
+const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
   const [pin, setPin] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 

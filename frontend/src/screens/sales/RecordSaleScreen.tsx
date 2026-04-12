@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, TextInput } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Package, Plus, Minus, Search } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const RecordSaleScreen = () => {
-  const navigation = useNavigation<any>();
+const RecordSaleScreen = ({
+  navigation,
+}: RootStackScreenProps<'RecordSale'>) => {
   const [product, setProduct] = useState('Indomie Noodles 70g');
   const [quantity, setQuantity] = useState(1);
   const [price, setPrice] = useState('150');

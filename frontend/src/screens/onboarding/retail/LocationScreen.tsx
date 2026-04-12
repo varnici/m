@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, KeyboardAvoidingView, Platform, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { MapPin, Camera, Navigation, ArrowRight, LocateFixed, Store, Smartphone, CheckCircle2 } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { BowlHeader, CleanCard, CleanInput, IndustrialButton, IndustrialCard } from '../../../components/ThemeComponents';
 
 
-const LocationScreen = () => {
-  const navigation = useNavigation<any>();
+const LocationScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingLocation'>) => {
   const { data, updateData } = useOnboarding();
   
   const [isPhysical, setIsPhysical] = useState(data.isPhysicalStore ?? true);
@@ -16,12 +17,27 @@ const LocationScreen = () => {
     lga: data.lga || '',
     address: data.address || '',
     landmark: data.landmark || '',
-    serviceAreas: data.serviceAreas || '',
+    serviceAreas: Array.isArray(data.serviceAreas)
+      ? data.serviceAreas.join(', ')
+      : data.serviceAreas || '',
     gpsPin: data.gpsPin || { latitude: 6.5244, longitude: 3.3792 },
   });
 
   const handleContinue = () => {
-    updateData({ ...form, isPhysicalStore: isPhysical });
+    updateData({
+      state: form.state,
+      lga: form.lga,
+      address: form.address,
+      landmark: isPhysical ? form.landmark : undefined,
+      serviceAreas: isPhysical
+        ? undefined
+        : form.serviceAreas
+            .split(',')
+            .map((area: string) => area.trim())
+            .filter(Boolean),
+      gpsPin: form.gpsPin,
+      isPhysicalStore: isPhysical,
+    });
     navigation.navigate('OnboardingKYC');
   };
 

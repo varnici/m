@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { FingerprintPattern, CheckCircle2 } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const BiometricSetupScreen = () => {
-  const navigation = useNavigation<any>();
-
+const BiometricSetupScreen = ({
+  navigation,
+}: RootStackScreenProps<'BiometricSetup'>) => {
   const benefits = [
     'Log in instantly',
     'No PIN needed',

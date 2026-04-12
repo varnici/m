@@ -1,4 +1,5 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { RootStackParamList } from './types';
 import WelcomeScreen from '@/screens/auth/WelcomeScreen';
 import LoginScreen from '@/screens/auth/LoginScreen';
 import RoleSelectionScreen from '@/screens/auth/RoleSelectionScreen';
@@ -47,57 +48,9 @@ import BankLinkScreen from '@/screens/onboarding/retail/BankLinkScreen';
 import InventorySnapshotScreen from '@/screens/onboarding/retail/InventorySnapshotScreen';
 import SalesEstimationScreen from '@/screens/onboarding/retail/SalesEstimationScreen';
 
-export type RootStackParamList = {
-  Welcome: undefined;
-  Login: undefined;
-  RoleSelection: undefined;
-  BVNVerification: undefined;
-  PINSetup: undefined;
-  BiometricSetup: undefined;
-  Dashboard: undefined;
-  Wallet: undefined;
-  LoanDashboard: undefined;
-  SalesDashboard: undefined;
-  More: undefined;
-  InventoryDashboard: undefined;
-  StockLodger: undefined;
-  VoiceStock: undefined;
-  ScanShelve: undefined;
-  RecordSale: undefined;
-  InsuranceSummary: undefined;
-  FileClaim: undefined;
-  Repayment: undefined;
-  Withdrawal: undefined;
-  SavingsGoals: undefined;
-  ApplyLoan: undefined;
-  ContractViewer: undefined;
-  SalesHistory: undefined;
-  SalesVelocity: undefined;
-  ClaimHistory: undefined;
-  CreditDashboard: undefined;
-  ClusterPickup: undefined;
-  PoolDetail: undefined;
-  PoolList: undefined;
-  
-  // Onboarding Retail
-  OnboardingAccountType: undefined;
-  OnboardingPhone: undefined;
-  OnboardingBasicInfo: undefined;
-  OnboardingShopInfo: undefined;
-  OnboardingCategory: undefined;
-  OnboardingLocation: undefined;
-  OnboardingKYC: undefined;
-  OnboardingFaceVerification: undefined;
-  OnboardingBankLink: undefined;
-  OnboardingInventory: undefined;
-  OnboardingSalesEstimation: undefined;
-  OnboardingTaxCompliance: undefined;
-  OnboardingTerms: undefined;
-  OnboardingActivation: undefined;
-  OnboardingReview: undefined;
-};
+// Definition moved to ./types.ts
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const RootNavigator = () => {
   return (

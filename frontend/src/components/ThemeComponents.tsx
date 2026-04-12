@@ -60,11 +60,20 @@ export const IndustrialButton = ({ title, onPress, disabled = false, variant = '
     onPress={onPress}
     disabled={disabled}
     className={`rounded-xl py-4 items-center justify-center ${
-      disabled ? 'bg-gray-700 opacity-50' : 
-      variant === 'primary' ? 'bg-ventureroot-industrial-primary' : 'bg-ventureroot-industrial-surfaceHighest'
+      disabled 
+        ? 'bg-ventureroot-industrial-surfaceHigh opacity-50' 
+        : variant === 'primary' 
+          ? 'bg-ventureroot-industrial-primary' 
+          : 'bg-ventureroot-industrial-surfaceHighest'
     }`}
   >
-    <Text className={`font-bold text-lg ${variant === 'primary' ? 'text-ventureroot-industrial-background' : 'text-ventureroot-white'}`}>
+    <Text className={`font-bold text-lg ${
+      disabled 
+        ? 'text-ventureroot-industrial-onSurface/30' 
+        : variant === 'primary' 
+          ? 'text-ventureroot-industrial-background' 
+          : 'text-ventureroot-white'
+    }`}>
       {title}
     </Text>
   </TouchableOpacity>
@@ -73,15 +82,15 @@ export const IndustrialButton = ({ title, onPress, disabled = false, variant = '
 /**
  * RICH VIBE: Glassmorphism and gradients
  */
-export const RichButton = ({ title, onPress }: any) => (
-  <TouchableOpacity onPress={onPress}>
+export const RichButton = ({ title, onPress, disabled = false }: any) => (
+  <TouchableOpacity onPress={onPress} disabled={disabled}>
     <LinearGradient
-      colors={['#004D2C', '#006D3C']}
+      colors={disabled ? ['#1E293B', '#334155'] : ['#004D2C', '#006D3C']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
-      className="rounded-xl py-4 items-center justify-center shadow-lg"
+      className={`rounded-xl py-4 items-center justify-center shadow-lg ${disabled ? 'opacity-40' : ''}`}
     >
-      <Text className="text-white font-bold text-lg">
+      <Text className={`font-bold text-lg ${disabled ? 'text-slate-400' : 'text-white'}`}>
         {title}
       </Text>
     </LinearGradient>

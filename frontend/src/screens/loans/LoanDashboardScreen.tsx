@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, PlusCircle, CheckCircle2, History, Info } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const LoanDashboardScreen = () => {
-  const navigation = useNavigation<any>();
-
+const LoanDashboardScreen = ({
+  navigation,
+}: RootStackScreenProps<'LoanDashboard'>) => {
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />

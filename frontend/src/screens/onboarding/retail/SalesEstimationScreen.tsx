@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { TrendingUp, BarChart3, Target, Zap } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { colors, spacing } from '../../../theme/colors';
 import { IndustrialCard, IndustrialButton, IndustrialText } from '../../../components/ui/IndustrialComponents';
 
-const SalesEstimationScreen = () => {
-  const navigation = useNavigation<any>();
+const SalesEstimationScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingSalesEstimation'>) => {
   const { data, updateData } = useOnboarding();
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
 

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ShieldCheck, ShieldAlert, ChevronRight, FingerprintPattern } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
+import { colors } from '../../../theme/colors';
 import { IndustrialText } from '../../../components/ui/IndustrialComponents';
 
 const ID_TYPES = [
@@ -12,8 +13,9 @@ const ID_TYPES = [
   { label: "Driver’s License", value: 'DL', hint: 'MUNICIPAL REGULATION' },
 ];
 
-const KYCVerificationScreen = () => {
-  const navigation = useNavigation<any>();
+const KYCVerificationScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingKYC'>) => {
   const { data, updateData } = useOnboarding();
   
   const [form, setForm] = useState({

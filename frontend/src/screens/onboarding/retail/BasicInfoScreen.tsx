@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StatusBar, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { BowlHeader, CleanInput, RichButton } from '../../../components/ThemeComponents';
 import { ChevronLeft, User, Calendar, Flag, UserCheck } from 'lucide-react-native';
 
 
-const BasicInfoScreen = () => {
-  const navigation = useNavigation<any>();
+const BasicInfoScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingBasicInfo'>) => {
   const { data, updateData } = useOnboarding();
   
   const [form, setForm] = useState({

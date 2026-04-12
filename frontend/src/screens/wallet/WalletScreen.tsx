@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ArrowUpCircle, Send, ArrowDownCircle, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import ActivityItem from '@/components/ui/ActivityItem';
@@ -36,9 +36,7 @@ const ACTIVITY_ITEMS = [
   },
 ];
 
-const WalletScreen = () => {
-  const navigation = useNavigation<any>();
-
+const WalletScreen = ({ navigation }: RootStackScreenProps<'Wallet'>) => {
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />
