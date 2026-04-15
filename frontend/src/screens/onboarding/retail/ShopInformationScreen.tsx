@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { BowlHeader, CleanInput, RichButton } from '../../../components/ThemeComponents';
 import { Store, Briefcase, ChevronLeft, CloudUpload } from 'lucide-react-native';
 
 
-const ShopInformationScreen = () => {
-  const navigation = useNavigation<any>();
+const ShopInformationScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingShopInfo'>) => {
   const { data, updateData } = useOnboarding();
   
   const [form, setForm] = useState({
@@ -15,7 +16,7 @@ const ShopInformationScreen = () => {
     tradingName: data.tradingName || '',
     yearsInOperation: data.yearsInOperation || 0,
     ownershipType: data.ownershipType || 'Rented',
-    employeeCount: data.employeeCount || 0,
+    employee_count: data.employee_count || 0,
     registrationStatus: data.registrationStatus || 'Not Registered',
   });
 

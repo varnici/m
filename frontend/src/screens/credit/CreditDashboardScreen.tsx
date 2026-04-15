@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Info, TrendingUp, Sliders, Shield } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const CreditDashboardScreen = () => {
-  const navigation = useNavigation<any>();
+const CreditDashboardScreen = ({
+  navigation,
+}: RootStackScreenProps<'CreditDashboard'>) => {
   const drivers = [
     { name: 'Sales Velocity', weight: '35%', status: 'Strong', color: '#10B981', value: 85 },
     { name: 'Repayment Consistency', weight: '30%', status: 'Perfect', color: '#10B981', value: 100 },

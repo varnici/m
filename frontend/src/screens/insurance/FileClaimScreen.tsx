@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, Camera, Image as ImageIcon, TriangleAlert, ShieldAlert } from 'lucide-react-native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, TextInput } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { ChevronLeft, Camera, Image as ImageIcon, AlertTriangle, ShieldAlert } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const FileClaimScreen = () => {
-  const navigation = useNavigation<any>();
+const FileClaimScreen = ({
+  navigation,
+}: RootStackScreenProps<'FileClaim'>) => {
   const [claimType, setClaimType] = useState('damage');
   const [description, setDescription] = useState('');
 
@@ -27,7 +27,7 @@ const FileClaimScreen = () => {
       <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
         {/* Urgent Note */}
         <View className="bg-orange-50 border border-orange-100 rounded-2xl p-4 flex-row items-start mb-6">
-           <TriangleAlert size={20} color="#F59E0B" className="mt-1 mr-3" />
+           <AlertTriangle size={20} color="#F59E0B" className="mt-1 mr-3" />
            <View className="flex-1">
               <Text className="text-orange-900 font-bold text-sm">Wait! Is this an emergency?</Text>
               <Text className="text-orange-800 text-[10px]">If your warehouse is currently at risk, please call emergency services before filing this digital claim.</Text>

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StatusBar, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { ShieldCheck, Info, ChevronDown, SquareCheck, Square, ChevronLeft } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { ShieldCheck, Info, ChevronDown, CheckSquare, Square, ChevronLeft } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const BVNVerificationScreen = () => {
-  const navigation = useNavigation<any>();
+const BVNVerificationScreen = ({
+  navigation,
+}: RootStackScreenProps<'BVNVerification'>) => {
   const [bvn, setBvn] = useState('');
   const [consented, setConsented] = useState(false);
 
@@ -79,7 +79,7 @@ const BVNVerificationScreen = () => {
           >
             <View className="mt-0.5 mr-3">
               {consented ? (
-                <SquareCheck size={20} color={colors.ventureroot.green} />
+                <CheckSquare size={20} color={colors.ventureroot.green} />
               ) : (
                 <Square size={20} color="gray" />
               )}

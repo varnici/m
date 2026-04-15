@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, Wallet, Landmark, CircleCheck } from 'lucide-react-native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { ChevronLeft, Wallet, Landmark, CheckCircle2 } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const RepaymentScreen = () => {
-  const navigation = useNavigation<any>();
+const RepaymentScreen = ({
+  navigation,
+}: RootStackScreenProps<'Repayment'>) => {
   const [paymentSource, setPaymentSource] = useState('wallet');
 
   return (
@@ -48,7 +48,7 @@ const RepaymentScreen = () => {
                  <Text className="text-gray-900 font-bold text-sm">VR Wallet Balance</Text>
                  <Text className="text-gray-400 text-xs">Balance: ₦45,200</Text>
               </View>
-              {paymentSource === 'wallet' && <CircleCheck size={24} color="#10B981" />}
+              {paymentSource === 'wallet' && <CheckCircle2 size={24} color="#10B981" />}
            </TouchableOpacity>
 
            <TouchableOpacity 
@@ -62,7 +62,7 @@ const RepaymentScreen = () => {
                  <Text className="text-gray-900 font-bold text-sm">Bank Transfer / USSD</Text>
                  <Text className="text-gray-400 text-xs">Direct from your GTBank account</Text>
               </View>
-              {paymentSource === 'bank' && <CircleCheck size={24} color="#10B981" />}
+              {paymentSource === 'bank' && <CheckCircle2 size={24} color="#10B981" />}
            </TouchableOpacity>
         </View>
 

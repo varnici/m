@@ -1,13 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Search, Filter, ShieldCheck, Clock, ShieldX } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const ClaimHistoryScreen = () => {
-  const navigation = useNavigation<any>();
-
+const ClaimHistoryScreen = ({
+  navigation,
+}: RootStackScreenProps<'ClaimHistory'>) => {
   const claims = [
     { id: 1, type: 'Water Damage', status: 'Approved', amount: '₦184,200', date: 'Dec 05, 2024', ref: 'VR-CLM-2024-X82' },
     { id: 2, type: 'Burglary (Stock)', status: 'Pending', amount: '₦850,000', date: 'Dec 22, 2024', ref: 'VR-CLM-2024-Y14' },

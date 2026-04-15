@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { View, StatusBar, Animated, Easing, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { ShieldAlert, Cpu, Database, Link, CircleCheckBig, TriangleAlert, RefreshCw } from 'lucide-react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { ShieldAlert, Cpu, Database, Link, CheckCircle2, TriangleAlert, RefreshCw } from 'lucide-react-native';
 import { colors } from '../../../theme/colors';
 import { IndustrialText } from '../../../components/ui/IndustrialComponents';
 import { useOnboarding } from '../../../context/OnboardingContext';
@@ -12,11 +12,12 @@ const STATUS_MESSAGES = [
   { text: "SYNCING_IDENTITY_NODES", icon: ShieldAlert },
   { text: "MAPPING_AI_INVENTORY_MESH", icon: Database },
   { text: "SECURING_LIQUIDITY_GATEWAYS", icon: Link },
-  { text: "VENTUREROOT_PROTOCOL_ACTIVE", icon: CircleCheckBig }
+  { text: "VENTUREROOT_PROTOCOL_ACTIVE", icon: CheckCircle2 }
 ];
 
-const ActivationScreen = () => {
-  const navigation = useNavigation<any>();
+const ActivationScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingActivation'>) => {
   const { submitOnboarding } = useOnboarding();
   const nodeId = useMemo(() => Math.random().toString(16).substring(2, 10).toUpperCase(), []);
   const [currentStep, setCurrentStep] = useState(0);

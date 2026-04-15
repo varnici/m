@@ -1,13 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, CirclePlus, CircleCheck, History, Info } from 'lucide-react-native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { ChevronLeft, PlusCircle, CheckCircle2, History, Info } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const LoanDashboardScreen = () => {
-  const navigation = useNavigation<any>();
-
+const LoanDashboardScreen = ({
+  navigation,
+}: RootStackScreenProps<'LoanDashboard'>) => {
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />
@@ -58,7 +57,7 @@ const LoanDashboardScreen = () => {
                  <View className="items-end">
                     <Text className="text-emerald-500 font-bold text-xs">Active</Text>
                     <View className="flex-row items-center bg-gray-50 px-1.5 py-0.5 rounded mt-1">
-                       <CircleCheck size={10} color="#10B981" />
+                       <CheckCircle2 size={10} color="#10B981" />
                        <Text className="text-gray-500 text-[8px] ml-1 font-bold italic">Insured</Text>
                     </View>
                  </View>
@@ -94,7 +93,7 @@ const LoanDashboardScreen = () => {
           className="mx-4 mt-6 bg-ventureroot-green/10 py-4 rounded-xl flex-row items-center justify-center border border-ventureroot-green/20"
           onPress={() => navigation.navigate('ApplyLoan')}
         >
-           <CirclePlus size={20} color="#004D2C" />
+           <PlusCircle size={20} color="#004D2C" />
            <Text className="text-ventureroot-green font-bold text-base ml-2">Apply for New Loan</Text>
         </TouchableOpacity>
 
@@ -115,7 +114,7 @@ const LoanDashboardScreen = () => {
                       <Text className="text-gray-900 font-bold text-sm">{item.amount}</Text>
                       <View className="flex-row items-center mt-1">
                          <Text className="text-emerald-500 font-bold text-[10px] mr-1">{item.status}</Text>
-                         {item.status === 'Paid' && <CircleCheck size={10} color="#10B981" />}
+                         {item.status === 'Paid' && <CheckCircle2 size={10} color="#10B981" />}
                       </View>
                    </View>
                 </View>

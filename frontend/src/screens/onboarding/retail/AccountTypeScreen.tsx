@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, StatusBar } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { BowlHeader, CleanCard } from '../../../components/ThemeComponents';
 import { 
@@ -24,8 +23,9 @@ const ACCOUNT_TYPES = [
   { id: 'artisan', title: 'Artisan', icon: Wrench, description: 'Skilled trade professionals' },
 ];
 
-const AccountTypeScreen = () => {
-  const navigation = useNavigation<any>();
+const AccountTypeScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingAccountType'>) => {
   const { data, updateData } = useOnboarding();
 
   const handleSelect = (id: string) => {

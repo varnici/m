@@ -1,13 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, Info, ChartBar, TrendingUp, Zap } from 'lucide-react-native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { ChevronLeft, Info, BarChart, TrendingUp, Zap } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const SalesVelocityScreen = () => {
-  const navigation = useNavigation<any>();
-
+const SalesVelocityScreen = ({
+  navigation,
+}: RootStackScreenProps<'SalesVelocity'>) => {
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />

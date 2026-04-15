@@ -1,13 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, FileText, CircleCheck, Shield } from 'lucide-react-native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { ChevronLeft, FileText, CheckCircle2, Shield } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const ContractViewerScreen = () => {
-  const navigation = useNavigation<any>();
-
+const ContractViewerScreen = ({
+  navigation,
+}: RootStackScreenProps<'ContractViewer'>) => {
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />

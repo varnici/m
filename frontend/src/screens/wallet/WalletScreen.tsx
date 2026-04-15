@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { CircleArrowUp, Send, CircleArrowDown, CircleAlert, ChevronRight, ChevronLeft } from 'lucide-react-native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { ArrowUpCircle, Send, ArrowDownCircle, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import ActivityItem from '@/components/ui/ActivityItem';
 
@@ -37,9 +36,7 @@ const ACTIVITY_ITEMS = [
   },
 ];
 
-const WalletScreen = () => {
-  const navigation = useNavigation<any>();
-
+const WalletScreen = ({ navigation }: RootStackScreenProps<'Wallet'>) => {
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />
@@ -58,9 +55,9 @@ const WalletScreen = () => {
 
         <View className="flex-row justify-between px-6">
            {[
-             { label: 'Add Money', icon: CircleArrowUp },
+             { label: 'Add Money', icon: ArrowUpCircle },
              { label: 'Send', icon: Send },
-             { label: 'Withdraw', icon: CircleArrowDown },
+             { label: 'Withdraw', icon: ArrowDownCircle },
            ].map((action, i) => (
               <TouchableOpacity key={i} className="items-center">
                  <View className="w-12 h-12 bg-white/20 rounded-xl items-center justify-center mb-2">
@@ -75,7 +72,7 @@ const WalletScreen = () => {
       <ScrollView className="flex-1 px-4 pt-6" showsVerticalScrollIndicator={false}>
         {/* Upcoming Sweep */}
         <View className="bg-orange-50/50 border border-orange-100 rounded-2xl p-4 flex-row items-start mb-8">
-           <CircleAlert size={20} color="#F59E0B" style={{ marginTop: 2 }} />
+           <AlertCircle size={20} color="#F59E0B" style={{ marginTop: 2 }} />
            <View className="ml-3 flex-1">
               <Text className="text-orange-900 font-bold text-sm mb-1">Upcoming Sweep</Text>
               <Text className="text-orange-800 text-xs leading-5">

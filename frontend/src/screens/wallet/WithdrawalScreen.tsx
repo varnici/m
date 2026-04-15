@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, TextInput } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Landmark, User, Zap, ChevronRight, Info } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const WithdrawalScreen = () => {
-  const navigation = useNavigation<any>();
+const WithdrawalScreen = ({
+  navigation,
+}: RootStackScreenProps<'Withdrawal'>) => {
   const [amount, setAmount] = useState('25000');
   const [method, setMethod] = useState('bank');
 

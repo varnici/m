@@ -6,9 +6,9 @@ import {
   DollarSign,
   TrendingUp,
   Wallet,
-  Ellipsis,
+  MoreHorizontal,
   Banknote,
-  ChartColumn,
+  BarChart3,
   Package,
   Users,
   Shield,
@@ -18,7 +18,7 @@ import {
   Heart,
   Landmark,
   Trophy as FootballIcon,
-  CircleCheck,
+  CheckCircle,
   RefreshCw,
   Flame,
   Star,
@@ -43,7 +43,7 @@ import { colors } from '@/theme/colors';
 
 const QUICK_ACCESS_ITEMS = [
   { icon: Banknote, label: 'Loans', bgColor: '#D1FAE5', iconColor: '#004D2C' },
-  { icon: ChartColumn, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB' },
+  { icon: BarChart3, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB' },
   { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706' },
   { icon: Users, label: 'Group Buy', bgColor: '#FCE7F3', iconColor: '#DB2777' },
   { icon: Shield, label: 'Insurance', bgColor: '#FEE2E2', iconColor: '#EF4444' },
@@ -109,12 +109,29 @@ const ACTIVITY_ITEMS = [
 
 const INTELLIGENCE_TABS = ['For You', 'News', 'Stocks', 'Trade'];
 
-import { useNavigation } from '@react-navigation/native';
+import type {
+  RootStackParamList,
+  RootStackScreenProps,
+} from '@/navigation/types';
+
+const FOOTER_TABS: Array<{
+  icon: typeof Home;
+  label: string;
+  active: boolean;
+  screen: keyof RootStackParamList;
+}> = [
+  { icon: Home, label: 'Home', active: true, screen: 'Dashboard' },
+  { icon: DollarSign, label: 'Loans', active: false, screen: 'LoanDashboard' },
+  { icon: TrendingUp, label: 'Sales', active: false, screen: 'SalesDashboard' },
+  { icon: Wallet, label: 'Wallet', active: false, screen: 'Wallet' },
+  { icon: MoreHorizontal, label: 'More', active: false, screen: 'More' },
+];
 
 // ─── Dashboard Screen ────────────────────────────────────────
 
-const DashboardScreen = () => {
-  const navigation = useNavigation<any>();
+const DashboardScreen = ({
+  navigation,
+}: RootStackScreenProps<'Dashboard'>) => {
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [activeIntelTab, setActiveIntelTab] = useState('For You');
 
@@ -397,7 +414,7 @@ const DashboardScreen = () => {
                         : 'bg-orange-100'
                     }`}
                   >
-                    {item.type === 'credit' && <CircleCheck size={18} color="#10B981" />}
+                    {item.type === 'credit' && <CheckCircle size={18} color="#10B981" />}
                     {item.type === 'debit' && <RefreshCw size={18} color="#3B82F6" />}
                     {item.type === 'loan' && <Flame size={18} color="#F97316" />}
                   </View>
@@ -424,17 +441,11 @@ const DashboardScreen = () => {
 
       {/* ═══ BOTTOM TAB BAR ═══ */}
       <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex-row py-2 pb-6 px-4">
-        {[
-          { icon: Home, label: 'Home', active: true, screen: 'Dashboard' },
-          { icon: DollarSign, label: 'Loans', active: false, screen: 'LoanDashboard' },
-          { icon: TrendingUp, label: 'Sales', active: false, screen: 'SalesDashboard' },
-          { icon: Wallet, label: 'Wallet', active: false, screen: 'Wallet' },
-          { icon: Ellipsis, label: 'More', active: false, screen: 'More' },
-        ].map((tab, index) => (
+        {FOOTER_TABS.map((tab, index) => (
           <TouchableOpacity
             key={index}
             className="flex-1 items-center"
-            onPress={() => navigation.navigate(tab.screen)}
+            onPress={() => navigation.navigate(tab.screen as never)}
             accessible={true}
             accessibilityLabel={tab.label}
             accessibilityRole="tab"

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StatusBar, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ShieldCheck, ArrowRight, Info, HelpCircle, FileText } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 
-const TaxComplianceScreen = () => {
-  const navigation = useNavigation<any>();
+const TaxComplianceScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingTaxCompliance'>) => {
   const { data, updateData } = useOnboarding();
   
   const [form, setForm] = useState({

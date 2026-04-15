@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { Camera, Mic, ArrowRight, History, Lightbulb, Sparkles, Database, AudioLines } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { colors } from '../../../theme/colors';
 import { IndustrialCard, IndustrialText } from '../../../components/ui/IndustrialComponents';
 
-const InventorySnapshotScreen = () => {
-  const navigation = useNavigation<any>();
+const InventorySnapshotScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingInventory'>) => {
   const { data, updateData } = useOnboarding();
   const [isScanning, setIsScanning] = useState(false);
   const [valuing, setValuing] = useState(false);

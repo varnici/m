@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StatusBar, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { BowlHeader, CleanCard, CleanInput, RichButton } from '../../../components/ThemeComponents';
 import { ChevronLeft, ShieldCheck, ArrowRight } from 'lucide-react-native';
 
 
-const PhoneRegistrationScreen = () => {
-  const navigation = useNavigation<any>();
+const PhoneRegistrationScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingPhone'>) => {
   const { data, updateData } = useOnboarding();
   const [value, setValue] = useState(data.phoneOrEmail || '');
   const [isOtpSent, setIsOtpSent] = useState(false);

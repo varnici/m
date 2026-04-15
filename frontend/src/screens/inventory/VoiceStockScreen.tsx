@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Mic, X, Circle } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const VoiceStockScreen = () => {
-  const navigation = useNavigation<any>();
+const VoiceStockScreen = ({
+  navigation,
+}: RootStackScreenProps<'VoiceStock'>) => {
   const [isListening, setIsListening] = useState(false);
 
   return (

@@ -1,13 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, QrCode, MapPin, Phone, Info, Clock } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const ClusterPickupScreen = () => {
-  const navigation = useNavigation<any>();
-
+const ClusterPickupScreen = ({
+  navigation,
+}: RootStackScreenProps<'ClusterPickup'>) => {
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />

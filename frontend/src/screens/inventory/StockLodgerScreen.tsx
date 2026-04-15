@@ -1,13 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, ArrowUpRight, ArrowDownLeft, Filter, Download } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const StockLodgerScreen = () => {
-  const navigation = useNavigation<any>();
-
+const StockLodgerScreen = ({
+  navigation,
+}: RootStackScreenProps<'StockLodger'>) => {
   const movements = [
     { id: 1, type: 'IN', title: 'Indomie 70g · Restock', subtitle: 'Dangote Warehouse', qty: '+4,000 units', date: 'Today, 08:30 AM', color: '#10B981' },
     { id: 2, type: 'OUT', title: 'Bulk Sale · Lagos Market', subtitle: 'Buyer: ShopRite Lekki', qty: '-1,200 units', date: 'Today, 11:45 AM', color: '#3B82F6' },

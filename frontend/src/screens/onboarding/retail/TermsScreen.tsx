@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { ShieldCheck, CircleCheckBig, ArrowRight, Gavel, FileText } from 'lucide-react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { ShieldCheck, CheckCircle2, ArrowRight, Gavel, FileText } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 
-const TermsScreen = () => {
-  const navigation = useNavigation<any>();
+const TermsScreen = ({
+  navigation,
+}: RootStackScreenProps<'OnboardingTerms'>) => {
   const { data, updateData } = useOnboarding();
   const [accepted, setAccepted] = useState(data.termsAccepted || false);
 
@@ -84,7 +84,7 @@ const TermsScreen = () => {
             <View className={`w-8 h-8 items-center justify-center border-4 ${
               accepted ? 'bg-ventureroot-industrial-primary border-ventureroot-industrial-primary' : 'border-ventureroot-industrial-surfaceHighest bg-ventureroot-industrial-background'
             }`}>
-              {accepted && <CircleCheckBig size={18} color="#131313" />}
+              {accepted && <CheckCircle2 size={18} color="#131313" />}
             </View>
             <Text className={`text-[10px] font-black tracking-[2px] ml-5 uppercase ${accepted ? 'text-ventureroot-industrial-onSurface' : 'text-ventureroot-industrial-onSurface opacity-30'}`}>
               Accept Master Protocol Terms

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, TextInput } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Info, Landmark, ShieldCheck } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const ApplyLoanScreen = () => {
-  const navigation = useNavigation<any>();
+const ApplyLoanScreen = ({
+  navigation,
+}: RootStackScreenProps<'ApplyLoan'>) => {
   const [amount, setAmount] = useState('120000');
   const [purpose, setPurpose] = useState('Inventory Restock');
 

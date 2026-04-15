@@ -1,13 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, ShieldCheck, Landmark, FileText, History, Info, ChevronRight, CircleAlert } from 'lucide-react-native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { ChevronLeft, ShieldCheck, Landmark, FileText, History, Info, ChevronRight, AlertCircle } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const InsuranceSummaryScreen = () => {
-  const navigation = useNavigation<any>();
-
+const InsuranceSummaryScreen = ({
+  navigation,
+}: RootStackScreenProps<'InsuranceSummary'>) => {
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />
@@ -112,7 +111,7 @@ const InsuranceSummaryScreen = () => {
 
         {/* Support Alert */}
         <View className="mx-4 mb-10 bg-slate-900 p-4 rounded-2xl flex-row items-center">
-           <CircleAlert size={20} color="#FBBF24" />
+           <AlertCircle size={20} color="#FBBF24" />
            <Text className="text-white text-[10px] ml-3 flex-1">
               Need immediate help? Our insurance agents are available <Text className="text-emerald-400 font-bold">24/7</Text> for crisis response.
            </Text>

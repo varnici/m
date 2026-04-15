@@ -1,13 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Calendar, Download, Filter } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const SalesHistoryScreen = () => {
-  const navigation = useNavigation<any>();
-
+const SalesHistoryScreen = ({
+  navigation,
+}: RootStackScreenProps<'SalesHistory'>) => {
   const history = [
     { id: 1, date: 'Today, 2:34 PM', type: 'Indomie 70g · x40', amount: '₦18,400' },
     { id: 2, date: 'Today, 11:15 AM', type: 'Peak Milk · x12', amount: '₦3,600' },

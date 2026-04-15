@@ -1,13 +1,12 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { FingerprintPattern, CircleCheck } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { FingerprintPattern, CheckCircle2 } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const BiometricSetupScreen = () => {
-  const navigation = useNavigation<any>();
-
+const BiometricSetupScreen = ({
+  navigation,
+}: RootStackScreenProps<'BiometricSetup'>) => {
   const benefits = [
     'Log in instantly',
     'No PIN needed',
@@ -45,7 +44,7 @@ const BiometricSetupScreen = () => {
         <View className="w-full gap-4 mb-12">
           {benefits.map((b, i) => (
              <View key={i} className="flex-row items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <CircleCheck size={20} color="#10B981" />
+                <CheckCircle2 size={20} color="#10B981" />
                 <Text className="ml-3 text-gray-700 font-medium text-sm">{b}</Text>
              </View>
           ))}

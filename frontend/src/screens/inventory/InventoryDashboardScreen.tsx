@@ -1,13 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, Box, TriangleAlert, List, Mic, Camera, TrendingDown } from 'lucide-react-native';
+import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { ChevronLeft, Box, AlertTriangle, List, Mic, Camera, TrendingDown } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const InventoryDashboardScreen = () => {
-  const navigation = useNavigation<any>();
-
+const InventoryDashboardScreen = ({
+  navigation,
+}: RootStackScreenProps<'InventoryDashboard'>) => {
   const categories = [
     { name: 'Grains', items: 124, status: 'Healthy', color: '#10B981' },
     { name: 'Canned Goods', items: 85, status: 'Low Stock', color: '#F59E0B' },
@@ -58,7 +57,7 @@ const InventoryDashboardScreen = () => {
           onPress={() => navigation.navigate('StockLodger')}
         >
            <View className="w-10 h-10 bg-red-100 rounded-full items-center justify-center mr-3">
-              <TriangleAlert size={20} color="#EF4444" />
+              <AlertTriangle size={20} color="#EF4444" />
            </View>
            <View className="flex-1">
               <Text className="text-red-900 font-bold text-sm">4 Items Critical</Text>
