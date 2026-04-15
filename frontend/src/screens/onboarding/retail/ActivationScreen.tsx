@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, SafeAreaView, StatusBar, Animated, Easing, TouchableOpacity } from 'react-native';
+import { View, StatusBar, Animated, Easing, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ShieldAlert, Cpu, Database, Link, CircleCheckBig, TriangleAlert, RefreshCw } from 'lucide-react-native';
 import { colors } from '../../../theme/colors';

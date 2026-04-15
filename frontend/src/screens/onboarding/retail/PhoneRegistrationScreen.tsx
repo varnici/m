@@ -46,7 +46,7 @@ const PhoneRegistrationScreen = () => {
             onPress={() => isOtpSent ? setIsOtpSent(false) : navigation.goBack()}
             className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mb-6"
           >
-            <ChevronLeft color="#1E293B" size={24} />
+            <ChevronLeft color="#a8b2c3ff" size={24} />
           </TouchableOpacity>
 
           {!isOtpSent ? (

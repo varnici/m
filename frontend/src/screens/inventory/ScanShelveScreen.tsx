@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, StatusBar, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, Camera, Zap, RefreshCw, X } from 'lucide-react-native';
 import { colors } from '@/theme/colors';

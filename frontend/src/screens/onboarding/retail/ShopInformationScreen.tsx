@@ -50,7 +50,7 @@ const ShopInformationScreen = () => {
             onPress={() => navigation.goBack()}
             className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mb-6"
           >
-            <ChevronLeft color="#1E293B" size={24} />
+            <ChevronLeft color="#b0b9c7ff" size={24} />
           </TouchableOpacity>
 
           <View className="gap-2">

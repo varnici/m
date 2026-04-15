@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView, StatusBar, TouchableOpacity, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronRight, Settings, Bell, Shield, Share2, Award, CircleCheckBig } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
