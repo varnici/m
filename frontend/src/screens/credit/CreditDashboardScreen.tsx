@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Info, TrendingUp, Sliders, Shield } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
+import BottomTabBar from '@/components/ui/BottomTabBar';
+import ScreenHeader from '@/components/ui/ScreenHeader';
 
 const CreditDashboardScreen = ({
   navigation,
@@ -19,18 +21,12 @@ const CreditDashboardScreen = ({
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
-      <View className="bg-ventureroot-green pt-12 pb-6 px-4">
-        <View className="flex-row items-center mb-4">
-           <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
-              <ChevronLeft color="white" size={24} />
-           </TouchableOpacity>
-           <Text className="text-white text-xl font-bold">Score Breakdown</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Score Breakdown"
+        navigation={navigation}
+      />
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* Main Score Card */}
         <View className="bg-white rounded-2xl mx-4 p-6 mt-6 border border-gray-100 shadow-sm">
            <View className="flex-row justify-between items-baseline mb-6">
               <Text className="text-gray-900 font-bold text-base">What drives your 742</Text>
@@ -109,7 +105,9 @@ const CreditDashboardScreen = ({
             </View>
             <ChevronLeft size={20} color="white" opacity={0.5} style={{ transform: [{ rotate: '180deg'}] }} />
         </TouchableOpacity>
+        <View className="h-20" />
       </ScrollView>
+      <BottomTabBar navigation={navigation} />
     </SafeAreaView>
   );
 };

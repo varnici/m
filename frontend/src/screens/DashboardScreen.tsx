@@ -37,6 +37,7 @@ import IntelligenceCard from '@/components/ui/IntelligenceCard';
 import CommunityCard from '@/components/ui/CommunityCard';
 import ActivityItem from '@/components/ui/ActivityItem';
 import RepaymentBanner from '@/components/ui/RepaymentBanner';
+import BottomTabBar from '@/components/ui/BottomTabBar';
 import { colors } from '@/theme/colors';
 
 // ─── Mock Data ───────────────────────────────────────────────
@@ -439,34 +440,7 @@ const DashboardScreen = ({
         <View className="h-20" />
       </ScrollView>
 
-      {/* ═══ BOTTOM TAB BAR ═══ */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex-row py-2 pb-6 px-4">
-        {FOOTER_TABS.map((tab, index) => (
-          <TouchableOpacity
-            key={index}
-            className="flex-1 items-center"
-            onPress={() => navigation.navigate(tab.screen as never)}
-            accessible={true}
-            accessibilityLabel={tab.label}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: tab.active }}
-          >
-            <tab.icon
-              size={22}
-              color={tab.active ? colors.ventureroot.green : '#9CA3AF'}
-            />
-            <Text
-              className={`text-xs mt-1 ${
-                tab.active
-                  ? 'text-ventureroot-green font-medium'
-                  : 'text-gray-400'
-              }`}
-            >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <BottomTabBar navigation={navigation} activeRoute="Dashboard" />
     </View>
   );
 };

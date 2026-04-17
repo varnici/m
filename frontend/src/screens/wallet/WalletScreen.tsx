@@ -106,24 +106,7 @@ const WalletScreen = ({ navigation }: RootStackScreenProps<'Wallet'>) => {
         </View>
       </ScrollView>
 
-      {/* Footer Navigation Overlay (Simulated for consistency) */}
-      <View className="absolute bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-100 flex-row items-center justify-around px-4">
-         <TouchableOpacity onPress={() => navigation.navigate('Dashboard')} className="items-center">
-            <Text className="text-gray-400 text-[10px]">Home</Text>
-         </TouchableOpacity>
-         <TouchableOpacity onPress={() => navigation.navigate('LoanDashboard')} className="items-center">
-            <Text className="text-gray-400 text-[10px]">Loans</Text>
-         </TouchableOpacity>
-         <TouchableOpacity onPress={() => navigation.navigate('SalesDashboard')} className="items-center">
-            <Text className="text-gray-400 text-[10px]">Sales</Text>
-         </TouchableOpacity>
-         <TouchableOpacity className="items-center">
-            <Text className="text-ventureroot-green font-bold text-[10px]">Wallet</Text>
-         </TouchableOpacity>
-         <TouchableOpacity onPress={() => navigation.navigate('More')} className="items-center">
-            <Text className="text-gray-400 text-[10px]">More</Text>
-         </TouchableOpacity>
-      </View>
+      <BottomTabBar navigation={navigation} activeRoute="Wallet" />
     </SafeAreaView>
   );
 };

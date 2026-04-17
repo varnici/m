@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { ShoppingBag, TrendingUp, DollarSign, ChevronRight, FileText, ChevronLeft } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
+import BottomTabBar from '@/components/ui/BottomTabBar';
+import ScreenHeader from '@/components/ui/ScreenHeader';
 import StatCard from '@/components/ui/StatCard';
 
 const SalesDashboardScreen = ({
@@ -13,21 +15,12 @@ const SalesDashboardScreen = ({
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
-      <View className="bg-ventureroot-green pt-12 pb-6 px-4">
-        <View className="flex-row items-center mb-4">
-           <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
-              <ChevronLeft color="white" size={24} />
-           </TouchableOpacity>
-           <View>
-              <Text className="text-white/70 text-xs font-medium uppercase tracking-wider">Sales Performance</Text>
-              <Text className="text-white text-2xl font-bold">Sales Dashboard</Text>
-           </View>
-        </View>
-      </View>
-
+      <ScreenHeader
+        title="Sales Dashboard"
+        subtitle="Sales Performance"
+        navigation={navigation}
+      />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* Quick Stats Row */}
         <View className="flex-row px-4 gap-3 mt-4 mb-6">
            <StatCard 
             title="TODAY'S SALES" 
@@ -120,14 +113,16 @@ const SalesDashboardScreen = ({
             </View>
             <ChevronRight size={20} color="white" opacity={0.5} />
         </TouchableOpacity>
+        <View className="h-24" />
       </ScrollView>
 
       <TouchableOpacity 
-        className="absolute bottom-6 right-6 w-14 h-14 bg-ventureroot-green rounded-full items-center justify-center shadow-lg"
+        className="absolute bottom-24 right-6 w-14 h-14 bg-ventureroot-green rounded-full items-center justify-center shadow-lg"
         onPress={() => navigation.navigate('RecordSale')}
       >
          <Text className="text-white text-3xl font-light">+</Text>
       </TouchableOpacity>
+      <BottomTabBar navigation={navigation} activeRoute="SalesDashboard" />
     </SafeAreaView>
   );
 };

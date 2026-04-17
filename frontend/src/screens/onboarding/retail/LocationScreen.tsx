@@ -1,26 +1,17 @@
 import React, { useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
+  View,
+  Text,
   ScrollView,
   StatusBar,
-  Text,
-  TextInput,
+  KeyboardAvoidingView,
+  Platform,
   TouchableOpacity,
-  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
-
-const inputStyle = {
-  backgroundColor: 'white',
-  borderWidth: 1,
-  borderColor: '#CBD5E1',
-  borderRadius: 10,
-  paddingHorizontal: 12,
-  paddingVertical: 12,
-};
+import { BowlHeader, CleanCard, CleanInput, RichButton } from '../../../components/ThemeComponents';
+import { ChevronLeft } from 'lucide-react-native';
 
 const LocationScreen = ({
   navigation,
@@ -36,7 +27,11 @@ const LocationScreen = ({
     Array.isArray(data.serviceAreas) ? data.serviceAreas.join(', ') : data.serviceAreas || '',
   );
 
-  const isFormValid = stateValue.trim() && lga.trim() && address.trim();
+  const isFormValid =
+    stateValue.trim().length > 0 &&
+    lga.trim().length > 0 &&
+    address.trim().length > 0 &&
+    (isPhysical || serviceAreas.trim().length > 0);
 
   const handleContinue = () => {
     updateData({
@@ -57,145 +52,106 @@ const LocationScreen = ({
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="dark-content" />
+    <View className="flex-1 bg-ventureroot-clean-background">
+      <StatusBar barStyle="light-content" />
+
+      <BowlHeader
+        title="Location Details"
+        subtitle="Share where you operate so we can configure your shop correctly."
+      />
+
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 30, paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={{ fontSize: 24, fontWeight: '700', marginBottom: 6 }}>
-            Location Details
-          </Text>
-          <Text style={{ color: '#475569', marginBottom: 20 }}>
-            Tell us where you operate.
-          </Text>
-
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={{
-              backgroundColor: '#E2E8F0',
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              borderRadius: 8,
-              alignSelf: 'flex-start',
-              marginBottom: 16,
-            }}
+            className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mb-6"
           >
-            <Text style={{ fontWeight: '600' }}>Back</Text>
+            <ChevronLeft color="#1E293B" size={24} />
           </TouchableOpacity>
 
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-            <TouchableOpacity
-              onPress={() => setIsPhysical(true)}
-              style={{
-                flex: 1,
-                paddingVertical: 12,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: isPhysical ? '#16A34A' : '#CBD5E1',
-                backgroundColor: isPhysical ? '#DCFCE7' : 'white',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontWeight: '600' }}>Physical Store</Text>
-            </TouchableOpacity>
+          <Text className="text-ventureroot-clean-textLight text-sm font-bold tracking-widest uppercase mb-6 ml-1">
+            Location Setup
+          </Text>
 
-            <TouchableOpacity
-              onPress={() => setIsPhysical(false)}
-              style={{
-                flex: 1,
-                paddingVertical: 12,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: !isPhysical ? '#16A34A' : '#CBD5E1',
-                backgroundColor: !isPhysical ? '#DCFCE7' : 'white',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontWeight: '600' }}>Online / Mobile</Text>
-            </TouchableOpacity>
-          </View>
+          <CleanCard>
+            <View className="flex-row gap-3 mb-6">
+              <TouchableOpacity
+                onPress={() => setIsPhysical(true)}
+                className={`flex-1 rounded-2xl px-4 py-3 border ${
+                  isPhysical ? 'border-ventureroot-green bg-ventureroot-green/10' : 'border-slate-200 bg-white'
+                }`}
+              >
+                <Text className={`text-center font-semibold ${isPhysical ? 'text-ventureroot-green' : 'text-ventureroot-clean-text'}`}>
+                  Physical Store
+                </Text>
+              </TouchableOpacity>
 
-          <View style={{ gap: 12 }}>
-            <View>
-              <Text style={{ marginBottom: 6, fontWeight: '600' }}>State</Text>
-              <TextInput
-                value={stateValue}
-                onChangeText={setStateValue}
-                placeholder="e.g. Lagos"
-                style={inputStyle}
-              />
+              <TouchableOpacity
+                onPress={() => setIsPhysical(false)}
+                className={`flex-1 rounded-2xl px-4 py-3 border ${
+                  !isPhysical ? 'border-ventureroot-green bg-ventureroot-green/10' : 'border-slate-200 bg-white'
+                }`}
+              >
+                <Text className={`text-center font-semibold ${!isPhysical ? 'text-ventureroot-green' : 'text-ventureroot-clean-text'}`}>
+                  Online / Mobile
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            <View>
-              <Text style={{ marginBottom: 6, fontWeight: '600' }}>LGA</Text>
-              <TextInput
-                value={lga}
-                onChangeText={setLga}
-                placeholder="e.g. Ikeja"
-                style={inputStyle}
-              />
-            </View>
+            <CleanInput
+              label="State"
+              placeholder="e.g. Lagos"
+              value={stateValue}
+              onChangeText={setStateValue}
+            />
 
-            <View>
-              <Text style={{ marginBottom: 6, fontWeight: '600' }}>
-                {isPhysical ? 'Full Street Address' : 'Warehouse / Office Address'}
-              </Text>
-              <TextInput
-                value={address}
-                onChangeText={setAddress}
-                placeholder="e.g. 24 Allen Avenue"
-                style={inputStyle}
-              />
-            </View>
+            <CleanInput
+              label="LGA"
+              placeholder="e.g. Ikeja"
+              value={lga}
+              onChangeText={setLga}
+            />
+
+            <CleanInput
+              label={isPhysical ? 'Full Street Address' : 'Warehouse / Office Address'}
+              placeholder="e.g. 24 Allen Avenue"
+              value={address}
+              onChangeText={setAddress}
+            />
 
             {isPhysical ? (
-              <View>
-                <Text style={{ marginBottom: 6, fontWeight: '600' }}>
-                  Nearest Landmark
-                </Text>
-                <TextInput
-                  value={landmark}
-                  onChangeText={setLandmark}
-                  placeholder="e.g. Opposite GTBank"
-                  style={inputStyle}
-                />
-              </View>
+              <CleanInput
+                label="Nearest Landmark"
+                placeholder="e.g. Opposite GTBank"
+                value={landmark}
+                onChangeText={setLandmark}
+              />
             ) : (
-              <View>
-                <Text style={{ marginBottom: 6, fontWeight: '600' }}>
-                  Service Areas
-                </Text>
-                <TextInput
-                  value={serviceAreas}
-                  onChangeText={setServiceAreas}
-                  placeholder="e.g. Ikeja, Alimosho, Oshodi"
-                  style={inputStyle}
-                />
-              </View>
+              <CleanInput
+                label="Service Areas"
+                placeholder="e.g. Ikeja, Alimosho, Oshodi"
+                value={serviceAreas}
+                onChangeText={setServiceAreas}
+              />
             )}
-          </View>
+          </CleanCard>
 
-          <TouchableOpacity
-            onPress={handleContinue}
-            disabled={!isFormValid}
-            style={{
-              marginTop: 24,
-              paddingVertical: 14,
-              borderRadius: 10,
-              alignItems: 'center',
-              backgroundColor: isFormValid ? '#16A34A' : '#94A3B8',
-            }}
-          >
-            <Text style={{ color: 'white', fontWeight: '700' }}>Continue to KYC</Text>
-          </TouchableOpacity>
+          <View className="mt-8">
+            <RichButton
+              title="Continue to KYC"
+              onPress={handleContinue}
+              disabled={!isFormValid}
+            />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 

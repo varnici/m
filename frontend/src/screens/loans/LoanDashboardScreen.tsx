@@ -3,6 +3,8 @@ import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, PlusCircle, CheckCircle2, History, Info } from 'lucide-react-native';
+import BottomTabBar from '@/components/ui/BottomTabBar';
+import ScreenHeader from '@/components/ui/ScreenHeader';
 import { colors } from '@/theme/colors';
 
 const LoanDashboardScreen = ({
@@ -12,18 +14,11 @@ const LoanDashboardScreen = ({
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
-      <View className="bg-ventureroot-green pt-12 pb-6 px-4">
-        <View className="flex-row items-center mb-4">
-           <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
-              <ChevronLeft color="white" size={24} />
-           </TouchableOpacity>
-           <View>
-              <Text className="text-white/70 text-xs font-medium uppercase tracking-wider">Your Loans</Text>
-              <Text className="text-white text-2xl font-bold">Loan Centre</Text>
-           </View>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Loan Centre"
+        subtitle="Your Loans"
+        navigation={navigation}
+      />
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Available Credit Card */}
@@ -122,7 +117,9 @@ const LoanDashboardScreen = ({
               ))}
            </View>
         </View>
+        <View className="h-20" />
       </ScrollView>
+      <BottomTabBar navigation={navigation} activeRoute="LoanDashboard" />
     </SafeAreaView>
   );
 };
