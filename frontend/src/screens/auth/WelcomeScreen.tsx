@@ -40,12 +40,12 @@ const WelcomeScreen = ({ navigation }: RootStackScreenProps<'Welcome'>) => {
           <TouchableOpacity
             className="bg-white py-4 rounded-xl items-center"
             style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 4 }}
-            onPress={() => navigation.navigate('RoleSelection')}
+            onPress={() => navigation.navigate('Register')}
             accessible={true}
-            accessibilityLabel="Get Started"
+            accessibilityLabel="Create account"
             accessibilityRole="button"
           >
-            <Text className="text-ventureroot-green font-bold text-base">Get Started</Text>
+            <Text className="text-ventureroot-green font-bold text-base">Create account</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

@@ -1,117 +1,107 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import { Alert, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
-import { FingerprintPattern, Delete } from 'lucide-react-native';
-import { colors } from '@/theme/colors';
 import { supabase } from '@/lib/supabase';
+import { fetchPostLoginData, getPostAuthRoute } from '@/lib/authRouting';
 
 const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
-  const [pin, setPin] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handlePress = async (val: string) => {
-    if (pin.length < 4 && !isLoggingIn) {
-      const newPin = pin + val;
-      setPin(newPin);
-      if (newPin.length === 4) {
-        setIsLoggingIn(true);
-        const dummyPhone = '+2348000000000';
-        const dummyEmail = `${dummyPhone}@ventureroot.local`;
-        const securePassword = `${newPin}vr26!`;
-        
-        try {
-          const { error } = await supabase.auth.signInWithPassword({
-            email: dummyEmail,
-            password: securePassword,
-          });
-          
-          if (error) throw error;
-          
-          navigation.navigate('Dashboard');
-        } catch (error: any) {
-          Alert.alert('Login Error', error.message);
-          setPin('');
-        } finally {
-          setIsLoggingIn(false);
-        }
-      }
+  const handleLogin = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPassword = password.trim();
+
+    if (!normalizedEmail || !normalizedPassword) {
+      Alert.alert('Missing fields', 'Enter your email and password.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: normalizedPassword,
+      });
+
+      if (error) throw error;
+      const snapshot = await fetchPostLoginData();
+      console.log('[AuthCheck] post-login data:', {
+        userId: snapshot.user?.id ?? null,
+        hasProfile: !!snapshot.profile,
+        hasBusiness: !!snapshot.business,
+        onboardingCompletedAt: snapshot.business?.onboarding_completed_at ?? null,
+        error: snapshot.error,
+      });
+      const nextRoute = await getPostAuthRoute();
+      navigation.replace(nextRoute);
+    } catch (error: any) {
+      Alert.alert('Login failed', error.message || 'Could not sign in.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleDelete = () => {
-    setPin(pin.slice(0, -1));
-  };
-
-  const KeypadButton = ({ val, children }: { val?: string; children?: React.ReactNode }) => (
-    <TouchableOpacity
-      className="w-[30%] aspect-square items-center justify-center rounded-2xl"
-      onPress={() => val ? handlePress(val) : null}
-      accessible={true}
-      accessibilityLabel={val || 'Action'}
-    >
-      {children || <Text className="text-gray-900 text-2xl font-bold">{val}</Text>}
-    </TouchableOpacity>
-  );
-
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-ventureroot-green">
       <StatusBar barStyle="light-content" />
-      
-      {/* Header Section */}
-      <View className="bg-ventureroot-green pt-12 pb-10 items-center" style={{ borderBottomLeftRadius: 40, borderBottomRightRadius: 40 }}>
-         <View className="w-12 h-12 bg-white rounded-xl items-center justify-center mb-4">
-            <View className="w-8 h-8 bg-ventureroot-green rounded-lg justify-center items-center">
-                 <View className="w-4 h-4 border-2 border-white rounded-sm" style={{ transform: [{ rotate: '45deg' }] }} />
-            </View>
-         </View>
-         <Text className="text-white text-xl font-bold mb-1">Welcome back, Chidi 👋</Text>
-         <Text className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>+234 *** *** 4821</Text>
+
+      <View className="px-6 pt-10">
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text className="text-white font-semibold">Back</Text>
+        </TouchableOpacity>
       </View>
 
-      <View className="flex-1 items-center pt-10">
-        <Text className="text-gray-400 text-sm font-medium mb-6">Enter your 4 digit PIN</Text>
-        
-        {/* PIN Indicators */}
-        <View className="flex-row gap-4 mb-12">
-          {[1, 2, 3, 4].map((i) => (
-            <View 
-              key={i} 
-              className={`w-4 h-4 rounded-full border-2 ${
-                pin.length >= i ? 'bg-ventureroot-green border-ventureroot-green' : 'border-gray-200'
-              }`} 
+      <View className="flex-1 justify-center px-6">
+        <Text className="text-white text-3xl font-bold mb-2">Welcome Back</Text>
+        <Text className="text-emerald-100 mb-8">Sign in to continue to your account.</Text>
+
+        <View className="bg-white rounded-2xl p-5">
+          <Text className="text-slate-700 font-semibold mb-2">Email</Text>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            className="border border-slate-300 rounded-xl px-4 py-3 mb-4"
+          />
+
+          <Text className="text-slate-700 font-semibold mb-2">Password</Text>
+          <View className="border border-slate-300 rounded-xl px-4 py-3 mb-5 flex-row items-center">
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Your password"
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              className="flex-1"
             />
-          ))}
-        </View>
+            <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)}>
+              <Text className="text-ventureroot-green font-semibold">
+                {showPassword ? 'Hide' : 'Show'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        {/* Numeric Keypad */}
-        <View className="flex-row flex-wrap justify-between px-10 w-full mb-8">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((v) => (
-            <KeypadButton key={v} val={v} />
-          ))}
-          
-          <TouchableOpacity 
-            className="w-[30%] aspect-square items-center justify-center"
-            onPress={() => console.log('Face ID')}
+          <TouchableOpacity
+            onPress={handleLogin}
+            disabled={isLoading}
+            className={`rounded-xl py-4 items-center ${isLoading ? 'bg-slate-400' : 'bg-ventureroot-green'}`}
           >
-            <View className="items-center">
-                <FingerprintPattern size={24} color={colors.ventureroot.green} />
-                <Text className="text-ventureroot-green text-[10px] mt-1 font-bold">Face ID</Text>
-            </View>
-          </TouchableOpacity>
-
-          <KeypadButton val="0" />
-
-          <TouchableOpacity 
-            className="w-[30%] aspect-square items-center justify-center"
-            onPress={handleDelete}
-          >
-            <Delete size={24} color="gray" />
+            <Text className="text-white font-bold text-base">
+              {isLoading ? 'Signing in...' : 'Sign In'}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity onPress={() => console.log('Forgot PIN')}>
-            <Text className="text-ventureroot-green font-bold text-sm">Forgot PIN?</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Register')} className="mt-6">
+          <Text className="text-white text-center">
+            No account yet? <Text className="font-bold">Create one</Text>
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

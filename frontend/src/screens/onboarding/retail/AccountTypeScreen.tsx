@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { BowlHeader, CleanCard } from '../../../components/ThemeComponents';

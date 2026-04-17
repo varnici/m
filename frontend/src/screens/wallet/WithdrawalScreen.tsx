@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, ScrollView, StatusBar, TouchableOpacity, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Landmark, User, Zap, ChevronRight, Info } from 'lucide-react-native';
 import { colors } from '@/theme/colors';

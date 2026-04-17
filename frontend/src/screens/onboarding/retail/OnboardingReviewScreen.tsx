@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { ShieldCheck, User, Store, Landmark, ChevronRight } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';

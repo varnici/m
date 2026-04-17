@@ -1,158 +1,194 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
-import { BowlHeader, CleanInput, RichButton } from '../../../components/ThemeComponents';
-import { Store, Briefcase, ChevronLeft, CloudUpload } from 'lucide-react-native';
-
 
 const ShopInformationScreen = ({
   navigation,
 }: RootStackScreenProps<'OnboardingShopInfo'>) => {
   const { data, updateData } = useOnboarding();
-  
-  const [form, setForm] = useState({
-    businessName: data.businessName || '',
-    tradingName: data.tradingName || '',
-    yearsInOperation: data.yearsInOperation || 0,
-    ownershipType: data.ownershipType || 'Rented',
-    employee_count: data.employee_count || 0,
-    registrationStatus: data.registrationStatus || 'Not Registered',
-  });
+
+  const [businessName, setBusinessName] = useState(data.businessName || '');
+  const [tradingName, setTradingName] = useState(data.tradingName || '');
+  const [yearsInOperation, setYearsInOperation] = useState(
+    String(data.yearsInOperation ?? 0),
+  );
+  const [ownershipType, setOwnershipType] = useState(data.ownershipType || 'Rented');
+  const [registrationStatus, setRegistrationStatus] = useState(
+    data.registrationStatus || 'Not Registered',
+  );
+
+  const isFormValid = businessName.trim().length > 0;
 
   const handleContinue = () => {
-    updateData(form);
+    updateData({
+      businessName: businessName.trim(),
+      tradingName: tradingName.trim(),
+      yearsInOperation: Number.parseInt(yearsInOperation, 10) || 0,
+      ownershipType,
+      registrationStatus,
+    });
     navigation.navigate('OnboardingCategory');
   };
 
-  const isFormValid = form.businessName && form.yearsInOperation >= 0;
-
-  const ownershipOptions = ['Rented', 'Owned', 'Mobile'];
-  const registrationOptions = ['Registered', 'Not Registered'];
-
   return (
-    <View className="flex-1 bg-ventureroot-clean-background">
-      <StatusBar barStyle="light-content" />
-      
-      <BowlHeader 
-        title="Business Identity" 
-        subtitle="Tell us about your venture. This information helps us categorize your business for relevant financing."
-      />
-
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        className="flex-1"
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <StatusBar barStyle="dark-content" />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
       >
-        <ScrollView 
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 30, paddingBottom: 40 }}
-          showsVerticalScrollIndicator={false}
+        <ScrollView
+          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
         >
-          <TouchableOpacity 
+          <Text style={{ fontSize: 24, fontWeight: '700', marginBottom: 6 }}>
+            Business Information
+          </Text>
+          <Text style={{ color: '#475569', marginBottom: 20 }}>
+            Tell us about your shop to continue onboarding.
+          </Text>
+
+          <TouchableOpacity
             onPress={() => navigation.goBack()}
-            className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mb-6"
+            style={{
+              backgroundColor: '#E2E8F0',
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              borderRadius: 8,
+              alignSelf: 'flex-start',
+              marginBottom: 16,
+            }}
           >
-            <ChevronLeft color="#b0b9c7ff" size={24} />
+            <Text style={{ fontWeight: '600' }}>Back</Text>
           </TouchableOpacity>
 
-          <View className="gap-2">
-            <CleanInput
-              label="REGISTERED BUSINESS NAME"
-              placeholder="e.g. Acme Retail Ventures"
-              value={form.businessName}
-              onChangeText={(businessName: string) => setForm({ ...form, businessName })}
-            />
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={{ marginBottom: 6, fontWeight: '600' }}>Business Name</Text>
+              <TextInput
+                value={businessName}
+                onChangeText={setBusinessName}
+                placeholder="Acme Retail Ventures"
+                style={{
+                  backgroundColor: 'white',
+                  borderWidth: 1,
+                  borderColor: '#CBD5E1',
+                  borderRadius: 10,
+                  paddingHorizontal: 12,
+                  paddingVertical: 12,
+                }}
+              />
+            </View>
 
-            <CleanInput
-              label="TRADING NAME (IF DIFFERENT)"
-              placeholder="e.g. Oga's Shop"
-              value={form.tradingName}
-              onChangeText={(tradingName: string) => setForm({ ...form, tradingName })}
-            />
+            <View>
+              <Text style={{ marginBottom: 6, fontWeight: '600' }}>Trading Name</Text>
+              <TextInput
+                value={tradingName}
+                onChangeText={setTradingName}
+                placeholder="Oga's Shop"
+                style={{
+                  backgroundColor: 'white',
+                  borderWidth: 1,
+                  borderColor: '#CBD5E1',
+                  borderRadius: 10,
+                  paddingHorizontal: 12,
+                  paddingVertical: 12,
+                }}
+              />
+            </View>
 
-            <CleanInput
-              label="YEARS IN OPERATION"
-              placeholder="0"
-              value={form.yearsInOperation.toString()}
-              onChangeText={(val: string) => setForm({ ...form, yearsInOperation: parseInt(val) || 0 })}
-              keyboardType="number-pad"
-            />
+            <View>
+              <Text style={{ marginBottom: 6, fontWeight: '600' }}>Years In Operation</Text>
+              <TextInput
+                value={yearsInOperation}
+                onChangeText={setYearsInOperation}
+                keyboardType="number-pad"
+                placeholder="0"
+                style={{
+                  backgroundColor: 'white',
+                  borderWidth: 1,
+                  borderColor: '#CBD5E1',
+                  borderRadius: 10,
+                  paddingHorizontal: 12,
+                  paddingVertical: 12,
+                }}
+              />
+            </View>
 
-            {/* Ownership Type */}
-            <View className="mb-6">
-              <Text className="text-ventureroot-clean-text font-semibold mb-3 ml-1">
-                SHOP OWNERSHIP
-              </Text>
-              <View className="flex-row gap-3">
-                {ownershipOptions.map((opt) => (
+            <View>
+              <Text style={{ marginBottom: 6, fontWeight: '600' }}>Ownership Type</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {['Rented', 'Owned', 'Mobile'].map((option) => (
                   <TouchableOpacity
-                    key={opt}
-                    onPress={() => setForm({ ...form, ownershipType: opt })}
-                    className={`flex-1 py-4 rounded-xl items-center border-2 ${
-                      form.ownershipType === opt 
-                      ? 'bg-ventureroot-green/5 border-ventureroot-green' 
-                      : 'bg-white border-slate-100 shadow-sm'
-                    }`}
+                    key={option}
+                    onPress={() => setOwnershipType(option)}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: ownershipType === option ? '#16A34A' : '#CBD5E1',
+                      backgroundColor: ownershipType === option ? '#DCFCE7' : 'white',
+                    }}
                   >
-                    <Text className={`font-bold ${
-                      form.ownershipType === opt ? 'text-ventureroot-green' : 'text-slate-400'
-                    }`}>
-                      {opt}
-                    </Text>
+                    <Text>{option}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
-            {/* Registration Status */}
-            <View className="mb-6">
-              <Text className="text-ventureroot-clean-text font-semibold mb-3 ml-1">
-                BUSINESS REGISTRATION
-              </Text>
-              <View className="flex-row gap-3">
-                {registrationOptions.map((opt) => (
+            <View>
+              <Text style={{ marginBottom: 6, fontWeight: '600' }}>Registration Status</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {['Registered', 'Not Registered'].map((option) => (
                   <TouchableOpacity
-                    key={opt}
-                    onPress={() => setForm({ ...form, registrationStatus: opt })}
-                    className={`flex-1 py-4 rounded-xl items-center border-2 ${
-                      form.registrationStatus === opt 
-                      ? 'bg-ventureroot-green/5 border-ventureroot-green' 
-                      : 'bg-white border-slate-100 shadow-sm'
-                    }`}
+                    key={option}
+                    onPress={() => setRegistrationStatus(option)}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor:
+                        registrationStatus === option ? '#16A34A' : '#CBD5E1',
+                      backgroundColor:
+                        registrationStatus === option ? '#DCFCE7' : 'white',
+                    }}
                   >
-                    <Text className={`font-bold ${
-                      form.registrationStatus === opt ? 'text-ventureroot-green' : 'text-slate-400'
-                    }`}>
-                      {opt}
-                    </Text>
+                    <Text>{option}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
-
-            {/* CAC Document placeholder */}
-            {form.registrationStatus === 'Registered' && (
-              <TouchableOpacity className="border-2 border-dashed border-slate-200 p-8 rounded-2xl items-center justify-center bg-slate-50 mb-6">
-                <CloudUpload size={32} color="#64748B" opacity={0.5} />
-                <Text className="text-slate-600 font-bold mt-4">
-                  Upload CAC Certificate
-                </Text>
-                <Text className="text-slate-400 text-[10px] mt-1">
-                  PDF or image (Max 5MB)
-                </Text>
-              </TouchableOpacity>
-            )}
           </View>
 
-          <View className="mt-4">
-            <RichButton
-              title="Next: Business Category"
-              onPress={handleContinue}
-              disabled={!isFormValid}
-            />
-          </View>
+          <TouchableOpacity
+            onPress={handleContinue}
+            disabled={!isFormValid}
+            style={{
+              marginTop: 24,
+              paddingVertical: 14,
+              borderRadius: 10,
+              alignItems: 'center',
+              backgroundColor: isFormValid ? '#16A34A' : '#94A3B8',
+            }}
+          >
+            <Text style={{ color: 'white', fontWeight: '700' }}>Next: Business Category</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 };
 

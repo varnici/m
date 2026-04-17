@@ -1,11 +1,7 @@
-import type {
-  NativeStackNavigationProp,
-  NativeStackScreenProps,
-} from '@react-navigation/native-stack';
-
 export type RootStackParamList = {
   Welcome: undefined;
   Login: undefined;
+  Register: undefined;
   RoleSelection: undefined;
   BVNVerification: undefined;
   PINSetup: undefined;
@@ -53,10 +49,37 @@ export type RootStackParamList = {
   OnboardingReview: undefined;
 };
 
+type NavigateFn = <RouteName extends keyof RootStackParamList>(
+  name: RouteName,
+  ...args: RootStackParamList[RouteName] extends undefined
+    ? []
+    : [params: RootStackParamList[RouteName]]
+) => void;
+
+export type RootStackNavigation = {
+  navigate: NavigateFn;
+  goBack: () => void;
+  replace: NavigateFn;
+  reset: (state: {
+    index: number;
+    routes: Array<{
+      name: keyof RootStackParamList;
+      params?: RootStackParamList[keyof RootStackParamList];
+    }>;
+  }) => void;
+};
+
 export type RootStackNavigationProp<
   RouteName extends keyof RootStackParamList,
-> = NativeStackNavigationProp<RootStackParamList, RouteName>;
+> = RootStackNavigation;
 
 export type RootStackScreenProps<
   RouteName extends keyof RootStackParamList,
-> = NativeStackScreenProps<RootStackParamList, RouteName>;
+> = {
+  navigation: RootStackNavigation;
+  route: {
+    key: string;
+    name: RouteName;
+    params: RootStackParamList[RouteName];
+  };
+};

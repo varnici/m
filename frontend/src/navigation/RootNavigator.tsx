@@ -1,4 +1,4 @@
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createStackNavigator } from '@react-navigation/stack';
 import { RootStackParamList } from './types';
 import WelcomeScreen from '@/screens/auth/WelcomeScreen';
 import LoginScreen from '@/screens/auth/LoginScreen';
@@ -50,7 +50,7 @@ import SalesEstimationScreen from '@/screens/onboarding/retail/SalesEstimationSc
 
 // Definition moved to ./types.ts
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const Stack = createStackNavigator<RootStackParamList>();
 
 const RootNavigator = () => {
   return (
@@ -58,7 +58,6 @@ const RootNavigator = () => {
         initialRouteName="Welcome"
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#131313' },
         }}
       >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />

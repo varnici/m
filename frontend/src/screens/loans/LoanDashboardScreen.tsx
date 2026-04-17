@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, PlusCircle, CheckCircle2, History, Info } from 'lucide-react-native';
 import { colors } from '@/theme/colors';

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { View, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { Delete, ShieldCheck, FingerprintPattern, Lock, ArrowRight } from 'lucide-react-native';
 import { colors } from '../../theme/colors';

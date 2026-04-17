@@ -98,44 +98,64 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
 
       if (profileError) throw profileError;
 
-      // 2. Insert/Update Business
-      const { error: businessError } = await supabase
+      const businessPayload = {
+        owner_id: user.id,
+        name: data.businessName,
+        trading_name: data.tradingName,
+        years_in_operation: data.yearsInOperation,
+        ownership_type: data.ownershipType,
+        employee_count: data.employee_count,
+        registration_status: data.registrationStatus,
+        primary_category: data.primaryCategory,
+
+        // Location Logic
+        is_physical_store: data.isPhysicalStore,
+        state: data.state,
+        lga: data.lga,
+        address: data.address,
+        landmark: data.landmark,
+        latitude: data.gpsPin?.latitude,
+        longitude: data.gpsPin?.longitude,
+        shop_front_photo_uri: data.isPhysicalStore ? data.shopFrontPhotoUri : null,
+        service_areas: !data.isPhysicalStore ? data.serviceAreas : null,
+        stock_photo_uri: !data.isPhysicalStore ? data.stockPhotoUri : null,
+
+        tin: data.tin,
+        cac_certificate_uri: data.cacCertificateUri,
+        id_type: data.idType,
+        id_number: data.idNumber,
+        id_expiry: data.idExpiry,
+        estimated_inventory_value: data.estimatedInventoryValue,
+        sales_tier: data.salesTier,
+        terms_accepted: data.termsAccepted,
+        onboarding_completed_at: new Date().toISOString(),
+      };
+
+      // 2. Insert/Update Business without relying on a unique(owner_id) DB constraint.
+      const { data: existingBusiness, error: existingBusinessError } = await supabase
         .from('businesses')
-        .upsert({
-          owner_id: user.id,
-          name: data.businessName,
-          trading_name: data.tradingName,
-          years_in_operation: data.yearsInOperation,
-          ownership_type: data.ownershipType,
-          employee_count: data.employee_count,
-          registration_status: data.registrationStatus,
-          primary_category: data.primaryCategory,
-          
-          // Location Logic
-          is_physical_store: data.isPhysicalStore,
-          state: data.state,
-          lga: data.lga,
-          address: data.address,
-          landmark: data.landmark,
-          latitude: data.gpsPin?.latitude,
-          longitude: data.gpsPin?.longitude,
-          shop_front_photo_uri: data.isPhysicalStore ? data.shopFrontPhotoUri : null,
-          service_areas: !data.isPhysicalStore ? data.serviceAreas : null,
-          stock_photo_uri: !data.isPhysicalStore ? data.stockPhotoUri : null,
+        .select('id')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-          tin: data.tin,
-          cac_certificate_uri: data.cacCertificateUri,
-          id_type: data.idType,
-          id_number: data.idNumber,
-          id_expiry: data.idExpiry,
-          estimated_inventory_value: data.estimatedInventoryValue,
-          sales_tier: data.salesTier,
-          
-          terms_accepted: data.termsAccepted,
-          onboarding_completed_at: new Date().toISOString(),
-        }, { onConflict: 'owner_id' });
+      if (existingBusinessError) throw existingBusinessError;
 
-      if (businessError) throw businessError;
+      if (existingBusiness?.id) {
+        const { error: updateBusinessError } = await supabase
+          .from('businesses')
+          .update(businessPayload)
+          .eq('id', existingBusiness.id);
+
+        if (updateBusinessError) throw updateBusinessError;
+      } else {
+        const { error: insertBusinessError } = await supabase
+          .from('businesses')
+          .insert(businessPayload);
+
+        if (insertBusinessError) throw insertBusinessError;
+      }
 
       return { success: true };
     } catch (err: any) {
