@@ -20,6 +20,11 @@ class Wallet(Base):
     user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
 
     balance_kobo: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    credit_limit_kobo: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    available_credit_kobo: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    total_debt_kobo: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    next_repayment_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    repayment_amount_kobo: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
     user = relationship("User", back_populates="wallet")

@@ -1,0 +1,453 @@
+"""
+Inventory Management Schemas - TypeScript-level type safety with Pydantic
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import List, Optional, Any, Dict
+from decimal import Decimal
+from enum import Enum
+
+from pydantic import BaseModel, Field, validator, root_validator
+
+
+# ============================================================================
+# ENUMS
+# ============================================================================
+
+class InputMethodEnum(str, Enum):
+    MANUAL = "manual"
+    VOICE = "voice"
+    SCAN = "scan"
+    API = "api"
+
+
+class MovementTypeEnum(str, Enum):
+    PURCHASE = "purchase"
+    SALE = "sale"
+    ADJUSTMENT = "adjustment"
+    TRANSFER = "transfer"
+    DAMAGE = "damage"
+    RETURN = "return"
+
+
+class StockStatusEnum(str, Enum):
+    IN_STOCK = "in_stock"
+    LOW_STOCK = "low_stock"
+    OUT_OF_STOCK = "out_of_stock"
+    DISCONTINUED = "discontinued"
+
+
+class PurchaseOrderStatusEnum(str, Enum):
+    DRAFT = "draft"
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    SHIPPED = "shipped"
+    RECEIVED = "received"
+    CANCELLED = "cancelled"
+
+
+class StoreTypeEnum(str, Enum):
+    RETAIL = "retail"
+    WAREHOUSE = "warehouse"
+    DISTRIBUTION = "distribution"
+
+
+# ============================================================================
+# STORE/LOCATION SCHEMAS
+# ============================================================================
+
+class StoreCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    type: StoreTypeEnum = StoreTypeEnum.RETAIL
+    address: str = Field(..., min_length=5)
+    city: str = Field(..., min_length=2)
+    state: str = Field(..., min_length=2)
+    latitude: Optional[Decimal] = Field(None, ge=-90, le=90)
+    longitude: Optional[Decimal] = Field(None, ge=-180, le=180)
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    is_primary: bool = False
+
+
+class StoreOut(StoreCreate):
+    id: str
+    owner_id: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================================
+# CATEGORY SCHEMAS
+# ============================================================================
+
+class CategoryCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    slug: str = Field(..., min_length=1, max_length=100, regex="^[a-z0-9-]+$")
+    description: Optional[str] = None
+    parent_id: Optional[str] = None
+    image_url: Optional[str] = None
+    position: int = 0
+
+    @validator("slug")
+    def validate_slug(cls, v):
+        if not v.islower() and "-" in v:
+            return v
+        return v.lower().replace(" ", "-")
+
+
+class CategoryOut(CategoryCreate):
+    id: str
+    owner_id: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================================
+# PRODUCT SCHEMAS
+# ============================================================================
+
+class ProductCreate(BaseModel):
+    category_id: Optional[str] = None
+    sku: str = Field(..., min_length=1, max_length=50, regex="^[A-Z0-9-]+$")
+    barcode: Optional[str] = None
+    qr_code: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    brand: Optional[str] = None
+    unit_of_measure: str = Field(default="piece", min_length=1)
+    cost_price_kobo: int = Field(..., ge=0)
+    selling_price_kobo: int = Field(..., ge=0)
+    minimum_stock_level: int = Field(default=10, ge=0)
+    maximum_stock_level: int = Field(default=1000, gt=0)
+    reorder_quantity: int = Field(default=100, gt=0)
+    supplier_lead_time_days: int = Field(default=7, ge=1)
+    is_perishable: bool = False
+    shelf_life_days: Optional[int] = None
+    requires_lot_tracking: bool = False
+    nafdac_number: Optional[str] = None
+    image_url: Optional[str] = None
+
+    @validator("selling_price_kobo")
+    def validate_selling_price(cls, v, values):
+        if "cost_price_kobo" in values and v < values["cost_price_kobo"]:
+            raise ValueError("Selling price cannot be less than cost price")
+        return v
+
+    @validator("maximum_stock_level")
+    def validate_max_stock(cls, v, values):
+        if "minimum_stock_level" in values and v <= values["minimum_stock_level"]:
+            raise ValueError("Maximum stock must be greater than minimum stock")
+        return v
+
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    brand: Optional[str] = None
+    cost_price_kobo: Optional[int] = Field(None, ge=0)
+    selling_price_kobo: Optional[int] = Field(None, ge=0)
+    minimum_stock_level: Optional[int] = Field(None, ge=0)
+    maximum_stock_level: Optional[int] = Field(None, gt=0)
+    reorder_quantity: Optional[int] = Field(None, gt=0)
+    supplier_lead_time_days: Optional[int] = Field(None, ge=1)
+    is_perishable: Optional[bool] = None
+    shelf_life_days: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class ProductOut(ProductCreate):
+    id: str
+    owner_id: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProductDetailOut(ProductOut):
+    """Extended product details including stock and pricing insights."""
+    stock_by_location: List[StockLevelOut] = []
+    total_quantity_on_hand: int = 0
+    total_reserved_quantity: int = 0
+    total_inventory_value_kobo: int = 0
+    profit_per_unit_kobo: int = 0
+    margin_percentage: Decimal = Field(default=0.0)
+    inventory_turnover_7d: Decimal = 0.0
+    last_sale_date: Optional[datetime] = None
+    reorder_recommendation: Optional[int] = None
+    preferred_supplier_id: Optional[str] = None
+    is_dead_stock: bool = False
+
+
+# ============================================================================
+# STOCK LEVEL SCHEMAS
+# ============================================================================
+
+class StockLevelOut(BaseModel):
+    id: str
+    product_id: str
+    store_id: str
+    quantity_on_hand: int = Field(ge=0)
+    quantity_reserved: int = Field(ge=0)
+    quantity_available: int = Field(ge=0)
+    status: StockStatusEnum
+    last_counted_at: Optional[datetime] = None
+    last_movement_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class StockMovementCreate(BaseModel):
+    product_id: str
+    from_store_id: Optional[str] = None
+    to_store_id: Optional[str] = None
+    movement_type: MovementTypeEnum
+    input_method: InputMethodEnum = InputMethodEnum.MANUAL
+    quantity: int = Field(..., gt=0)
+    reference_id: Optional[str] = None
+    reference_type: Optional[str] = None
+    notes: Optional[str] = None
+    voice_input_raw: Optional[str] = None
+
+    @validator("quantity")
+    def validate_quantity(cls, v):
+        if v <= 0:
+            raise ValueError("Quantity must be greater than 0")
+        return v
+
+
+class StockMovementOut(StockMovementCreate):
+    id: str
+    owner_id: str
+    staff_id: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================================
+# SUPPLIER SCHEMAS
+# ============================================================================
+
+class SupplierCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    contact_person: Optional[str] = None
+    phone: str = Field(..., min_length=10)
+    email: Optional[str] = None
+    address: str = Field(..., min_length=5)
+    city: str = Field(..., min_length=2)
+    state: str = Field(..., min_length=2)
+    bank_name: Optional[str] = None
+    bank_account_number: Optional[str] = None
+    payment_terms: str = "net_30"
+    lead_time_days: int = Field(default=7, ge=1)
+    minimum_order_value_kobo: int = Field(default=0, ge=0)
+    is_preferred: bool = False
+
+
+class SupplierUpdate(BaseModel):
+    name: Optional[str] = None
+    contact_person: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    payment_terms: Optional[str] = None
+    lead_time_days: Optional[int] = Field(None, ge=1)
+    is_preferred: Optional[bool] = None
+    status: Optional[str] = None
+
+
+class SupplierOut(SupplierCreate):
+    id: str
+    owner_id: str
+    status: str
+    rating: Decimal
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProductSupplierLink(BaseModel):
+    """Link between product and supplier with pricing."""
+    supplier_id: str
+    supplier_sku: Optional[str] = None
+    supplier_price_kobo: int = Field(..., ge=0)
+    lead_time_days: Optional[int] = None
+    minimum_order_qty: int = Field(default=1, gt=0)
+    pack_size: int = Field(default=1, gt=0)
+    is_preferred: bool = False
+
+
+# ============================================================================
+# PURCHASE ORDER SCHEMAS
+# ============================================================================
+
+class PurchaseOrderItemCreate(BaseModel):
+    product_id: str
+    quantity_ordered: int = Field(..., gt=0)
+    unit_price_kobo: int = Field(..., ge=0)
+
+
+class PurchaseOrderCreate(BaseModel):
+    supplier_id: str
+    store_id: str
+    po_number: Optional[str] = None  # Auto-generated if not provided
+    items: List[PurchaseOrderItemCreate] = Field(..., min_items=1)
+    expected_delivery_date: Optional[date] = None
+    notes: Optional[str] = None
+
+    @root_validator
+    def validate_items(cls, values):
+        items = values.get("items", [])
+        if not items or len(items) == 0:
+            raise ValueError("At least one item is required")
+        return values
+
+
+class PurchaseOrderUpdate(BaseModel):
+    expected_delivery_date: Optional[date] = None
+    notes: Optional[str] = None
+    status: Optional[PurchaseOrderStatusEnum] = None
+
+
+class PurchaseOrderItemOut(PurchaseOrderItemCreate):
+    id: str
+    purchase_order_id: str
+    quantity_received: int = 0
+    line_total_kobo: int
+
+    class Config:
+        from_attributes = True
+
+
+class PurchaseOrderOut(BaseModel):
+    id: str
+    owner_id: str
+    supplier_id: str
+    store_id: str
+    po_number: str
+    status: PurchaseOrderStatusEnum
+    total_amount_kobo: int
+    expected_delivery_date: Optional[date] = None
+    actual_delivery_date: Optional[date] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PurchaseOrderDetailOut(PurchaseOrderOut):
+    items: List[PurchaseOrderItemOut]
+    supplier: Optional[SupplierOut] = None
+    store: Optional[StoreOut] = None
+
+
+# ============================================================================
+# ANALYTICS SCHEMAS
+# ============================================================================
+
+class InventoryMetricsOut(BaseModel):
+    """Comprehensive inventory dashboard metrics."""
+    store_id: Optional[str] = None
+    date: date
+    total_inventory_value_kobo: int
+    total_quantity_on_hand: int
+    low_stock_items_count: int
+    out_of_stock_items_count: int
+    inventory_turnover_ratio: Decimal
+    total_sku_count: int
+    active_sku_count: int
+    discontinued_sku_count: int
+    average_inventory_age_days: Decimal
+    seasonal_trend: Optional[str] = None
+    top_selling_products: List[Dict[str, Any]] = []
+    top_profit_products: List[Dict[str, Any]] = []
+    dead_stock_value_kobo: int = 0
+    obsolete_stock_percentage: Decimal = 0.0
+
+    class Config:
+        from_attributes = True
+
+
+class ProductHealthOut(BaseModel):
+    """Individual product health scorecard."""
+    id: str
+    sku: str
+    name: str
+    total_quantity_on_hand: int = 0
+    total_cost_value_kobo: int = 0
+    total_selling_value_kobo: int = 0
+    profit_value_kobo: int = 0
+    margin_percentage: Decimal = 0.0
+    stock_health: str  # 'critical', 'low', 'healthy', 'overstocked'
+    turnover_7d: Decimal = 0.0
+    turnover_30d: Decimal = 0.0
+    last_movement_date: Optional[datetime] = None
+    minimum_stock_level: int = 0
+    maximum_stock_level: int = 0
+    reorder_status: Optional[str] = None
+    expiry_status: Optional[str] = None  # 'critical', 'warning', 'safe'
+
+
+class AIInsightsOut(BaseModel):
+    """AI-powered inventory insights."""
+    store_id: Optional[str] = None
+    generated_at: datetime
+    
+    # Recommendations
+    restock_recommendations: List[Dict[str, Any]] = []  # [{ product_id, needed_qty, supplier_id }]
+    dead_stock_alerts: List[Dict[str, Any]] = []  # [{ product_id, quantity, days_no_sale }]
+    excess_stock_alerts: List[Dict[str, Any]] = []  # [{ product_id, quantity, months_supply }]
+    slow_moving_stock: List[Dict[str, Any]] = []  # [{ product_id, turnover_ratio }]
+    
+    # Predictions
+    demand_forecast_7d: List[Dict[str, Any]] = []  # [{ product_id, forecasted_qty }]
+    demand_forecast_30d: List[Dict[str, Any]] = []
+    anomaly_detections: List[Dict[str, Any]] = []  # [{ product_id, anomaly_type, confidence }]
+    
+    # Dynamic pricing
+    pricing_recommendations: List[Dict[str, Any]] = []  # [{ product_id, suggested_price, rationale }]
+    
+    # Supplier insights
+    supplier_recommendations: List[Dict[str, Any]] = []  # For auto-restock
+    
+    # KPI summaries
+    kpi_summary: Dict[str, Any] = {}
+
+
+class DemandForecastOut(BaseModel):
+    product_id: str
+    forecast_date: date
+    forecasted_quantity: int
+    confidence_score: Decimal = Field(ge=0, le=1)
+    factors: List[str] = []  # Factors influencing the forecast
+    historical_average: int = 0
+
+
+class AnomalyDetectionOut(BaseModel):
+    product_id: str
+    detected_at: datetime
+    anomaly_type: str  # 'unusual_spike', 'unusual_dip', 'pattern_change'
+    confidence_score: Decimal = Field(ge=0, le=1)
+    description: str
+    recommended_action: Optional[str] = None

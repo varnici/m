@@ -5,6 +5,7 @@ import type { RootStackScreenProps } from '@/navigation/types';
 import { ArrowUpCircle, Send, ArrowDownCircle, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import ActivityItem from '@/components/ui/ActivityItem';
+import BottomTabBar from '@/components/ui/BottomTabBar';
 
 const ACTIVITY_ITEMS = [
   {

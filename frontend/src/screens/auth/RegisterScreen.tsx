@@ -82,7 +82,7 @@ const RegisterScreen = ({ navigation }: RootStackScreenProps<'Register'>) => {
       }
 
       const nextRoute = await getPostAuthRoute();
-      navigation.replace(nextRoute);
+      navigation.replace(nextRoute as any);
     } catch (error: any) {
       Alert.alert('Registration failed', error.message || 'Could not create account.');
     } finally {

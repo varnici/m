@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database import Base
@@ -29,6 +29,13 @@ class Loan(Base):
 
     product_sku: Mapped[str] = mapped_column(String, nullable=False)
     product_qty: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Dashboard fields
+    disbursed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_repayment_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    outstanding_balance_kobo: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    days_past_due: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_payment_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 

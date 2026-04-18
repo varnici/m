@@ -6,7 +6,9 @@
 
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react-native';
-import { NavigationProp } from '@react-navigation/native';
+import { NavigationProp, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { PermissionStatus } from 'expo-modules-core';
 import ClusterPickupScreen from '@/screens/pools/ClusterPickupScreen';
 import * as Location from 'expo-location';
 import type { RootStackParamList } from '@/navigation/types';
@@ -16,14 +18,25 @@ jest.mock('expo-location');
 const mockLocation = Location as jest.Mocked<typeof Location>;
 
 describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
-  let mockNavigation: Partial<NavigationProp<RootStackParamList, 'ClusterPickup'>> = {
+  let mockNavigation: Partial<NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'>> = {
     goBack: jest.fn(),
     navigate: jest.fn(),
   };
 
+  let mockRoute: RouteProp<RootStackParamList, 'ClusterPickup'> = {
+    key: 'ClusterPickup',
+    name: 'ClusterPickup',
+    params: undefined,
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
+    mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({
+      status: PermissionStatus.GRANTED,
+      expires: 'never',
+      granted: true,
+      canAskAgain: true,
+    });
     mockLocation.getCurrentPositionAsync.mockResolvedValue({
       coords: {
         latitude: 6.5200,
@@ -41,7 +54,7 @@ describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
   describe('Component Rendering - Single Responsibility', () => {
     it('should render without crashing', async () => {
       const { getByText } = render(
-        <ClusterPickupScreen navigation={mockNavigation as NavigationProp<RootStackParamList, 'ClusterPickup'>} />
+        <ClusterPickupScreen navigation={mockNavigation as NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'> } route={mockRoute} />
       );
 
       await waitFor(() => {
@@ -51,7 +64,7 @@ describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
 
     it('should display correct status message', async () => {
       const { getByText } = render(
-        <ClusterPickupScreen navigation={mockNavigation as NavigationProp<RootStackParamList, 'ClusterPickup'>} />
+        <ClusterPickupScreen navigation={mockNavigation as NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'> } route={mockRoute} />
       );
 
       await waitFor(() => {
@@ -61,7 +74,7 @@ describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
 
     it('should render Lottie animation component', async () => {
       const { getByText } = render(
-        <ClusterPickupScreen navigation={mockNavigation as NavigationProp<RootStackParamList, 'ClusterPickup'>} />
+        <ClusterPickupScreen navigation={mockNavigation as NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'> } route={mockRoute} />
       );
 
       await waitFor(() => {
@@ -73,7 +86,7 @@ describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
   describe('Location Permission Handling - Open/Closed Principle', () => {
     it('should request location permission on mount', async () => {
       render(
-        <ClusterPickupScreen navigation={mockNavigation as NavigationProp<RootStackParamList, 'ClusterPickup'>} />
+        <ClusterPickupScreen navigation={mockNavigation as NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'> } route={mockRoute} />
       );
 
       await waitFor(() => {
@@ -82,10 +95,15 @@ describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
     });
 
     it('should handle permission denied gracefully', async () => {
-      mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' });
+      mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({
+        status: PermissionStatus.DENIED,
+        expires: 'never',
+        granted: false,
+        canAskAgain: true,
+      });
 
       const { getByText } = render(
-        <ClusterPickupScreen navigation={mockNavigation as NavigationProp<RootStackParamList, 'ClusterPickup'>} />
+        <ClusterPickupScreen navigation={mockNavigation as NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'> } route={mockRoute} />
       );
 
       await waitFor(() => {
@@ -98,7 +116,7 @@ describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
       mockLocation.getCurrentPositionAsync.mockRejectedValue(new Error('Location unavailable'));
 
       const { getByText } = render(
-        <ClusterPickupScreen navigation={mockNavigation as NavigationProp<RootStackParamList, 'ClusterPickup'>} />
+        <ClusterPickupScreen navigation={mockNavigation as NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'> } route={mockRoute} />
       );
 
       await waitFor(() => {
@@ -130,7 +148,7 @@ describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
 
     it('should memoize marker annotations for performance', async () => {
       const { getByText } = render(
-        <ClusterPickupScreen navigation={mockNavigation as NavigationProp<RootStackParamList, 'ClusterPickup'>} />
+        <ClusterPickupScreen navigation={mockNavigation as NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'> } route={mockRoute} />
       );
 
       await waitFor(() => {
@@ -142,7 +160,7 @@ describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
 
     it('should handle large participant lists efficiently', async () => {
       const { getByText } = render(
-        <ClusterPickupScreen navigation={mockNavigation as NavigationProp<RootStackParamList, 'ClusterPickup'>} />
+        <ClusterPickupScreen navigation={mockNavigation as NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'> } route={mockRoute} />
       );
 
       await waitFor(() => {
@@ -155,11 +173,13 @@ describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
   describe('Data Type Safety - Strict TypeScript', () => {
     it('should have properly typed props', async () => {
       interface Props {
-        navigation: NavigationProp<RootStackParamList, 'ClusterPickup'>;
+        navigation: NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'>;
+        route: RouteProp<RootStackParamList, 'ClusterPickup'>;
       }
 
       const props: Props = {
-        navigation: mockNavigation as NavigationProp<RootStackParamList, 'ClusterPickup'>,
+        navigation: mockNavigation as NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'>,
+        route: mockRoute,
       };
 
       const { getByText } = render(<ClusterPickupScreen {...props} />);
@@ -238,7 +258,7 @@ describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
   describe('Integration Tests - Component Lifecycle', () => {
     it('should initialize location state correctly', async () => {
       const { getByText } = render(
-        <ClusterPickupScreen navigation={mockNavigation as NavigationProp<RootStackParamList, 'ClusterPickup'>} />
+        <ClusterPickupScreen navigation={mockNavigation as NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'> } route={mockRoute} />
       );
 
       await waitFor(() => {
@@ -249,7 +269,7 @@ describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
 
     it('should display loading state initially', () => {
       const { UNSAFE_queryAllByType } = render(
-        <ClusterPickupScreen navigation={mockNavigation as NavigationProp<RootStackParamList, 'ClusterPickup'>} />
+        <ClusterPickupScreen navigation={mockNavigation as NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'> } route={mockRoute} />
       );
 
       // Component should render loading indicator
@@ -258,7 +278,7 @@ describe('ClusterPickupScreen - SOLID & Performance Audits', () => {
 
     it('should handle navigation back button press', async () => {
       const { getByTestId } = render(
-        <ClusterPickupScreen navigation={mockNavigation as NavigationProp<RootStackParamList, 'ClusterPickup'>} />
+        <ClusterPickupScreen navigation={mockNavigation as NativeStackNavigationProp<RootStackParamList, 'ClusterPickup'> } route={mockRoute} />
       );
 
       await waitFor(() => {

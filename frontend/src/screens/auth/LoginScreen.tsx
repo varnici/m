@@ -37,7 +37,7 @@ const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
         error: snapshot.error,
       });
       const nextRoute = await getPostAuthRoute();
-      navigation.replace(nextRoute);
+      navigation.replace(nextRoute as any);
     } catch (error: any) {
       Alert.alert('Login failed', error.message || 'Could not sign in.');
     } finally {

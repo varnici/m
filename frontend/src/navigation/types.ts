@@ -15,6 +15,10 @@ export type RootStackParamList = {
   StockLodger: undefined;
   VoiceStock: undefined;
   ScanShelve: undefined;
+  StockAdjustment: {
+    productId?: string;
+    storeId?: string;
+  };
   RecordSale: undefined;
   InsuranceSummary: undefined;
   FileClaim: undefined;
@@ -56,30 +60,18 @@ type NavigateFn = <RouteName extends keyof RootStackParamList>(
     : [params: RootStackParamList[RouteName]]
 ) => void;
 
-export type RootStackNavigation = {
-  navigate: NavigateFn;
-  goBack: () => void;
-  replace: NavigateFn;
-  reset: (state: {
-    index: number;
-    routes: Array<{
-      name: keyof RootStackParamList;
-      params?: RootStackParamList[keyof RootStackParamList];
-    }>;
-  }) => void;
-};
+import type { NavigationProp } from '@react-navigation/native';
+import type {
+  NativeStackNavigationProp,
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack';
+
+export type RootStackNavigation = NavigationProp<RootStackParamList>;
 
 export type RootStackNavigationProp<
   RouteName extends keyof RootStackParamList,
-> = RootStackNavigation;
+> = NativeStackNavigationProp<RootStackParamList, RouteName>;
 
 export type RootStackScreenProps<
   RouteName extends keyof RootStackParamList,
-> = {
-  navigation: RootStackNavigation;
-  route: {
-    key: string;
-    name: RouteName;
-    params: RootStackParamList[RouteName];
-  };
-};
+> = NativeStackScreenProps<RootStackParamList, RouteName>;
