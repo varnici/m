@@ -1,151 +1,154 @@
 """
 Daily Inventory Metrics Rollup Job
-Aggregates inventory data into InventoryMetrics for dashboard display.
-Runs daily to calculate inventory turnover, stock levels, etc.
-
-Note: This is a simplified version that estimates metrics from sales data.
-In production, this would integrate with actual inventory management system.
+Aggregates inventory data into InventoryMetrics for dashboard display and records daily snapshots.
+Runs at 00:30 Lagos time.
 """
 
 from datetime import date, datetime, timedelta
-from typing import Dict, List
+from typing import List
 
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select, text, desc
+from sqlalchemy.orm import Session
 
-from app.infrastructure.database import get_db
+from app.infrastructure.database import db_session
+from app.models.inventory import Store, StockLevel, Product, InventorySnapshot, StockMovement
 from app.models.inventory_metrics import InventoryMetrics
 from app.models.sales import Sale
+from app.models.user import User
 
 
-async def calculate_inventory_metrics_for_user(session: AsyncSession, user_id: str, target_date: date) -> Dict:
+def calculate_daily_inventory_rollup(target_date: date) -> None:
     """
-    Calculate inventory metrics for a user.
-    Since we don't have detailed inventory data, we'll estimate based on sales patterns.
+    Calculate inventory metrics and record snapshots for all users for the given date.
+
+    Args:
+        target_date: The date to calculate metrics for.
     """
-    # Get sales data for the last 30 days to estimate inventory metrics
-    month_ago = target_date - timedelta(days=30)
-
-    # Calculate total sales value in the period
-    sales_query = select(
-        func.sum(Sale.quantity * Sale.unit_price_kobo).label('total_sales_value'),
-        func.sum(Sale.quantity).label('total_units_sold')
-    ).where(
-        Sale.user_id == user_id,
-        func.date(Sale.sold_at) >= month_ago,
-        func.date(Sale.sold_at) <= target_date
-    )
-
-    sales_result = await session.execute(sales_query)
-    sales_data = sales_result.first()
-
-    total_sales_value = sales_data.total_sales_value or 0
-    total_units_sold = sales_data.total_units_sold or 0
-
-    # Estimate inventory value (assume current inventory is 30 days worth of sales)
-    # This is a rough estimate - in reality, this would come from inventory system
-    estimated_inventory_value = total_sales_value // 3  # 30-day sales / 10 days avg inventory
-
-    # Estimate stock levels (simplified)
-    # Assume low stock if sales velocity is high
-    avg_daily_sales = total_sales_value / 30
-    low_stock_threshold = avg_daily_sales * 2  # 2 days of sales
-
-    # Mock some stock issues (in production, this would query actual inventory)
-    low_stock_items = 2 if estimated_inventory_value < low_stock_threshold else 0
-    out_of_stock_items = 1 if estimated_inventory_value < (low_stock_threshold / 2) else 0
-
-    # Calculate inventory turnover ratio
-    # Turnover = Cost of Goods Sold / Average Inventory Value
-    # Simplified: assume COGS = 70% of sales value
-    cogs = total_sales_value * 0.7
-    avg_inventory_value = estimated_inventory_value  # Simplified
-    inventory_turnover_ratio = cogs / avg_inventory_value if avg_inventory_value > 0 else 0
-
-    # Mock top selling items (would come from actual inventory data)
-    top_selling_items = [
-        {"sku": "PROD001", "name": "Popular Item 1", "sales": 150},
-        {"sku": "PROD002", "name": "Popular Item 2", "sales": 120},
-        {"sku": "PROD003", "name": "Popular Item 3", "sales": 95},
-    ]
-
-    return {
-        'total_inventory_value_kobo': estimated_inventory_value,
-        'low_stock_items': low_stock_items,
-        'out_of_stock_items': out_of_stock_items,
-        'inventory_turnover_ratio': inventory_turnover_ratio,
-        'top_selling_items': top_selling_items,
-    }
-
-
-async def calculate_daily_inventory_rollup(target_date: date) -> None:
-    """
-    Calculate inventory metrics for all users for the given date.
-    """
-    async for session in get_db():
+    with db_session() as session:
         try:
-            # Get all users (simplified - in production, filter users with inventory)
-            from app.models.user import User
-            users_query = select(User.id)
-            users_result = await session.execute(users_query)
-            user_ids = [row.id for row in users_result]
+            # 1. Calculate and Record Store-Level Snapshots
+            # We aggregate stock levels joined with products to get value and status counts
+            snapshot_query = select(
+                Store.id.label('store_id'),
+                Store.owner_id,
+                func.sum(StockLevel.quantity_on_hand * Product.cost_price_kobo).label('total_value'),
+                func.sum(StockLevel.quantity_on_hand).label('total_qty'),
+                func.count(Product.id).filter(StockLevel.quantity_on_hand <= Product.minimum_stock_level).label('low_stock_count'),
+                func.count(Product.id).filter(StockLevel.quantity_on_hand <= 0).label('out_of_stock_count')
+            ).join(
+                StockLevel, Store.id == StockLevel.store_id
+            ).join(
+                Product, StockLevel.product_id == Product.id
+            ).group_by(Store.id, Store.owner_id)
 
-            processed_count = 0
+            snapshot_results = session.execute(snapshot_query).all()
+
+            for res in snapshot_results:
+                # Upsert InventorySnapshot
+                existing_snapshot = session.execute(
+                    select(InventorySnapshot).where(
+                        InventorySnapshot.store_id == res.store_id,
+                        InventorySnapshot.snapshot_date == target_date
+                    )
+                ).scalar_one_or_none()
+
+                if existing_snapshot:
+                    snapshot = existing_snapshot
+                else:
+                    snapshot = InventorySnapshot(
+                        store_id=res.store_id,
+                        owner_id=res.owner_id,
+                        snapshot_date=target_date
+                    )
+                    session.add(snapshot)
+
+                snapshot.total_inventory_value_kobo = res.total_value or 0
+                snapshot.total_quantity_on_hand = res.total_qty or 0
+                snapshot.low_stock_items_count = res.low_stock_count or 0
+                snapshot.out_of_stock_items_count = res.out_of_stock_count or 0
+                # Turnover is typically calculated at user/category level, keeping it 0 at store level for now
+                snapshot.inventory_turnover_ratio = 0.0
+
+            # Flush to ensure snapshots are in DB before turnover function calls
+            session.flush()
+
+            # 3. Aggregate for User-Level InventoryMetrics
+            # Get unique users who had snapshots today
+            user_ids = sorted(list(set(res.owner_id for res in snapshot_results)))
+
             for user_id in user_ids:
-                metrics_data = await calculate_inventory_metrics_for_user(session, user_id, target_date)
+                # Aggregate store snapshots for the user
+                user_totals = session.execute(
+                    select(
+                        func.sum(InventorySnapshot.total_inventory_value_kobo).label('total_value'),
+                        func.sum(InventorySnapshot.low_stock_items_count).label('low_stock'),
+                        func.sum(InventorySnapshot.out_of_stock_items_count).label('out_of_stock')
+                    ).where(
+                        InventorySnapshot.owner_id == user_id,
+                        InventorySnapshot.snapshot_date == target_date
+                    )
+                ).one()
 
-                # Upsert InventoryMetrics record
-                existing_metrics = await session.execute(
+                # Calculate turnover ratio using SQL business logic function
+                # This function averages snapshots over the last 30 days
+                turnover_ratio = session.execute(
+                    text("SELECT inventory_turnover(:owner_id, 30)"),
+                    {"owner_id": user_id}
+                ).scalar() or 0.0
+
+                # Identify top selling items for the day using SQL business logic function
+                top_items_data = session.execute(
+                    text("SELECT sku, name, total_sold FROM best_selling_products(:owner_id, 5, :target_date, :target_date)"),
+                    {"owner_id": user_id, "target_date": target_date}
+                ).all()
+
+                top_selling_json = [
+                    {"sku": item.sku, "name": item.name, "quantity": int(item.total_sold)} 
+                    for item in top_items_data
+                ]
+
+                # Upsert InventoryMetrics
+                existing_metrics = session.execute(
                     select(InventoryMetrics).where(
                         InventoryMetrics.user_id == user_id,
                         InventoryMetrics.date == target_date
                     )
-                )
-                existing = existing_metrics.scalar_one_or_none()
+                ).scalar_one_or_none()
 
-                if existing:
-                    # Update existing record
-                    existing.total_inventory_value_kobo = metrics_data['total_inventory_value_kobo']
-                    existing.low_stock_items = metrics_data['low_stock_items']
-                    existing.out_of_stock_items = metrics_data['out_of_stock_items']
-                    existing.inventory_turnover_ratio = metrics_data['inventory_turnover_ratio']
-                    existing.top_selling_items = metrics_data['top_selling_items']
-                    existing.created_at = datetime.utcnow()
+                if existing_metrics:
+                    metrics = existing_metrics
                 else:
-                    # Create new record
-                    new_metrics = InventoryMetrics(
+                    metrics = InventoryMetrics(
                         user_id=user_id,
-                        date=target_date,
-                        total_inventory_value_kobo=metrics_data['total_inventory_value_kobo'],
-                        low_stock_items=metrics_data['low_stock_items'],
-                        out_of_stock_items=metrics_data['out_of_stock_items'],
-                        inventory_turnover_ratio=metrics_data['inventory_turnover_ratio'],
-                        top_selling_items=metrics_data['top_selling_items'],
+                        date=target_date
                     )
-                    session.add(new_metrics)
+                    session.add(metrics)
 
-                processed_count += 1
+                metrics.total_inventory_value_kobo = user_totals.total_value or 0
+                metrics.low_stock_items = user_totals.low_stock or 0
+                metrics.out_of_stock_items = user_totals.out_of_stock or 0
+                metrics.inventory_turnover_ratio = float(turnover_ratio)
+                metrics.top_selling_items = top_selling_json
+                metrics.created_at = datetime.utcnow()
 
-            await session.commit()
-            print(f"Successfully processed inventory rollup for {target_date} for {processed_count} users")
+            session.commit()
+            print(f"Successfully processed inventory rollup for {target_date} for {len(user_ids)} users")
 
         except Exception as e:
-            await session.rollback()
+            session.rollback()
             print(f"Error in daily inventory rollup for {target_date}: {str(e)}")
             raise
 
 
-async def run_daily_inventory_rollup() -> None:
+def run_daily_inventory_rollup() -> None:
     """
     Main entry point for the daily inventory rollup job.
     Calculates metrics for yesterday's date.
     """
     # Calculate for yesterday (job runs early morning)
     target_date = date.today() - timedelta(days=1)
-    await calculate_daily_inventory_rollup(target_date)
+    calculate_daily_inventory_rollup(target_date)
 
 
 if __name__ == "__main__":
-    # For testing - run synchronously
-    import asyncio
-    asyncio.run(run_daily_inventory_rollup())
+    run_daily_inventory_rollup()

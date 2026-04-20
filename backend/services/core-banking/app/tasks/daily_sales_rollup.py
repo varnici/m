@@ -7,22 +7,23 @@ Runs at 00:15 Lagos time (15 minutes past midnight).
 from datetime import date, datetime, timedelta
 from typing import List
 
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select, text
+from sqlalchemy.orm import Session
 
-from app.infrastructure.database import get_db
+from app.infrastructure.database import db_session
 from app.models.sales import Sale
 from app.models.sales_metrics import SalesMetrics
+from app.models.inventory import Product, StockMovement
 
 
-async def calculate_daily_sales_rollup(target_date: date) -> None:
+def calculate_daily_sales_rollup(target_date: date) -> None:
     """
     Calculate sales metrics for all users for the given date.
 
     Args:
         target_date: The date to calculate metrics for (in UTC)
     """
-    async for session in get_db():
+    with db_session() as session:
         try:
             # Get all users who had sales on the target date
             user_sales_query = select(
@@ -34,8 +35,7 @@ async def calculate_daily_sales_rollup(target_date: date) -> None:
                 func.date(Sale.sold_at) == target_date
             ).group_by(Sale.user_id)
 
-            result = await session.execute(user_sales_query)
-            user_sales_data = result.all()
+            user_sales_data = session.execute(user_sales_query).all()
 
             for user_data in user_sales_data:
                 user_id = user_data.user_id
@@ -57,29 +57,42 @@ async def calculate_daily_sales_rollup(target_date: date) -> None:
                     Sale.user_id == user_id,
                     func.date(Sale.sold_at) == prev_date
                 )
-                prev_result = await session.execute(prev_sales_query)
-                prev_sales = prev_result.scalar() or 0
+                prev_sales = session.execute(prev_sales_query).scalar() or 0
 
                 # Calculate vs yesterday percentage
                 vs_yesterday_percent = 0.0
                 if prev_sales > 0:
                     vs_yesterday_percent = ((total_sales_kobo - prev_sales) / prev_sales) * 100
 
+                # Get top products for the user on this date
+                top_products_query = text("""
+                    SELECT sku, name, total_sold 
+                    FROM best_selling_products(:owner_id, 5, :target_date, :target_date)
+                """)
+                top_products_data = session.execute(top_products_query, {
+                    "owner_id": user_id,
+                    "target_date": target_date
+                }).all()
+                
+                top_products_json = [
+                    {"sku": p.sku, "name": p.name, "quantity": int(p.total_sold)}
+                    for p in top_products_data
+                ]
+
                 # Upsert SalesMetrics record
-                existing_metrics = await session.execute(
+                existing = session.execute(
                     select(SalesMetrics).where(
                         SalesMetrics.user_id == user_id,
                         SalesMetrics.date == target_date
                     )
-                )
-                existing = existing_metrics.scalar_one_or_none()
+                ).scalar_one_or_none()
 
                 if existing:
                     # Update existing record
                     existing.total_sales_kobo = total_sales_kobo
                     existing.transaction_count = transaction_count
                     existing.average_transaction_kobo = avg_transaction_kobo
-                    existing.top_products = []  # TODO: Implement top products calculation
+                    existing.top_products = top_products_json
                     existing.created_at = datetime.utcnow()
                 else:
                     # Create new record
@@ -89,30 +102,28 @@ async def calculate_daily_sales_rollup(target_date: date) -> None:
                         total_sales_kobo=total_sales_kobo,
                         transaction_count=transaction_count,
                         average_transaction_kobo=avg_transaction_kobo,
-                        top_products=[],  # TODO: Implement top products calculation
+                        top_products=top_products_json,
                     )
                     session.add(new_metrics)
 
-            await session.commit()
+            session.commit()
             print(f"Successfully processed sales rollup for {target_date} for {len(user_sales_data)} users")
 
         except Exception as e:
-            await session.rollback()
+            session.rollback()
             print(f"Error in daily sales rollup for {target_date}: {str(e)}")
             raise
 
 
-async def run_daily_sales_rollup() -> None:
+def run_daily_sales_rollup() -> None:
     """
     Main entry point for the daily sales rollup job.
     Calculates metrics for yesterday's date.
     """
     # Calculate for yesterday (job runs early morning)
     target_date = date.today() - timedelta(days=1)
-    await calculate_daily_sales_rollup(target_date)
+    calculate_daily_sales_rollup(target_date)
 
 
 if __name__ == "__main__":
-    # For testing - run synchronously
-    import asyncio
-    asyncio.run(run_daily_sales_rollup())
+    run_daily_sales_rollup()

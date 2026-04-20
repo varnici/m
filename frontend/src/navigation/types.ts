@@ -19,6 +19,13 @@ export type RootStackParamList = {
     productId?: string;
     storeId?: string;
   };
+  ProductList: undefined;
+  ProductDetail: { productId: string };
+  AddProduct: undefined;
+  PurchaseOrders: undefined;
+  AddPurchaseOrder: undefined;
+  PurchaseOrderDetail: { poId: string };
+  AIInsights: undefined;
   RecordSale: undefined;
   InsuranceSummary: undefined;
   FileClaim: undefined;

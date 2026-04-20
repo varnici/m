@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Iterator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -43,6 +43,9 @@ def SessionLocal():
 
 def init_db() -> None:
     # Alembic is the real migration tool. This is a dev convenience only.
+    with engine().connect() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+        conn.commit()
     Base.metadata.create_all(bind=engine())
 
 
@@ -55,6 +58,14 @@ def db_session() -> Iterator[Session]:
     except Exception:
         db.rollback()
         raise
+    finally:
+        db.close()
+
+
+def get_db() -> Iterator[Session]:
+    db = SessionLocal()()
+    try:
+        yield db
     finally:
         db.close()
 

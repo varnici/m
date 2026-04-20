@@ -1,6 +1,9 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import artisans, dashboard, loans, marketplace, sales, transport, users, wallet, inventory
+from app.api.v1.endpoints import (
+    artisans, dashboard, loans, marketplace, sales, transport, users, wallet, 
+    inventory, analytics, ai
+)
 from app.api.v1.endpoints.clusters import router as clusters_router
 
 api_router = APIRouter()
@@ -14,3 +17,5 @@ api_router.include_router(transport.router, prefix="/transport", tags=["transpor
 api_router.include_router(clusters_router, prefix="/clusters", tags=["clusters"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(inventory.router, prefix="/inventory", tags=["inventory"])
+api_router.include_router(analytics.router, prefix="/inventory-analytics", tags=["inventory-analytics"])
+api_router.include_router(ai.router, prefix="/inventory-ai", tags=["inventory-ai"])

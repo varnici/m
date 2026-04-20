@@ -7,7 +7,7 @@ import { colors } from '@/theme/colors';
 import { useRecordStockMovement, useProductDetail } from '@/hooks/useInventory';
 import Toast from 'react-native-toast-message';
 
-type MovementType = 'sale' | 'purchase' | 'adjustment' | 'transfer' | 'damage';
+type MovementType = 'sale' | 'purchase' | 'adjustment' | 'damage';
 
 const StockAdjustmentScreen = ({
   navigation,
@@ -26,7 +26,7 @@ const StockAdjustmentScreen = ({
   const { data: product, isLoading: productLoading } = useProductDetail(productId);
 
   // Record stock movement mutation
-  const { mutate: recordMovement } = useRecordStockMovement();
+  const { mutateAsync: recordMovement, isPending: isRecording } = useRecordStockMovement();
 
   // Handle quantity buttons
   const handleQuantityChange = (operation: 'add' | 'subtract') => {
@@ -42,11 +42,23 @@ const StockAdjustmentScreen = ({
 
   // Submit adjustment
   const handleSubmit = async () => {
-    if (!quantity || !productId) {
+    const parsedQuantity = parseInt(quantity, 10);
+    const resolvedStoreId = storeId || product?.stock_by_location?.[0]?.store_id;
+
+    if (!quantity || !productId || Number.isNaN(parsedQuantity) || parsedQuantity <= 0) {
       Toast.show({
         type: 'error',
         text1: 'Missing Information',
-        text2: 'Please enter quantity',
+        text2: 'Please enter a valid quantity',
+      });
+      return;
+    }
+
+    if (!resolvedStoreId) {
+      Toast.show({
+        type: 'error',
+        text1: 'Store Required',
+        text2: 'Select a valid store before recording movement',
       });
       return;
     }
@@ -54,14 +66,21 @@ const StockAdjustmentScreen = ({
     setIsProcessing(true);
 
     try {
-      await recordMovement({
+      const payload: any = {
         product_id: productId,
-        from_store_id: storeId || 'main',
         movement_type: movementType,
-        quantity: parseInt(quantity),
+        quantity: parsedQuantity,
         input_method: inputMethod,
         notes: notes || undefined,
-      });
+      };
+
+      if (movementType === 'sale' || movementType === 'damage') {
+        payload.from_store_id = resolvedStoreId;
+      } else {
+        payload.to_store_id = resolvedStoreId;
+      }
+
+      await recordMovement(payload);
 
       Toast.show({
         type: 'success',
@@ -89,11 +108,10 @@ const StockAdjustmentScreen = ({
   };
 
   const movementTypes = [
-    { id: 'adjustment', label: 'Adjustment', icon: '⚙️', color: 'bg-blue-50', textColor: 'text-blue-700' },
-    { id: 'sale', label: 'Sale', icon: '📦', color: 'bg-red-50', textColor: 'text-red-700' },
-    { id: 'purchase', label: 'Purchase', icon: '📥', color: 'bg-emerald-50', textColor: 'text-emerald-700' },
-    { id: 'transfer', label: 'Transfer', icon: '🚚', color: 'bg-purple-50', textColor: 'text-purple-700' },
-    { id: 'damage', label: 'Damage', icon: '💔', color: 'bg-orange-50', textColor: 'text-orange-700' },
+    { id: 'adjustment', label: 'Adjustment', icon: 'ADJ', color: 'bg-blue-50', textColor: 'text-blue-700' },
+    { id: 'sale', label: 'Sale', icon: 'SAL', color: 'bg-red-50', textColor: 'text-red-700' },
+    { id: 'purchase', label: 'Purchase', icon: 'PUR', color: 'bg-emerald-50', textColor: 'text-emerald-700' },
+    { id: 'damage', label: 'Damage', icon: 'DMG', color: 'bg-orange-50', textColor: 'text-orange-700' },
   ];
 
   return (
@@ -109,7 +127,7 @@ const StockAdjustmentScreen = ({
         <View className="w-10" />
       </View>
 
-      <ScrollView className="flex-1 showsVerticalScrollIndicator={false}">
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {productLoading ? (
           <View className="items-center justify-center py-20">
             <ActivityIndicator size="large" color={colors.ventureroot.green} />
@@ -174,7 +192,7 @@ const StockAdjustmentScreen = ({
                       : 'bg-gray-50 border-gray-200'
                   }`}
                 >
-                  <Text className="text-2xl mb-2">⌨️</Text>
+                  <Text className="text-2xl mb-2">KB</Text>
                   <Text className={`font-bold text-sm ${
                     inputMethod === 'manual' ? 'text-blue-700' : 'text-gray-600'
                   }`}>
@@ -293,13 +311,13 @@ const StockAdjustmentScreen = ({
               </TouchableOpacity>
 
               <TouchableOpacity 
-                disabled={!quantity || isProcessing}
+                disabled={!quantity || isProcessing || isRecording}
                 className={`flex-1 py-4 rounded-xl items-center ${
-                  !quantity || isProcessing ? 'bg-gray-300' : 'bg-slate-900'
+                  !quantity || isProcessing || isRecording ? 'bg-gray-300' : 'bg-slate-900'
                 }`}
                 onPress={() => setShowConfirm(true)}
               >
-                {isProcessing ? (
+                {isProcessing || isRecording ? (
                   <ActivityIndicator color="white" />
                 ) : (
                   <Text className="text-white font-bold text-base">Record Movement</Text>

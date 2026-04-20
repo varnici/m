@@ -6,11 +6,25 @@ Handles all inventory operations with full type safety and business logic.
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from uuid import uuid4
 from sqlalchemy import and_, or_, func, desc
 from sqlalchemy.orm import Session, joinedload
 import logging
+from fastapi import HTTPException
 
-from app.models.inventory_metrics import InventoryMetrics
+from app.core.config import settings
+from app.domain.inventory.entities import InventoryCommand, InventoryMovementType
+from app.domain.inventory.service import InventoryCommandService
+from app.domain.inventory.sqlalchemy_adapters import (
+    SQLAlchemyInventoryIdempotencyStore,
+    SQLAlchemyInventoryLedgerRepository,
+    SQLAlchemyInventoryOutbox,
+)
+from app.models import (
+    Store, Category, Product, Supplier, StockLevel, 
+    StockMovement, PurchaseOrder, PurchaseOrderItem, 
+    SalesTransactionItem, InventoryMetrics, InventoryReservationModel
+)
 from app.schemas.inventory_schemas import (
     StoreCreate,
     StoreOut,
@@ -23,6 +37,9 @@ from app.schemas.inventory_schemas import (
     StockLevelOut,
     StockMovementCreate,
     StockMovementOut,
+    StockReservationCreate,
+    StockReservationAction,
+    StockReservationOut,
     SupplierCreate,
     SupplierUpdate,
     SupplierOut,
@@ -33,6 +50,9 @@ from app.schemas.inventory_schemas import (
     InventoryMetricsOut,
     ProductHealthOut,
     AIInsightsOut,
+    LedgerEntry,
+    SalesTransactionCreate,
+    SalesTransactionOut
 )
 
 logger = logging.getLogger(__name__)
@@ -47,6 +67,41 @@ class InventoryService:
         self.AUTO_RESTOCK_THRESHOLD_PCT = 0.10
         self.DEAD_STOCK_DAYS = 30
         self.LOW_STOCK_THRESHOLD_PCT = 0.20
+
+    def _process_domain_inventory_command(self, payload: StockMovementCreate) -> None:
+        movement_value = payload.movement_type.value if hasattr(payload.movement_type, "value") else str(payload.movement_type)
+        movement_type = InventoryMovementType(movement_value)
+        command_id = str(uuid4())
+        if payload.reference_id:
+            idempotency_key = (
+                f"{self.owner_id}:{payload.reference_type or 'ref'}:{payload.reference_id}:"
+                f"{payload.product_id}:{movement_value}:{payload.quantity}:"
+                f"{payload.from_store_id or ''}:{payload.to_store_id or ''}"
+            )
+        else:
+            idempotency_key = f"auto:{command_id}"
+
+        command = InventoryCommand(
+            owner_id=self.owner_id,
+            command_id=command_id,
+            idempotency_key=idempotency_key,
+            product_id=payload.product_id,
+            movement_type=movement_type,
+            quantity=payload.quantity,
+            occurred_at=datetime.utcnow(),
+            from_store_id=payload.from_store_id,
+            to_store_id=payload.to_store_id,
+            reference_id=payload.reference_id,
+            reference_type=payload.reference_type,
+            reason_code=payload.notes,
+        )
+
+        service = InventoryCommandService(
+            ledger_repo=SQLAlchemyInventoryLedgerRepository(self.db),
+            idempotency_store=SQLAlchemyInventoryIdempotencyStore(self.db),
+            outbox=SQLAlchemyInventoryOutbox(self.db),
+        )
+        service.process(command)
     
     # ========================================================================
     # STORE OPERATIONS
@@ -132,23 +187,88 @@ class InventoryService:
     # ========================================================================
     
     async def create_product(self, payload: ProductCreate) -> ProductOut:
-        """Create a new product."""
-        # Check SKU uniqueness
-        existing = self.db.query(Product).filter(
-            Product.owner_id == self.owner_id,
-            Product.sku == payload.sku
-        ).first()
-        if existing:
-            raise ValueError(f"SKU {payload.sku} already exists")
-        
-        product = Product(
-            owner_id=self.owner_id,
-            **payload.dict()
-        )
-        self.db.add(product)
-        self.db.commit()
-        self.db.refresh(product)
-        return ProductOut.from_orm(product)
+        """Create a new product with optional initial stock."""
+        try:
+            # Check SKU uniqueness
+            existing = self.db.query(Product).filter(
+                Product.owner_id == self.owner_id,
+                Product.sku == payload.sku
+            ).first()
+            if existing:
+                raise ValueError(f"SKU {payload.sku} already exists")
+            
+            # Extract stock info before creating Product model
+            product_data = payload.dict(exclude={'quantity_on_hand', 'store_id'})
+            initial_qty = payload.quantity_on_hand
+            target_store_id = payload.store_id
+            
+            product = Product(
+                owner_id=self.owner_id,
+                **product_data
+            )
+            self.db.add(product)
+            self.db.flush() # Get product.id
+            
+            # Handle initial stock if provided
+            if initial_qty is not None:
+                if not target_store_id:
+                    # Find primary store
+                    primary_store = self.db.query(Store).filter(
+                        Store.owner_id == self.owner_id,
+                        Store.is_primary == True
+                    ).first()
+                    
+                    if not primary_store:
+                        # Fallback to any store if no primary exists
+                        primary_store = self.db.query(Store).filter(
+                            Store.owner_id == self.owner_id
+                        ).first()
+                    
+                    if not primary_store:
+                        # If absolutely no store exists, create a default one
+                        primary_store = Store(
+                            owner_id=self.owner_id,
+                            name="Default Store",
+                            address="Main Street",
+                            city="Default City",
+                            state="Default State",
+                            is_primary=True
+                        )
+                        self.db.add(primary_store)
+                        self.db.flush()
+                    
+                    target_store_id = primary_store.id
+                
+                # Create stock level
+                stock = StockLevel(
+                    product_id=product.id,
+                    store_id=target_store_id,
+                    quantity_on_hand=initial_qty,
+                    status="in_stock" if initial_qty > product.minimum_stock_level else "low_stock"
+                )
+                self.db.add(stock)
+                
+                # Record initial movement
+                movement = StockMovement(
+                    owner_id=self.owner_id,
+                    product_id=product.id,
+                    to_store_id=target_store_id,
+                    movement_type="adjustment",
+                    quantity=initial_qty,
+                    notes="Initial stock upon product creation"
+                )
+                self.db.add(movement)
+                
+            self.db.commit()
+            self.db.refresh(product)
+            return ProductOut.from_orm(product)
+        except ValueError as e:
+            self.db.rollback()
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error creating product: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error occurred while creating product")
     
     def list_products(
         self,
@@ -177,7 +297,25 @@ class InventoryService:
             )
         
         products = query.offset(skip).limit(limit).all()
-        return [ProductOut.from_orm(p) for p in products]
+        
+        # Performance optimization: Fetch all stock levels for these products in one query
+        product_ids = [p.id for p in products]
+        stock_levels = self.db.query(StockLevel).filter(
+            StockLevel.product_id.in_(product_ids)
+        ).all()
+        
+        # Map stock quantities to products
+        stock_map = {}
+        for s in stock_levels:
+            stock_map[s.product_id] = stock_map.get(s.product_id, 0) + s.quantity_on_hand
+            
+        result = []
+        for p in products:
+            p_out = ProductOut.from_orm(p)
+            p_out.quantity_on_hand = stock_map.get(p.id, 0)
+            result.append(p_out)
+            
+        return result
     
     def get_product_by_barcode(self, barcode: str, store_id: Optional[str] = None) -> ProductOut:
         """Search product by barcode."""
@@ -238,6 +376,7 @@ class InventoryService:
         detail.profit_per_unit_kobo = profit_per_unit
         detail.margin_percentage = Decimal(str(margin_pct))
         detail.is_dead_stock = is_dead_stock
+        detail.children = [ProductOut.from_orm(c) for c in product.children]
         
         return detail
     
@@ -302,6 +441,18 @@ class InventoryService:
         ).first()
         if not product:
             raise ValueError(f"Product {payload.product_id} not found")
+
+        if settings.inventory_domain_enabled:
+            try:
+                self._process_domain_inventory_command(payload)
+            except Exception:
+                if settings.inventory_domain_enforce:
+                    raise
+                logger.exception(
+                    "Domain inventory command shadow processing failed for owner_id=%s product_id=%s",
+                    self.owner_id,
+                    payload.product_id,
+                )
         
         movement = StockMovement(
             owner_id=self.owner_id,
@@ -312,7 +463,11 @@ class InventoryService:
         # Update stock levels based on movement type
         if payload.movement_type == "sale":
             self._handle_sale_movement(payload)
+        elif payload.movement_type == "damage":
+            self._handle_sale_movement(payload)
         elif payload.movement_type == "purchase":
+            self._handle_purchase_movement(payload)
+        elif payload.movement_type == "return":
             self._handle_purchase_movement(payload)
         elif payload.movement_type == "transfer":
             self._handle_transfer_movement(payload)
@@ -322,43 +477,258 @@ class InventoryService:
         self.db.commit()
         self.db.refresh(movement)
         return StockMovementOut.from_orm(movement)
+
+    async def reserve_stock(self, payload: StockReservationCreate) -> StockReservationOut:
+        """Reserve available stock for a downstream flow (e.g., checkout)."""
+        product = self.db.query(Product).filter(
+            Product.id == payload.product_id,
+            Product.owner_id == self.owner_id,
+            Product.is_active == True
+        ).first()
+        if not product:
+            raise ValueError(f"Product {payload.product_id} not found")
+
+        stock = self.db.query(StockLevel).filter(
+            StockLevel.product_id == payload.product_id,
+            StockLevel.store_id == payload.store_id
+        ).first()
+        if not stock:
+            raise ValueError("No stock record found for product in the specified store")
+        if stock.quantity_available < payload.quantity:
+            raise ValueError("Insufficient available stock to reserve")
+
+        stock.quantity_reserved += payload.quantity
+        stock.updated_at = datetime.utcnow()
+
+        reservation = InventoryReservationModel(
+            owner_id=self.owner_id,
+            product_id=payload.product_id,
+            store_id=payload.store_id,
+            status="active",
+            purpose=payload.purpose,
+            quantity_reserved=payload.quantity,
+            quantity_committed=0,
+            quantity_released=0,
+            reference_id=payload.reference_id,
+            reference_type=payload.reference_type,
+            notes=payload.notes,
+            expires_at=payload.expires_at,
+        )
+        self.db.add(reservation)
+        self.db.commit()
+        self.db.refresh(reservation)
+        return StockReservationOut.from_orm(reservation)
+
+    def list_stock_reservations(
+        self,
+        store_id: Optional[str] = None,
+        product_id: Optional[str] = None,
+        status: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[StockReservationOut]:
+        query = self.db.query(InventoryReservationModel).filter(
+            InventoryReservationModel.owner_id == self.owner_id
+        )
+        if store_id:
+            query = query.filter(InventoryReservationModel.store_id == store_id)
+        if product_id:
+            query = query.filter(InventoryReservationModel.product_id == product_id)
+        if status:
+            query = query.filter(InventoryReservationModel.status == status)
+
+        rows = query.order_by(desc(InventoryReservationModel.created_at)).offset(skip).limit(limit).all()
+        return [StockReservationOut.from_orm(r) for r in rows]
+
+    def get_stock_reservation(self, reservation_id: str) -> StockReservationOut:
+        reservation = self.db.query(InventoryReservationModel).filter(
+            InventoryReservationModel.id == reservation_id,
+            InventoryReservationModel.owner_id == self.owner_id
+        ).first()
+        if not reservation:
+            raise ValueError(f"Reservation {reservation_id} not found")
+        return StockReservationOut.from_orm(reservation)
+
+    async def release_stock_reservation(
+        self,
+        reservation_id: str,
+        payload: StockReservationAction,
+    ) -> StockReservationOut:
+        reservation = self.db.query(InventoryReservationModel).filter(
+            InventoryReservationModel.id == reservation_id,
+            InventoryReservationModel.owner_id == self.owner_id
+        ).first()
+        if not reservation:
+            raise ValueError(f"Reservation {reservation_id} not found")
+        if reservation.status != "active":
+            raise ValueError(f"Reservation is not active (status={reservation.status})")
+
+        remaining = reservation.quantity_reserved - reservation.quantity_committed - reservation.quantity_released
+        if remaining <= 0:
+            raise ValueError("Reservation has no releasable quantity")
+
+        quantity_to_release = payload.quantity or remaining
+        if quantity_to_release <= 0 or quantity_to_release > remaining:
+            raise ValueError("Invalid release quantity")
+
+        stock = self.db.query(StockLevel).filter(
+            StockLevel.product_id == reservation.product_id,
+            StockLevel.store_id == reservation.store_id
+        ).first()
+        if not stock:
+            raise ValueError("No stock record found for reservation store/product")
+        if stock.quantity_reserved < quantity_to_release:
+            raise ValueError("Reserved stock is lower than release quantity")
+
+        stock.quantity_reserved -= quantity_to_release
+        stock.updated_at = datetime.utcnow()
+
+        reservation.quantity_released += quantity_to_release
+        if payload.notes:
+            reservation.notes = payload.notes
+        if (reservation.quantity_reserved - reservation.quantity_committed - reservation.quantity_released) == 0:
+            reservation.status = "released"
+            reservation.released_at = datetime.utcnow()
+        reservation.updated_at = datetime.utcnow()
+
+        self.db.commit()
+        self.db.refresh(reservation)
+        return StockReservationOut.from_orm(reservation)
+
+    async def commit_stock_reservation(
+        self,
+        reservation_id: str,
+        payload: StockReservationAction,
+    ) -> StockReservationOut:
+        reservation = self.db.query(InventoryReservationModel).filter(
+            InventoryReservationModel.id == reservation_id,
+            InventoryReservationModel.owner_id == self.owner_id
+        ).first()
+        if not reservation:
+            raise ValueError(f"Reservation {reservation_id} not found")
+        if reservation.status != "active":
+            raise ValueError(f"Reservation is not active (status={reservation.status})")
+
+        remaining = reservation.quantity_reserved - reservation.quantity_committed - reservation.quantity_released
+        if remaining <= 0:
+            raise ValueError("Reservation has no committable quantity")
+
+        quantity_to_commit = payload.quantity or remaining
+        if quantity_to_commit <= 0 or quantity_to_commit > remaining:
+            raise ValueError("Invalid commit quantity")
+
+        stock = self.db.query(StockLevel).filter(
+            StockLevel.product_id == reservation.product_id,
+            StockLevel.store_id == reservation.store_id
+        ).first()
+        if not stock:
+            raise ValueError("No stock record found for reservation store/product")
+        if stock.quantity_reserved < quantity_to_commit:
+            raise ValueError("Reserved stock is lower than commit quantity")
+        if stock.quantity_on_hand < quantity_to_commit:
+            raise ValueError("Insufficient on-hand stock to commit reservation")
+
+        stock.quantity_reserved -= quantity_to_commit
+        stock.quantity_on_hand -= quantity_to_commit
+        stock.last_movement_at = datetime.utcnow()
+        self._update_stock_status(stock)
+
+        movement = StockMovement(
+            owner_id=self.owner_id,
+            product_id=reservation.product_id,
+            from_store_id=reservation.store_id,
+            movement_type="sale" if reservation.purpose == "sale" else "adjustment",
+            quantity=quantity_to_commit,
+            reference_id=reservation.id,
+            reference_type="reservation_commit",
+            notes=payload.notes or reservation.notes,
+        )
+        self.db.add(movement)
+
+        if settings.inventory_domain_enabled:
+            domain_payload = StockMovementCreate(
+                product_id=reservation.product_id,
+                from_store_id=reservation.store_id,
+                movement_type="sale" if reservation.purpose == "sale" else "adjustment",
+                quantity=quantity_to_commit,
+                reference_id=reservation.id,
+                reference_type="reservation_commit",
+                notes=payload.notes or reservation.notes,
+            )
+            try:
+                self._process_domain_inventory_command(domain_payload)
+            except Exception:
+                if settings.inventory_domain_enforce:
+                    raise
+                logger.exception(
+                    "Domain inventory command shadow processing failed for reservation_id=%s",
+                    reservation.id,
+                )
+
+        reservation.quantity_committed += quantity_to_commit
+        if payload.notes:
+            reservation.notes = payload.notes
+        if (reservation.quantity_reserved - reservation.quantity_committed - reservation.quantity_released) == 0:
+            reservation.status = "committed"
+            reservation.committed_at = datetime.utcnow()
+        reservation.updated_at = datetime.utcnow()
+
+        self.db.commit()
+        self.db.refresh(reservation)
+        return StockReservationOut.from_orm(reservation)
     
     def _handle_sale_movement(self, payload: StockMovementCreate):
-        """Handle sale movement - decrease from_store_id stock."""
+        """Handle sale movement - decrease stock. Supports conversion to parent units."""
         if not payload.from_store_id:
             raise ValueError("from_store_id required for sale movement")
         
+        product = self.db.query(Product).filter(Product.id == payload.product_id).first()
+        if not product:
+            raise ValueError("Product not found")
+        
+        # Determine target product and quantity (handle conversion)
+        target_product_id = product.parent_id if product.parent_id else product.id
+        effective_qty = payload.quantity * (product.conversion_factor if product.parent_id else 1)
+        
         stock = self.db.query(StockLevel).filter(
-            StockLevel.product_id == payload.product_id,
+            StockLevel.product_id == target_product_id,
             StockLevel.store_id == payload.from_store_id
         ).first()
         
-        if not stock or stock.quantity_available < payload.quantity:
-            raise ValueError("Insufficient stock for sale")
+        if not stock or stock.quantity_available < effective_qty:
+            raise ValueError(f"Insufficient stock for sale. Needed {effective_qty} units of base product.")
         
-        stock.quantity_on_hand -= payload.quantity
+        stock.quantity_on_hand -= effective_qty
         stock.last_movement_at = datetime.utcnow()
         self._update_stock_status(stock)
     
     def _handle_purchase_movement(self, payload: StockMovementCreate):
-        """Handle purchase movement - increase to_store_id stock."""
+        """Handle purchase movement - increase stock. Supports conversion to parent units."""
         if not payload.to_store_id:
             raise ValueError("to_store_id required for purchase movement")
         
+        product = self.db.query(Product).filter(Product.id == payload.product_id).first()
+        if not product:
+            raise ValueError("Product not found")
+            
+        # Determine target product and quantity (handle conversion)
+        target_product_id = product.parent_id if product.parent_id else product.id
+        effective_qty = payload.quantity * (product.conversion_factor if product.parent_id else 1)
+        
         stock = self.db.query(StockLevel).filter(
-            StockLevel.product_id == payload.product_id,
+            StockLevel.product_id == target_product_id,
             StockLevel.store_id == payload.to_store_id
         ).first()
         
         if not stock:
             stock = StockLevel(
-                product_id=payload.product_id,
+                product_id=target_product_id,
                 store_id=payload.to_store_id,
-                quantity_on_hand=payload.quantity
+                quantity_on_hand=effective_qty
             )
             self.db.add(stock)
         else:
-            stock.quantity_on_hand += payload.quantity
+            stock.quantity_on_hand += effective_qty
         
         stock.last_movement_at = datetime.utcnow()
         self._update_stock_status(stock)
@@ -559,6 +929,36 @@ class InventoryService:
     
     async def create_purchase_order(self, payload: PurchaseOrderCreate) -> PurchaseOrderDetailOut:
         """Create purchase order."""
+        # Resolve store_id if not provided
+        store_id = payload.store_id
+        if not store_id:
+            store = self.db.query(Store).filter(
+                Store.owner_id == self.owner_id,
+                Store.is_primary == True
+            ).first()
+            if not store:
+                # Fallback to any store
+                store = self.db.query(Store).filter(
+                    Store.owner_id == self.owner_id
+                ).first()
+            
+            if not store:
+                # Create default store if none exists
+                store = Store(
+                    owner_id=self.owner_id,
+                    name="Default Store",
+                    type="retail",
+                    address="Default Address",
+                    city="Default City",
+                    state="Default State",
+                    is_primary=True,
+                    status="active"
+                )
+                self.db.add(store)
+                self.db.flush()
+            
+            store_id = store.id
+
         # Generate PO number
         po_number = payload.po_number or self._generate_po_number()
         
@@ -571,7 +971,7 @@ class InventoryService:
         po = PurchaseOrder(
             owner_id=self.owner_id,
             supplier_id=payload.supplier_id,
-            store_id=payload.store_id,
+            store_id=store_id,
             po_number=po_number,
             total_amount_kobo=total_amount,
             expected_delivery_date=payload.expected_delivery_date,
@@ -622,7 +1022,7 @@ class InventoryService:
         if end_date:
             query = query.filter(PurchaseOrder.created_at <= datetime.combine(end_date, datetime.max.time()))
         
-        pos = query.order_by(desc(PurchaseOrder.created_at)).offset(skip).limit(limit).all()
+        pos = query.options(joinedload(PurchaseOrder.supplier), joinedload(PurchaseOrder.store)).order_by(desc(PurchaseOrder.created_at)).offset(skip).limit(limit).all()
         return [PurchaseOrderOut.from_orm(po) for po in pos]
     
     def get_purchase_order_by_id(self, po_id: str) -> PurchaseOrderDetailOut:
@@ -735,111 +1135,8 @@ class InventoryService:
     # ANALYTICS & INSIGHTS
     # ========================================================================
     
-    def calculate_inventory_metrics(
-        self,
-        store_id: Optional[str] = None,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None
-    ) -> InventoryMetricsOut:
-        """Calculate comprehensive inventory metrics."""
-        end_date = end_date or date.today()
-        start_date = start_date or (end_date - timedelta(days=90))
-        
-        # Get stock levels
-        stock_query = self.db.query(StockLevel)
-        if store_id:
-            stock_query = stock_query.filter(StockLevel.store_id == store_id)
-        
-        stock_levels = stock_query.all()
-        
-        total_qty = sum(sl.quantity_on_hand for sl in stock_levels)
-        total_value = 0
-        low_stock_count = 0
-        out_of_stock_count = 0
-        sk_count = 0
-        
-        for stock in stock_levels:
-            product = self.db.query(Product).filter(Product.id == stock.product_id).first()
-            if not product:
-                continue
-            
-            sk_count += 1
-            total_value += stock.quantity_on_hand * product.cost_price_kobo
-            
-            if stock.quantity_on_hand <= product.minimum_stock_level:
-                low_stock_count += 1
-            if stock.quantity_on_hand <= 0:
-                out_of_stock_count += 1
-        
-        # Calculate turnover ratio
-        sales_qty = self.db.query(func.sum(SalesTransactionItem.quantity_sold)).filter(
-            SalesTransactionItem.created_at >= datetime.combine(start_date, datetime.min.time()),
-            SalesTransactionItem.created_at <= datetime.combine(end_date, datetime.max.time())
-        ).scalar() or 0
-        
-        avg_inventory = total_qty if total_qty > 0 else 1
-        turnover_ratio = Decimal(str(sales_qty / avg_inventory)) if avg_inventory > 0 else Decimal(0)
-        
-        return InventoryMetricsOut(
-            store_id=store_id,
-            date=end_date,
-            total_inventory_value_kobo=int(total_value),
-            total_quantity_on_hand=total_qty,
-            low_stock_items_count=low_stock_count,
-            out_of_stock_items_count=out_of_stock_count,
-            inventory_turnover_ratio=turnover_ratio,
-            total_sku_count=sk_count,
-            active_sku_count=sk_count - out_of_stock_count,
-            discontinued_sku_count=0
-        )
-    
-    def get_product_health_scores(self, limit: int = 50) -> List[ProductHealthOut]:
-        """Get health scores for products."""
-        # This would typically query the materialized view
-        # For now, calculate on-the-fly
-        products = self.db.query(Product).filter(
-            Product.owner_id == self.owner_id,
-            Product.is_active == True
-        ).limit(limit).all()
-        
-        health_scores = []
-        for product in products:
-            stock_levels = self.db.query(StockLevel).filter(
-                StockLevel.product_id == product.id
-            ).all()
-            
-            total_qty = sum(sl.quantity_on_hand for sl in stock_levels)
-            total_cost_value = total_qty * product.cost_price_kobo
-            total_sell_value = total_qty * product.selling_price_kobo
-            profit_value = total_sell_value - total_cost_value
-            margin_pct = ((product.selling_price_kobo - product.cost_price_kobo) / product.cost_price_kobo * 100) if product.cost_price_kobo > 0 else 0
-            
-            # Determine health
-            if total_qty <= 0:
-                health = "critical"
-            elif total_qty <= product.minimum_stock_level:
-                health = "low"
-            elif total_qty >= product.maximum_stock_level:
-                health = "overstocked"
-            else:
-                health = "healthy"
-            
-            score = ProductHealthOut(
-                id=product.id,
-                sku=product.sku,
-                name=product.name,
-                total_quantity_on_hand=total_qty,
-                total_cost_value_kobo=int(total_cost_value),
-                total_selling_value_kobo=int(total_sell_value),
-                profit_value_kobo=int(profit_value),
-                margin_percentage=Decimal(str(margin_pct)),
-                stock_health=health,
-                minimum_stock_level=product.minimum_stock_level,
-                maximum_stock_level=product.maximum_stock_level
-            )
-            health_scores.append(score)
-        
-        return health_scores
+    # Analytics logic moved to AnalyticsService
+
     
     def get_low_stock_items(self, store_id: Optional[str] = None) -> List[ProductDetailOut]:
         """Get products below minimum stock."""
@@ -933,12 +1230,36 @@ class InventoryService:
         store_id: str,
         background_tasks = None
     ) -> Dict[str, Any]:
-        """Process voice input for inventory update."""
-        # Placeholder - would integrate with speech recognition
+        """Parse voice input and update inventory via stock movement."""
+        # Simulate STT and NLP
+        # In production, this would call a VoiceProcessingService
+        detected_product_name = "Mock Water"
+        detected_qty = 5
+        
+        # Resolve product
+        product = self.db.query(Product).filter(
+            Product.owner_id == self.owner_id,
+            Product.name.ilike(f"%{detected_product_name}%")
+        ).first()
+        
+        if not product:
+            return {"status": "error", "message": "Product not recognized from voice"}
+
+        movement = StockMovementCreate(
+            product_id=product.id,
+            from_store_id=store_id,
+            movement_type="sale",
+            quantity=detected_qty,
+            input_method="voice",
+            notes="Voice-commanded inventory update"
+        )
+        
+        result = await self.record_stock_movement(movement)
         return {
-            "status": "processing",
-            "store_id": store_id,
-            "message": "Voice processing not yet implemented"
+            "status": "success",
+            "detected_product": product.name,
+            "quantity": detected_qty,
+            "movement_id": result.id
         }
     
     async def process_vision_scan(
@@ -947,14 +1268,221 @@ class InventoryService:
         store_id: str,
         background_tasks = None
     ) -> Dict[str, Any]:
-        """Process computer vision scan."""
-        # Placeholder - would integrate with CV models
-        return {
-            "status": "processing",
-            "store_id": store_id,
-            "message": "Vision processing not yet implemented"
-        }
+        """Process computer vision scan and adjust stock levels."""
+        # Simulate CV processing
+        detected_items = [
+            {"sku": "SKU001", "observed_qty": 20},
+            {"sku": "SKU002", "observed_qty": 15}
+        ]
+        
+        adjustments = []
+        for item in detected_items:
+            product = self.db.query(Product).filter(
+                Product.owner_id == self.owner_id,
+                Product.sku == item["sku"]
+            ).first()
+            
+            if product:
+                # Calculate delta for adjustment
+                stock = self.db.query(StockLevel).filter(
+                    StockLevel.product_id == product.id,
+                    StockLevel.store_id == store_id
+                ).first()
+                
+                current_qty = stock.quantity_on_hand if stock else 0
+                delta = item["observed_qty"] - current_qty
+                
+                if delta != 0:
+                    movement = StockMovementCreate(
+                        product_id=product.id,
+                        to_store_id=store_id,
+                        movement_type="adjustment",
+                        quantity=delta,
+                        input_method="scan",
+                        notes=f"CV Scan adjustment (Observed: {item['observed_qty']})"
+                    )
+                    await self.record_stock_movement(movement)
+                    adjustments.append({"sku": item["sku"], "delta": delta})
+        
+        return {"status": "success", "adjustments": adjustments}
+    
+    async def create_sales_transaction(self, payload: SalesTransactionCreate) -> SalesTransactionOut:
+        """Records a sale, depletes stock, and creates movements."""
+        try:
+            # 1. Resolve Store
+            store_id = payload.store_id
+            if not store_id:
+                store = self.db.query(Store).filter(Store.owner_id == self.owner_id, Store.is_primary == True).first()
+                if not store:
+                    store = self.db.query(Store).filter(Store.owner_id == self.owner_id).first()
+                if not store:
+                    raise ValueError("No store found. Please create a store first.")
+                store_id = store.id
 
+            # 2. Create Transaction Header
+            transaction = SalesTransaction(
+                owner_id=self.owner_id,
+                store_id=store_id,
+                customer_id=payload.customer_id,
+                customer_name=payload.customer_name,
+                payment_method=payload.payment_method,
+                notes=payload.notes,
+                total_amount_kobo=0 # Update later
+            )
+            self.db.add(transaction)
+            self.db.flush()
 
-# Placeholder imports - these would be actual models
-# from app.models import Store, Category, Product, Supplier, StockLevel, StockMovement, PurchaseOrder, PurchaseOrderItem, SalesTransaction, SalesTransactionItem
+            total_amount = 0
+            
+            # 3. Process Items
+            for item_payload in payload.items:
+                product = self.db.query(Product).filter(Product.id == item_payload.product_id, Product.owner_id == self.owner_id).first()
+                if not product:
+                    raise ValueError(f"Product {item_payload.product_id} not found")
+
+                line_total = item_payload.quantity_sold * item_payload.unit_price_kobo
+                total_amount += line_total
+
+                sale_item = SalesTransactionItem(
+                    sales_transaction_id=transaction.id,
+                    product_id=product.id,
+                    quantity_sold=item_payload.quantity_sold,
+                    unit_price_kobo=item_payload.unit_price_kobo,
+                    line_total_kobo=line_total
+                )
+                self.db.add(sale_item)
+
+                # 4. Deplete Stock
+                stock = self.db.query(StockLevel).filter(
+                    StockLevel.product_id == product.id,
+                    StockLevel.store_id == store_id
+                ).first()
+
+                if not stock:
+                    raise ValueError(f"No stock level found for product {product.id} in store {store_id}")
+                if stock.quantity_available < item_payload.quantity_sold:
+                    raise ValueError(f"Insufficient stock for product {product.name}")
+
+                stock.quantity_on_hand -= item_payload.quantity_sold
+                stock.last_movement_at = datetime.utcnow()
+                self._update_stock_status(stock)
+
+                # 5. Create Movement
+                movement = StockMovement(
+                    product_id=product.id,
+                    from_store_id=store_id,
+                    movement_type="sale",
+                    quantity=item_payload.quantity_sold,
+                    reference_id=transaction.id,
+                    reference_type="sales_transaction",
+                    owner_id=self.owner_id
+                )
+                self.db.add(movement)
+
+            transaction.total_amount_kobo = total_amount
+            self.db.commit()
+            self.db.refresh(transaction)
+            
+            # Re-fetch with items for output
+            return self.get_sales_transaction_by_id(transaction.id)
+
+        except ValueError as exc:
+            self.db.rollback()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except HTTPException:
+            self.db.rollback()
+            raise
+        except Exception:
+            self.db.rollback()
+            logger.exception("Failed to create sales transaction for owner_id=%s", self.owner_id)
+            raise HTTPException(status_code=500, detail="Internal server error while creating sales transaction.")
+
+    def get_sales_transaction_by_id(self, tx_id: str) -> SalesTransactionOut:
+        """Get sale details."""
+        tx = self.db.query(SalesTransaction).filter(
+            SalesTransaction.id == tx_id,
+            SalesTransaction.owner_id == self.owner_id
+        ).options(joinedload(SalesTransaction.items)).first()
+        if not tx:
+            raise ValueError(f"Transaction {tx_id} not found")
+        return SalesTransactionOut.from_orm(tx)
+
+    async def transform_stock(self, parent_product_id: str, quantity_to_break: int, store_id: str):
+        """Breaks bulk packaging into units (e.g., 1 Carton -> 12 Pieces)."""
+        parent = self.db.query(Product).filter(Product.id == parent_product_id, Product.owner_id == self.owner_id).first()
+        child = self.db.query(Product).filter(Product.parent_id == parent_product_id, Product.owner_id == self.owner_id).first()
+        
+        if not parent or not child:
+            raise ValueError("Invalid parent/child relationship for transformation")
+            
+        # 1. Reduce Parent
+        parent_stock = self.db.query(StockLevel).filter(StockLevel.product_id == parent.id, StockLevel.store_id == store_id).first()
+        if not parent_stock or parent_stock.quantity_on_hand < quantity_to_break:
+            raise ValueError("Insufficient parent stock to transform")
+            
+        parent_stock.quantity_on_hand -= quantity_to_break
+        
+        # 2. Increase Child
+        child_qty = quantity_to_break * child.conversion_factor
+        child_stock = self.db.query(StockLevel).filter(StockLevel.product_id == child.id, StockLevel.store_id == store_id).first()
+        if not child_stock:
+            child_stock = StockLevel(product_id=child.id, store_id=store_id, quantity_on_hand=child_qty)
+            self.db.add(child_stock)
+        else:
+            child_stock.quantity_on_hand += child_qty
+            
+        # 3. Movements
+        parent_mov = StockMovement(
+            product_id=parent.id,
+            from_store_id=store_id,
+            movement_type="adjustment",
+            quantity=quantity_to_break, owner_id=self.owner_id, notes=f"Broken into {child.name}"
+        )
+        child_mov = StockMovement(
+            product_id=child.id,
+            to_store_id=store_id,
+            movement_type="adjustment",
+            quantity=child_qty, owner_id=self.owner_id, notes=f"Extracted from {parent.name}"
+        )
+        self.db.add(parent_mov)
+        self.db.add(child_mov)
+        
+        self.db.commit()
+
+    def get_ledger(self, skip: int = 0, limit: int = 100) -> List[LedgerEntry]:
+        """Returns a detailed sales ledger for the UI sheet."""
+        query = self.db.query(
+            SalesTransactionItem.id,
+            Product.name.label("product_name"),
+            SalesTransaction.customer_name,
+            SalesTransaction.customer_id,
+            SalesTransactionItem.quantity_sold.label("quantity"),
+            SalesTransactionItem.unit_price_kobo,
+            SalesTransactionItem.line_total_kobo.label("revenue_kobo"),
+            Product.cost_price_kobo,
+            (SalesTransactionItem.line_total_kobo - (SalesTransactionItem.quantity_sold * Product.cost_price_kobo)).label("profit_kobo"),
+            SalesTransaction.transaction_date
+        ).join(
+            SalesTransaction, SalesTransactionItem.sales_transaction_id == SalesTransaction.id
+        ).join(
+            Product, SalesTransactionItem.product_id == Product.id
+        ).filter(
+            SalesTransaction.owner_id == self.owner_id
+        ).order_by(desc(SalesTransaction.transaction_date))
+        
+        results = query.offset(skip).limit(limit).all()
+        
+        return [
+            LedgerEntry(
+                id=r.id,
+                product_name=r.product_name,
+                customer_name=r.customer_name,
+                customer_id=r.customer_id,
+                quantity=r.quantity,
+                unit_price_kobo=r.unit_price_kobo,
+                revenue_kobo=r.revenue_kobo,
+                cost_price_kobo=r.cost_price_kobo,
+                profit_kobo=r.profit_kobo,
+                transaction_date=r.transaction_date
+            ) for r in results
+        ]

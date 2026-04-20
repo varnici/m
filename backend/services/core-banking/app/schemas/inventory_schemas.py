@@ -9,7 +9,7 @@ from typing import List, Optional, Any, Dict
 from decimal import Decimal
 from enum import Enum
 
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, validator, model_validator
 
 
 # ============================================================================
@@ -54,6 +54,14 @@ class StoreTypeEnum(str, Enum):
     DISTRIBUTION = "distribution"
 
 
+class ReservationStatusEnum(str, Enum):
+    ACTIVE = "active"
+    RELEASED = "released"
+    COMMITTED = "committed"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
+
+
 # ============================================================================
 # STORE/LOCATION SCHEMAS
 # ============================================================================
@@ -89,7 +97,7 @@ class StoreOut(StoreCreate):
 
 class CategoryCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    slug: str = Field(..., min_length=1, max_length=100, regex="^[a-z0-9-]+$")
+    slug: str = Field(..., min_length=1, max_length=100, pattern="^[a-z0-9-]+$")
     description: Optional[str] = None
     parent_id: Optional[str] = None
     image_url: Optional[str] = None
@@ -119,7 +127,7 @@ class CategoryOut(CategoryCreate):
 
 class ProductCreate(BaseModel):
     category_id: Optional[str] = None
-    sku: str = Field(..., min_length=1, max_length=50, regex="^[A-Z0-9-]+$")
+    sku: str = Field(..., min_length=1, max_length=50, pattern="^[A-Z0-9-]+$")
     barcode: Optional[str] = None
     qr_code: Optional[str] = None
     name: str = Field(..., min_length=1, max_length=255)
@@ -137,6 +145,14 @@ class ProductCreate(BaseModel):
     requires_lot_tracking: bool = False
     nafdac_number: Optional[str] = None
     image_url: Optional[str] = None
+    is_active: bool = True
+
+    # Bulk/Packaging handling
+    parent_id: Optional[str] = None
+    conversion_factor: int = 1
+    # Optional initial stock initialization
+    quantity_on_hand: Optional[int] = Field(None, ge=0)
+    store_id: Optional[str] = None
 
     @validator("selling_price_kobo")
     def validate_selling_price(cls, v, values):
@@ -170,6 +186,8 @@ class ProductOut(ProductCreate):
     id: str
     owner_id: str
     is_active: bool
+    parent_id: Optional[str]
+    conversion_factor: int
     created_at: datetime
     updated_at: datetime
 
@@ -190,6 +208,7 @@ class ProductDetailOut(ProductOut):
     reorder_recommendation: Optional[int] = None
     preferred_supplier_id: Optional[str] = None
     is_dead_stock: bool = False
+    children: List[ProductOut] = []
 
 
 # ============================================================================
@@ -240,6 +259,71 @@ class StockMovementOut(StockMovementCreate):
 
     class Config:
         from_attributes = True
+
+
+class StockReservationCreate(BaseModel):
+    product_id: str
+    store_id: str
+    quantity: int = Field(..., gt=0)
+    purpose: str = Field(default="sale", min_length=1, max_length=50)
+    reference_id: Optional[str] = None
+    reference_type: Optional[str] = None
+    notes: Optional[str] = None
+    expires_at: Optional[datetime] = None
+
+
+class StockReservationAction(BaseModel):
+    quantity: Optional[int] = Field(None, gt=0)
+    notes: Optional[str] = None
+
+
+class StockReservationOut(BaseModel):
+    id: str
+    owner_id: str
+    product_id: str
+    store_id: str
+    status: ReservationStatusEnum
+    purpose: str
+    quantity_reserved: int
+    quantity_committed: int
+    quantity_released: int
+    reference_id: Optional[str] = None
+    reference_type: Optional[str] = None
+    notes: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+    released_at: Optional[datetime] = None
+    committed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class OutboxMessageOut(BaseModel):
+    id: str
+    topic: str
+    event_type: str
+    owner_id: str
+    command_id: str
+    payload: Dict[str, Any]
+    status: str
+    error_message: Optional[str] = None
+    published_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OutboxProcessResult(BaseModel):
+    attempted: int
+    published: int
+    dead_lettered: int
+
+
+class OutboxReplayResult(BaseModel):
+    requeued: int
 
 
 # ============================================================================
@@ -308,18 +392,18 @@ class PurchaseOrderItemCreate(BaseModel):
 
 class PurchaseOrderCreate(BaseModel):
     supplier_id: str
-    store_id: str
+    store_id: Optional[str] = None  # Optional, will default to primary store in service
     po_number: Optional[str] = None  # Auto-generated if not provided
     items: List[PurchaseOrderItemCreate] = Field(..., min_items=1)
     expected_delivery_date: Optional[date] = None
     notes: Optional[str] = None
 
-    @root_validator
-    def validate_items(cls, values):
-        items = values.get("items", [])
+    @model_validator(mode='after')
+    def validate_items(self) -> PurchaseOrderCreate:
+        items = self.items
         if not items or len(items) == 0:
             raise ValueError("At least one item is required")
-        return values
+        return self
 
 
 class PurchaseOrderUpdate(BaseModel):
@@ -351,6 +435,8 @@ class PurchaseOrderOut(BaseModel):
     notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    supplier: Optional[SupplierOut] = None
+    store: Optional[StoreOut] = None
 
     class Config:
         from_attributes = True
@@ -365,6 +451,29 @@ class PurchaseOrderDetailOut(PurchaseOrderOut):
 # ============================================================================
 # ANALYTICS SCHEMAS
 # ============================================================================
+
+class RecentTransactionItem(BaseModel):
+    """Specific schema for recent dashboard transactions."""
+    id: str
+    date: str
+    amount_kobo: int
+    customer: str
+    product_name: str
+    quantity: int
+    unit_price_kobo: int
+    profit_kobo: int
+
+class InventoryDashboardSummary(BaseModel):
+    """Simplified summary for the main inventory dashboard."""
+    total_value_kobo: int
+    total_revenue_kobo: int
+    total_profit_kobo: int
+    turnover_ratio: float
+    turnover_description: str
+    dead_stock_count: int
+    best_sellers: List[Dict[str, Any]] = []
+    categories: List[Dict[str, Any]] = []
+    recent_transactions: List[RecentTransactionItem] = []
 
 class InventoryMetricsOut(BaseModel):
     """Comprehensive inventory dashboard metrics."""
@@ -451,3 +560,65 @@ class AnomalyDetectionOut(BaseModel):
     confidence_score: Decimal = Field(ge=0, le=1)
     description: str
     recommended_action: Optional[str] = None
+
+
+class LedgerEntry(BaseModel):
+    id: str
+    product_name: str
+    customer_name: Optional[str]
+    customer_id: Optional[str]
+    quantity: int
+    unit_price_kobo: int
+    revenue_kobo: int
+    cost_price_kobo: int
+    profit_kobo: int
+    transaction_date: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================================
+# SALES TRANSACTION SCHEMAS
+# ============================================================================
+
+class SalesTransactionItemCreate(BaseModel):
+    product_id: str
+    quantity_sold: int
+    unit_price_kobo: int
+
+class SalesTransactionCreate(BaseModel):
+    store_id: Optional[str] = None
+    customer_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    payment_method: Optional[str] = "cash"
+    notes: Optional[str] = None
+    items: List[SalesTransactionItemCreate]
+
+class SalesTransactionItemOut(BaseModel):
+    id: str
+    product_id: str
+    quantity_sold: int
+    unit_price_kobo: int
+    line_total_kobo: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class SalesTransactionOut(BaseModel):
+    id: str
+    owner_id: str
+    store_id: Optional[str]
+    customer_id: Optional[str]
+    customer_name: Optional[str]
+    total_amount_kobo: int
+    payment_method: Optional[str]
+    notes: Optional[str]
+    transaction_date: datetime
+    items: List[SalesTransactionItemOut]
+
+    class Config:
+        from_attributes = True
+
+

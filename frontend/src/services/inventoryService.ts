@@ -1,74 +1,9 @@
-/**
- * Inventory Service - Frontend API Client
- * Type-safe API communication with full Supabase integration
- */
+import { BaseService } from './baseService';
 
-import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/types/database.types';
-
-interface ApiConfig {
-  baseURL: string;
-  timeout: number;
-}
-
-export class InventoryService {
-  private supabase = createClient<Database>(
-    process.env.EXPO_PUBLIC_SUPABASE_URL!,
-    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  private config: ApiConfig = {
-    baseURL: process.env.EXPO_PUBLIC_API_URL!,
-    timeout: 30000,
-  };
-
+export class InventoryService extends BaseService {
   /**
-   * Fetch with JWT authentication
+   * Fetch with JWT authentication (re-using BaseService)
    */
-  private async fetchWithAuth(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<Response> {
-    const {
-      data: { session },
-    } = await this.supabase.auth.getSession();
-
-    if (!session?.access_token) {
-      throw new Error('Unauthorized: No session');
-    }
-
-    const url = `${this.config.baseURL}${endpoint}`;
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
-      ...options.headers,
-    };
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
-
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(
-          error.detail || error.message || `HTTP ${response.status}`
-        );
-      }
-
-      return response;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      throw error;
-    }
-  }
 
   // ========================================================================
   // PRODUCTS
@@ -123,6 +58,18 @@ export class InventoryService {
         method: 'PUT',
         body: JSON.stringify(data),
       }
+    );
+    return response.json();
+  }
+
+  async getInventoryLedger(skip: number = 0, limit: number = 100): Promise<any[]> {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+    });
+
+    const response = await this.fetchWithAuth(
+      `/v1/inventory/analytics/ledger?${params}`
     );
     return response.json();
   }
@@ -186,6 +133,64 @@ export class InventoryService {
 
     const response = await this.fetchWithAuth(
       `/v1/inventory/stock/movements?${params}`
+    );
+    return response.json();
+  }
+
+  async reserveStock(data: any): Promise<any> {
+    const response = await this.fetchWithAuth('/v1/inventory/stock/reservations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  async getStockReservations(
+    storeId?: string,
+    productId?: string,
+    status?: string,
+    skip: number = 0,
+    limit: number = 100
+  ): Promise<any[]> {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+      ...(storeId && { store_id: storeId }),
+      ...(productId && { product_id: productId }),
+      ...(status && { status }),
+    });
+
+    const response = await this.fetchWithAuth(
+      `/v1/inventory/stock/reservations?${params}`
+    );
+    return response.json();
+  }
+
+  async getStockReservation(reservationId: string): Promise<any> {
+    const response = await this.fetchWithAuth(
+      `/v1/inventory/stock/reservations/${reservationId}`
+    );
+    return response.json();
+  }
+
+  async releaseStockReservation(reservationId: string, quantity?: number, notes?: string): Promise<any> {
+    const response = await this.fetchWithAuth(
+      `/v1/inventory/stock/reservations/${reservationId}/release`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ quantity, notes }),
+      }
+    );
+    return response.json();
+  }
+
+  async commitStockReservation(reservationId: string, quantity?: number, notes?: string): Promise<any> {
+    const response = await this.fetchWithAuth(
+      `/v1/inventory/stock/reservations/${reservationId}/commit`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ quantity, notes }),
+      }
     );
     return response.json();
   }
@@ -417,6 +422,18 @@ export class InventoryService {
         }),
       }
     );
+    return response.json();
+  }
+
+  async transformInventoryStock(data: {
+    parent_product_id: string;
+    quantity_to_break: number;
+    store_id: string;
+  }): Promise<any> {
+    const response = await this.fetchWithAuth('/v1/inventory/analytics/transform', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
     return response.json();
   }
 }

@@ -13,9 +13,9 @@ from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
-from app.infrastructure.database import get_db
+from app.infrastructure.database import db_session
 from app.models.credit_score import CreditScore
 from app.models.loan import Loan
 from app.models.repayment import Repayment
@@ -43,7 +43,7 @@ SCORE_RANGES = {
 }
 
 
-async def calculate_sales_velocity_score(session: AsyncSession, user_id: str) -> int:
+def calculate_sales_velocity_score(session: Session, user_id: str) -> int:
     """
     Calculate sales velocity score (35% weight).
     Compares 7-day average vs 30-day average.
@@ -59,8 +59,7 @@ async def calculate_sales_velocity_score(session: AsyncSession, user_id: str) ->
         func.date(Sale.sold_at) >= week_ago,
         func.date(Sale.sold_at) <= today
     )
-    weekly_result = await session.execute(weekly_sales_query)
-    weekly_sales = weekly_result.scalar() or 0
+    weekly_sales = session.execute(weekly_sales_query).scalar() or 0
     weekly_avg = weekly_sales / 7
 
     # Get 30-day sales (last 30 days)
@@ -72,8 +71,7 @@ async def calculate_sales_velocity_score(session: AsyncSession, user_id: str) ->
         func.date(Sale.sold_at) >= month_ago,
         func.date(Sale.sold_at) <= today
     )
-    monthly_result = await session.execute(monthly_sales_query)
-    monthly_sales = monthly_result.scalar() or 0
+    monthly_sales = session.execute(monthly_sales_query).scalar() or 0
     monthly_avg = monthly_sales / 30
 
     if monthly_avg == 0:
@@ -88,15 +86,14 @@ async def calculate_sales_velocity_score(session: AsyncSession, user_id: str) ->
     return int(velocity_score)
 
 
-async def calculate_repayment_consistency_score(session: AsyncSession, user_id: str) -> int:
+def calculate_repayment_consistency_score(session: Session, user_id: str) -> int:
     """
     Calculate repayment consistency score (30% weight).
     Based on on-time repayments vs total repayments.
     """
     # Get all repayments for the user
     repayments_query = select(Repayment).where(Repayment.user_id == user_id)
-    repayments_result = await session.execute(repayments_query)
-    repayments = repayments_result.scalars().all()
+    repayments = session.execute(repayments_query).scalars().all()
 
     if not repayments:
         return 50  # Neutral score for no repayment history
@@ -113,14 +110,13 @@ async def calculate_repayment_consistency_score(session: AsyncSession, user_id: 
     return consistency_score
 
 
-async def calculate_category_risk_score(session: AsyncSession, user_id: str) -> int:
+def calculate_category_risk_score(session: Session, user_id: str) -> int:
     """
     Calculate category risk score (20% weight).
     Based on user's business category.
     """
     user_query = select(User.category).where(User.id == user_id)
-    user_result = await session.execute(user_query)
-    user_category = user_result.scalar()
+    user_category = session.execute(user_query).scalar()
 
     if not user_category:
         return 50  # Neutral score
@@ -128,7 +124,7 @@ async def calculate_category_risk_score(session: AsyncSession, user_id: str) -> 
     return CATEGORY_RISK_SCORES.get(user_category, 50)
 
 
-async def calculate_income_stability_score(session: AsyncSession, user_id: str) -> int:
+def calculate_income_stability_score(session: Session, user_id: str) -> int:
     """
     Calculate income stability score (15% weight).
     Based on standard deviation of daily sales over last 30 days.
@@ -146,7 +142,7 @@ async def calculate_income_stability_score(session: AsyncSession, user_id: str) 
         func.date(Sale.sold_at) <= today
     ).group_by(func.date(Sale.sold_at))
 
-    daily_result = await session.execute(daily_sales_query)
+    daily_result = session.execute(daily_sales_query).all()
     daily_sales = {row.sale_date: row.daily_sales for row in daily_result}
 
     if len(daily_sales) < 7:  # Need at least a week of data
@@ -202,17 +198,17 @@ def calculate_overall_score(driver_scores: Dict[str, int]) -> Tuple[int, str]:
     return score_int, tier
 
 
-async def recalculate_credit_score_for_user(session: AsyncSession, user_id: str) -> None:
+def recalculate_credit_score_for_user(session: Session, user_id: str) -> None:
     """
     Recalculate credit score for a single user.
     """
     try:
         # Calculate all driver scores
         driver_scores = {
-            'sales_velocity': await calculate_sales_velocity_score(session, user_id),
-            'repayment_consistency': await calculate_repayment_consistency_score(session, user_id),
-            'category_risk': await calculate_category_risk_score(session, user_id),
-            'income_stability': await calculate_income_stability_score(session, user_id),
+            'sales_velocity': calculate_sales_velocity_score(session, user_id),
+            'repayment_consistency': calculate_repayment_consistency_score(session, user_id),
+            'category_risk': calculate_category_risk_score(session, user_id),
+            'income_stability': calculate_income_stability_score(session, user_id),
         }
 
         # Calculate overall score and tier
@@ -248,34 +244,30 @@ async def recalculate_credit_score_for_user(session: AsyncSession, user_id: str)
         raise
 
 
-async def run_daily_credit_recalculation() -> None:
+def run_daily_credit_recalculation() -> None:
     """
     Main entry point for the daily credit score recalculation job.
     Processes all active users.
     """
-    async for session in get_db():
+    with db_session() as session:
         try:
             # Get all users (for now, all users are considered active)
-            # TODO: Add logic to filter only active users
             users_query = select(User.id)
-            users_result = await session.execute(users_query)
-            user_ids = [row.id for row in users_result]
+            user_ids = [row.id for row in session.execute(users_query)]
 
             processed_count = 0
-            for user_id in user_ids:
-                await recalculate_credit_score_for_user(session, user_id)
+            for user_id_row in user_ids:
+                recalculate_credit_score_for_user(session, user_id_row.id)
                 processed_count += 1
 
-            await session.commit()
+            session.commit()
             print(f"Successfully recalculated credit scores for {processed_count} users")
 
         except Exception as e:
-            await session.rollback()
+            session.rollback()
             print(f"Error in daily credit recalculation: {str(e)}")
             raise
 
 
 if __name__ == "__main__":
-    # For testing - run synchronously
-    import asyncio
-    asyncio.run(run_daily_credit_recalculation())
+    run_daily_credit_recalculation()

@@ -14,16 +14,27 @@
 -- SECTION 1: ENUM TYPES
 -- ============================================================================
 
-CREATE TYPE input_method AS ENUM ('manual', 'voice', 'scan', 'api');
-CREATE TYPE movement_type AS ENUM ('purchase', 'sale', 'adjustment', 'transfer', 'damage', 'return');
-CREATE TYPE stock_status AS ENUM ('in_stock', 'low_stock', 'out_of_stock', 'discontinued');
-CREATE TYPE purchase_order_status AS ENUM ('draft', 'pending', 'confirmed', 'shipped', 'received', 'cancelled');
+DO $$ BEGIN
+    CREATE TYPE input_method AS ENUM ('manual', 'voice', 'scan', 'api');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE movement_type AS ENUM ('purchase', 'sale', 'adjustment', 'transfer', 'damage', 'return');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE stock_status AS ENUM ('in_stock', 'low_stock', 'out_of_stock', 'overstocked', 'discontinued');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE purchase_order_status AS ENUM ('draft', 'pending', 'confirmed', 'shipped', 'received', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- ============================================================================
 -- SECTION 2: STORES & LOCATIONS (MULTI-LOCATION SUPPORT)
 -- ============================================================================
 
-CREATE TABLE stores (
+CREATE TABLE IF NOT EXISTS stores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
@@ -39,18 +50,19 @@ CREATE TABLE stores (
   is_primary BOOLEAN DEFAULT FALSE,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'closed')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  CONSTRAINT unique_primary_store_per_owner UNIQUE(owner_id, is_primary) WHERE is_primary = TRUE
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_stores_owner_id ON stores(owner_id);
-CREATE INDEX idx_stores_city ON stores(city);
+CREATE UNIQUE INDEX IF NOT EXISTS unique_primary_store_per_owner ON stores(owner_id) WHERE is_primary = TRUE;
+
+CREATE INDEX IF NOT EXISTS idx_stores_owner_id ON stores(owner_id);
+CREATE INDEX IF NOT EXISTS idx_stores_city ON stores(city);
 
 -- ============================================================================
 -- SECTION 3: PRODUCT CATALOG (ENHANCED)
 -- ============================================================================
 
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
@@ -65,10 +77,10 @@ CREATE TABLE categories (
   CONSTRAINT unique_category_slug_per_owner UNIQUE(owner_id, slug)
 );
 
-CREATE INDEX idx_categories_owner_id ON categories(owner_id);
-CREATE INDEX idx_categories_parent_id ON categories(parent_id);
+CREATE INDEX IF NOT EXISTS idx_categories_owner_id ON categories(owner_id);
+CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories(parent_id);
 
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
@@ -96,16 +108,16 @@ CREATE TABLE products (
   CONSTRAINT unique_sku_per_owner UNIQUE(owner_id, sku)
 );
 
-CREATE INDEX idx_products_owner_id ON products(owner_id);
-CREATE INDEX idx_products_category_id ON products(category_id);
-CREATE INDEX idx_products_sku ON products(owner_id, sku);
-CREATE INDEX idx_products_barcode ON products(owner_id, barcode) WHERE barcode IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_products_owner_id ON products(owner_id);
+CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_sku ON products(owner_id, sku);
+CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(owner_id, barcode) WHERE barcode IS NOT NULL;
 
 -- ============================================================================
 -- SECTION 4: SUPPLIER MANAGEMENT
 -- ============================================================================
 
-CREATE TABLE suppliers (
+CREATE TABLE IF NOT EXISTS suppliers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
@@ -127,11 +139,11 @@ CREATE TABLE suppliers (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_suppliers_owner_id ON suppliers(owner_id);
-CREATE INDEX idx_suppliers_status ON suppliers(owner_id, status);
+CREATE INDEX IF NOT EXISTS idx_suppliers_owner_id ON suppliers(owner_id);
+CREATE INDEX IF NOT EXISTS idx_suppliers_status ON suppliers(owner_id, status);
 
 -- Junction table: products to suppliers
-CREATE TABLE product_suppliers (
+CREATE TABLE IF NOT EXISTS product_suppliers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
   supplier_id UUID REFERENCES suppliers(id) ON DELETE CASCADE NOT NULL,
@@ -146,15 +158,15 @@ CREATE TABLE product_suppliers (
   CONSTRAINT unique_product_supplier UNIQUE(product_id, supplier_id)
 );
 
-CREATE INDEX idx_product_suppliers_product_id ON product_suppliers(product_id);
-CREATE INDEX idx_product_suppliers_supplier_id ON product_suppliers(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_product_suppliers_product_id ON product_suppliers(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_suppliers_supplier_id ON product_suppliers(supplier_id);
 
 -- ============================================================================
 -- SECTION 5: INVENTORY TRACKING (MULTI-LOCATION)
 -- ============================================================================
 
 -- Stock by location (warehouse/store)
-CREATE TABLE stock_levels (
+CREATE TABLE IF NOT EXISTS stock_levels (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
   store_id UUID REFERENCES stores(id) ON DELETE CASCADE NOT NULL,
@@ -169,12 +181,12 @@ CREATE TABLE stock_levels (
   CONSTRAINT unique_product_store UNIQUE(product_id, store_id)
 );
 
-CREATE INDEX idx_stock_levels_product_id ON stock_levels(product_id);
-CREATE INDEX idx_stock_levels_store_id ON stock_levels(store_id);
-CREATE INDEX idx_stock_levels_status ON stock_levels(store_id, status);
+CREATE INDEX IF NOT EXISTS idx_stock_levels_product_id ON stock_levels(product_id);
+CREATE INDEX IF NOT EXISTS idx_stock_levels_store_id ON stock_levels(store_id);
+CREATE INDEX IF NOT EXISTS idx_stock_levels_status ON stock_levels(store_id, status);
 
 -- Stock movements audit trail
-CREATE TABLE stock_movements (
+CREATE TABLE IF NOT EXISTS stock_movements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID REFERENCES products(id) ON DELETE RESTRICT NOT NULL,
   from_store_id UUID REFERENCES stores(id) ON DELETE SET NULL,
@@ -191,16 +203,16 @@ CREATE TABLE stock_movements (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_stock_movements_product_id ON stock_movements(product_id);
-CREATE INDEX idx_stock_movements_owner_id ON stock_movements(owner_id);
-CREATE INDEX idx_stock_movements_created_at ON stock_movements(owner_id, created_at);
-CREATE INDEX idx_stock_movements_reference ON stock_movements(reference_type, reference_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON stock_movements(product_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_owner_id ON stock_movements(owner_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_created_at ON stock_movements(owner_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_reference ON stock_movements(reference_type, reference_id);
 
 -- ============================================================================
 -- SECTION 6: PURCHASE ORDERS
 -- ============================================================================
 
-CREATE TABLE purchase_orders (
+CREATE TABLE IF NOT EXISTS purchase_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   supplier_id UUID REFERENCES suppliers(id) ON DELETE RESTRICT NOT NULL,
@@ -216,12 +228,12 @@ CREATE TABLE purchase_orders (
   CONSTRAINT unique_po_number_per_owner UNIQUE(owner_id, po_number)
 );
 
-CREATE INDEX idx_purchase_orders_owner_id ON purchase_orders(owner_id);
-CREATE INDEX idx_purchase_orders_supplier_id ON purchase_orders(supplier_id);
-CREATE INDEX idx_purchase_orders_status ON purchase_orders(owner_id, status);
-CREATE INDEX idx_purchase_orders_created_at ON purchase_orders(owner_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_owner_id ON purchase_orders(owner_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_supplier_id ON purchase_orders(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders(owner_id, status);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_created_at ON purchase_orders(owner_id, created_at);
 
-CREATE TABLE purchase_order_items (
+CREATE TABLE IF NOT EXISTS purchase_order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   purchase_order_id UUID REFERENCES purchase_orders(id) ON DELETE CASCADE NOT NULL,
   product_id UUID REFERENCES products(id) ON DELETE RESTRICT NOT NULL,
@@ -233,14 +245,14 @@ CREATE TABLE purchase_order_items (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_po_items_purchase_order_id ON purchase_order_items(purchase_order_id);
-CREATE INDEX idx_po_items_product_id ON purchase_order_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_po_items_purchase_order_id ON purchase_order_items(purchase_order_id);
+CREATE INDEX IF NOT EXISTS idx_po_items_product_id ON purchase_order_items(product_id);
 
 -- ============================================================================
 -- SECTION 7: INVENTORY ANALYTICS & PREDICTIONS
 -- ============================================================================
 
-CREATE TABLE inventory_snapshots (
+CREATE TABLE IF NOT EXISTS inventory_snapshots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   store_id UUID REFERENCES stores(id) ON DELETE CASCADE NOT NULL,
@@ -254,10 +266,10 @@ CREATE TABLE inventory_snapshots (
   CONSTRAINT unique_snapshot UNIQUE(owner_id, store_id, snapshot_date)
 );
 
-CREATE INDEX idx_inventory_snapshots_owner_date ON inventory_snapshots(owner_id, snapshot_date);
-CREATE INDEX idx_inventory_snapshots_store_date ON inventory_snapshots(store_id, snapshot_date);
+CREATE INDEX IF NOT EXISTS idx_inventory_snapshots_owner_date ON inventory_snapshots(owner_id, snapshot_date);
+CREATE INDEX IF NOT EXISTS idx_inventory_snapshots_store_date ON inventory_snapshots(store_id, snapshot_date);
 
-CREATE TABLE ai_predictions (
+CREATE TABLE IF NOT EXISTS ai_predictions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   product_id UUID REFERENCES products(id) ON DELETE CASCADE,
@@ -273,14 +285,14 @@ CREATE TABLE ai_predictions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_ai_predictions_owner_product ON ai_predictions(owner_id, product_id);
-CREATE INDEX idx_ai_predictions_type_date ON ai_predictions(prediction_type, prediction_date);
+CREATE INDEX IF NOT EXISTS idx_ai_predictions_owner_product ON ai_predictions(owner_id, product_id);
+CREATE INDEX IF NOT EXISTS idx_ai_predictions_type_date ON ai_predictions(prediction_type, prediction_date);
 
 -- ============================================================================
 -- SECTION 8: SALES TRANSACTIONS (LINKED TO INVENTORY)
 -- ============================================================================
 
-CREATE TABLE sales_transactions (
+CREATE TABLE IF NOT EXISTS sales_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   store_id UUID REFERENCES stores(id) ON DELETE SET NULL,
@@ -291,10 +303,10 @@ CREATE TABLE sales_transactions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_sales_transactions_owner_date ON sales_transactions(owner_id, transaction_date);
-CREATE INDEX idx_sales_transactions_store_date ON sales_transactions(store_id, transaction_date);
+CREATE INDEX IF NOT EXISTS idx_sales_transactions_owner_date ON sales_transactions(owner_id, transaction_date);
+CREATE INDEX IF NOT EXISTS idx_sales_transactions_store_date ON sales_transactions(store_id, transaction_date);
 
-CREATE TABLE sales_transaction_items (
+CREATE TABLE IF NOT EXISTS sales_transaction_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sales_transaction_id UUID REFERENCES sales_transactions(id) ON DELETE CASCADE NOT NULL,
   product_id UUID REFERENCES products(id) ON DELETE RESTRICT NOT NULL,
@@ -304,15 +316,15 @@ CREATE TABLE sales_transaction_items (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_sales_items_transaction_id ON sales_transaction_items(sales_transaction_id);
-CREATE INDEX idx_sales_items_product_id ON sales_transaction_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_sales_items_transaction_id ON sales_transaction_items(sales_transaction_id);
+CREATE INDEX IF NOT EXISTS idx_sales_items_product_id ON sales_transaction_items(product_id);
 
 -- ============================================================================
 -- SECTION 9: MATERIALIZED VIEWS FOR ANALYTICS (INDEXED & FAST)
 -- ============================================================================
 
 -- Product health scorecard
-CREATE MATERIALIZED VIEW mv_product_health AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_product_health AS
 SELECT 
   p.id,
   p.owner_id,
@@ -340,11 +352,11 @@ WHERE p.is_active = TRUE
 GROUP BY p.id, p.owner_id, p.sku, p.name, p.minimum_stock_level, p.maximum_stock_level, 
          p.cost_price_kobo, p.selling_price_kobo, p.created_at;
 
-CREATE INDEX idx_mv_product_health_owner ON mv_product_health(owner_id);
-CREATE INDEX idx_mv_product_health_stock_health ON mv_product_health(stock_health);
+CREATE INDEX IF NOT EXISTS idx_mv_product_health_owner ON mv_product_health(owner_id);
+CREATE INDEX IF NOT EXISTS idx_mv_product_health_stock_health ON mv_product_health(stock_health);
 
 -- Daily inventory metrics
-CREATE MATERIALIZED VIEW mv_daily_inventory_metrics AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_daily_inventory_metrics AS
 SELECT 
   owner_id,
   store_id,
@@ -358,7 +370,7 @@ SELECT
 FROM inventory_snapshots
 WHERE snapshot_date >= CURRENT_DATE - INTERVAL '90 days';
 
-CREATE INDEX idx_mv_daily_metrics_owner_date ON mv_daily_inventory_metrics(owner_id, snapshot_date);
+CREATE INDEX IF NOT EXISTS idx_mv_daily_metrics_owner_date ON mv_daily_inventory_metrics(owner_id, snapshot_date);
 
 -- ============================================================================
 -- SECTION 10: ROW LEVEL SECURITY (RLS)
@@ -383,94 +395,94 @@ ALTER TABLE sales_transaction_items ENABLE ROW LEVEL SECURITY;
 -- SECTION 11: RLS POLICIES - STORES
 -- ============================================================================
 
-CREATE POLICY "Users can view their own stores"
-  ON stores FOR SELECT
+DROP POLICY IF EXISTS "Users can view their own stores" ON stores;
+CREATE POLICY "Users can view their own stores" ON stores FOR SELECT
   USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can insert their own stores"
-  ON stores FOR INSERT
+DROP POLICY IF EXISTS "Users can insert their own stores" ON stores;
+CREATE POLICY "Users can insert their own stores" ON stores FOR INSERT
   WITH CHECK (auth.uid() = owner_id);
 
-CREATE POLICY "Users can update their own stores"
-  ON stores FOR UPDATE
+DROP POLICY IF EXISTS "Users can update their own stores" ON stores;
+CREATE POLICY "Users can update their own stores" ON stores FOR UPDATE
   USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can delete their own stores"
-  ON stores FOR DELETE
+DROP POLICY IF EXISTS "Users can delete their own stores" ON stores;
+CREATE POLICY "Users can delete their own stores" ON stores FOR DELETE
   USING (auth.uid() = owner_id);
 
 -- ============================================================================
 -- SECTION 12: RLS POLICIES - PRODUCTS
 -- ============================================================================
 
-CREATE POLICY "Users can view their own products"
-  ON products FOR SELECT
+DROP POLICY IF EXISTS "Users can view their own products" ON products;
+CREATE POLICY "Users can view their own products" ON products FOR SELECT
   USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can insert products"
-  ON products FOR INSERT
+DROP POLICY IF EXISTS "Users can insert products" ON products;
+CREATE POLICY "Users can insert products" ON products FOR INSERT
   WITH CHECK (auth.uid() = owner_id);
 
-CREATE POLICY "Users can update their own products"
-  ON products FOR UPDATE
+DROP POLICY IF EXISTS "Users can update their own products" ON products;
+CREATE POLICY "Users can update their own products" ON products FOR UPDATE
   USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can delete their own products"
-  ON products FOR DELETE
+DROP POLICY IF EXISTS "Users can delete their own products" ON products;
+CREATE POLICY "Users can delete their own products" ON products FOR DELETE
   USING (auth.uid() = owner_id);
 
 -- ============================================================================
 -- SECTION 13: RLS POLICIES - INVENTORY
 -- ============================================================================
 
-CREATE POLICY "Users can view stock levels of their products"
-  ON stock_levels FOR SELECT
+DROP POLICY IF EXISTS "Users can view stock levels of their products" ON stock_levels;
+CREATE POLICY "Users can view stock levels of their products" ON stock_levels FOR SELECT
   USING (
     product_id IN (SELECT id FROM products WHERE owner_id = auth.uid())
   );
 
-CREATE POLICY "Users can insert stock levels for their products"
-  ON stock_levels FOR INSERT
+DROP POLICY IF EXISTS "Users can insert stock levels for their products" ON stock_levels;
+CREATE POLICY "Users can insert stock levels for their products" ON stock_levels FOR INSERT
   WITH CHECK (
     product_id IN (SELECT id FROM products WHERE owner_id = auth.uid())
   );
 
-CREATE POLICY "Users can update stock levels of their products"
-  ON stock_levels FOR UPDATE
+DROP POLICY IF EXISTS "Users can update stock levels of their products" ON stock_levels;
+CREATE POLICY "Users can update stock levels of their products" ON stock_levels FOR UPDATE
   USING (
     product_id IN (SELECT id FROM products WHERE owner_id = auth.uid())
   );
 
-CREATE POLICY "Users can view stock movements of their products"
-  ON stock_movements FOR SELECT
+DROP POLICY IF EXISTS "Users can view stock movements of their products" ON stock_movements;
+CREATE POLICY "Users can view stock movements of their products" ON stock_movements FOR SELECT
   USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can insert stock movements"
-  ON stock_movements FOR INSERT
+DROP POLICY IF EXISTS "Users can insert stock movements" ON stock_movements;
+CREATE POLICY "Users can insert stock movements" ON stock_movements FOR INSERT
   WITH CHECK (auth.uid() = owner_id);
 
 -- ============================================================================
 -- SECTION 14: RLS POLICIES - PURCHASE ORDERS
 -- ============================================================================
 
-CREATE POLICY "Users can view their purchase orders"
-  ON purchase_orders FOR SELECT
+DROP POLICY IF EXISTS "Users can view their purchase orders" ON purchase_orders;
+CREATE POLICY "Users can view their purchase orders" ON purchase_orders FOR SELECT
   USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can insert purchase orders"
-  ON purchase_orders FOR INSERT
+DROP POLICY IF EXISTS "Users can insert purchase orders" ON purchase_orders;
+CREATE POLICY "Users can insert purchase orders" ON purchase_orders FOR INSERT
   WITH CHECK (auth.uid() = owner_id);
 
-CREATE POLICY "Users can update their purchase orders"
-  ON purchase_orders FOR UPDATE
+DROP POLICY IF EXISTS "Users can update their purchase orders" ON purchase_orders;
+CREATE POLICY "Users can update their purchase orders" ON purchase_orders FOR UPDATE
   USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can delete their own POs"
-  ON purchase_orders FOR DELETE
+DROP POLICY IF EXISTS "Users can delete their own POs" ON purchase_orders;
+CREATE POLICY "Users can delete their own POs" ON purchase_orders FOR DELETE
   USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can view PO items of their orders"
-  ON purchase_order_items FOR SELECT
+DROP POLICY IF EXISTS "Users can view PO items of their orders" ON purchase_order_items;
+CREATE POLICY "Users can view PO items of their orders" ON purchase_order_items FOR SELECT
   USING (
     purchase_order_id IN (SELECT id FROM purchase_orders WHERE owner_id = auth.uid())
   );
@@ -479,24 +491,24 @@ CREATE POLICY "Users can view PO items of their orders"
 -- SECTION 15: RLS POLICIES - SUPPLIERS & OTHERS
 -- ============================================================================
 
-CREATE POLICY "Users can view their suppliers"
-  ON suppliers FOR SELECT
+DROP POLICY IF EXISTS "Users can view their suppliers" ON suppliers;
+CREATE POLICY "Users can view their suppliers" ON suppliers FOR SELECT
   USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can insert suppliers"
-  ON suppliers FOR INSERT
+DROP POLICY IF EXISTS "Users can insert suppliers" ON suppliers;
+CREATE POLICY "Users can insert suppliers" ON suppliers FOR INSERT
   WITH CHECK (auth.uid() = owner_id);
 
-CREATE POLICY "Users can update their suppliers"
-  ON suppliers FOR UPDATE
+DROP POLICY IF EXISTS "Users can update their suppliers" ON suppliers;
+CREATE POLICY "Users can update their suppliers" ON suppliers FOR UPDATE
   USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can view their AI predictions"
-  ON ai_predictions FOR SELECT
+DROP POLICY IF EXISTS "Users can view their AI predictions" ON ai_predictions;
+CREATE POLICY "Users can view their AI predictions" ON ai_predictions FOR SELECT
   USING (auth.uid() = owner_id);
 
-CREATE POLICY "Users can view their sales transactions"
-  ON sales_transactions FOR SELECT
+DROP POLICY IF EXISTS "Users can view their sales transactions" ON sales_transactions;
+CREATE POLICY "Users can view their sales transactions" ON sales_transactions FOR SELECT
   USING (auth.uid() = owner_id);
 
 -- ============================================================================
@@ -534,6 +546,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS tr_update_stock_status ON stock_levels;
 CREATE TRIGGER tr_update_stock_status
 BEFORE UPDATE ON stock_levels
 FOR EACH ROW

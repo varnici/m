@@ -1,17 +1,20 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgis/postgis:16-3.4
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ventureroot}
       POSTGRES_USER: ${POSTGRES_USER:-ventureroot}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ventureroot}
     # Avoid host port conflicts; access from other services via `postgres:5432`
+    ports:
+      - "5432:5432"
     volumes:
       - vr_postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7
-    # Avoid host port conflicts; access from other services via `redis:6379`
+    ports:
+      - "6379:6379"
 
   core-banking:
     build:

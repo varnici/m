@@ -64,6 +64,22 @@ export const inventoryKeys = {
     'movements',
     { storeId, productId, movementType, skip, limit },
   ],
+  stockReservations: (
+    storeId?: string,
+    productId?: string,
+    status?: string,
+    skip?: number,
+    limit?: number
+  ) => [
+    ...inventoryKeys.stock(),
+    'reservations',
+    { storeId, productId, status, skip, limit },
+  ],
+  stockReservationDetail: (reservationId: string) => [
+    ...inventoryKeys.stock(),
+    'reservation',
+    reservationId,
+  ],
   analytics: () => [...inventoryKeys.all, 'analytics'],
   dashboard: (storeId?: string, startDate?: string, endDate?: string) => [
     ...inventoryKeys.analytics(),
@@ -74,6 +90,7 @@ export const inventoryKeys = {
   lowStock: (storeId?: string) => [...inventoryKeys.analytics(), 'low-stock', storeId],
   deadStock: (days?: number) => [...inventoryKeys.analytics(), 'dead-stock', days],
   aiInsights: (storeId?: string) => [...inventoryKeys.analytics(), 'ai-insights', storeId],
+  ledger: (skip: number, limit: number) => [...inventoryKeys.all, 'ledger', { skip, limit }],
 };
 
 // ============================================================================
@@ -310,6 +327,115 @@ export function useTransferStock() {
       Toast.show({
         type: 'error',
         text1: 'Transfer Failed',
+        text2: error.message,
+      });
+    },
+  });
+}
+
+export function useStockReservations(
+  storeId?: string,
+  productId?: string,
+  status?: string,
+  skip: number = 0,
+  limit: number = 100
+) {
+  return useQuery({
+    queryKey: inventoryKeys.stockReservations(storeId, productId, status, skip, limit),
+    queryFn: () =>
+      inventoryService.getStockReservations(storeId, productId, status, skip, limit),
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 10,
+  });
+}
+
+export function useStockReservation(reservationId?: string) {
+  return useQuery({
+    queryKey: inventoryKeys.stockReservationDetail(reservationId ?? ''),
+    queryFn: () => inventoryService.getStockReservation(reservationId ?? ''),
+    enabled: !!reservationId,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 10,
+  });
+}
+
+export function useReserveStock() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: any) => inventoryService.reserveStock(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.stock() });
+      Toast.show({
+        type: 'success',
+        text1: 'Stock Reserved',
+      });
+    },
+    onError: (error: Error) => {
+      Toast.show({
+        type: 'error',
+        text1: 'Reservation Failed',
+        text2: error.message,
+      });
+    },
+  });
+}
+
+export function useReleaseStockReservation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      reservationId,
+      quantity,
+      notes,
+    }: {
+      reservationId: string;
+      quantity?: number;
+      notes?: string;
+    }) => inventoryService.releaseStockReservation(reservationId, quantity, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.stock() });
+      Toast.show({
+        type: 'success',
+        text1: 'Reservation Released',
+      });
+    },
+    onError: (error: Error) => {
+      Toast.show({
+        type: 'error',
+        text1: 'Release Failed',
+        text2: error.message,
+      });
+    },
+  });
+}
+
+export function useCommitStockReservation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      reservationId,
+      quantity,
+      notes,
+    }: {
+      reservationId: string;
+      quantity?: number;
+      notes?: string;
+    }) => inventoryService.commitStockReservation(reservationId, quantity, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.stock() });
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.analytics() });
+      Toast.show({
+        type: 'success',
+        text1: 'Reservation Committed',
+      });
+    },
+    onError: (error: Error) => {
+      Toast.show({
+        type: 'error',
+        text1: 'Commit Failed',
         text2: error.message,
       });
     },
@@ -641,6 +767,18 @@ export function useTurnoverRatio(
   });
 }
 
+/**
+ * useInventoryLedger - Fetch detailed sales ledger sheet
+ */
+export function useInventoryLedger(skip: number = 0, limit: number = 100) {
+  return useQuery({
+    queryKey: inventoryKeys.ledger(skip, limit),
+    queryFn: () => inventoryService.getInventoryLedger(skip, limit),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30,
+  });
+}
+
 // ============================================================================
 // VOICE & SCAN HOOKS
 // ============================================================================
@@ -729,6 +867,37 @@ export function useProcessCVScan() {
       Toast.show({
         type: 'error',
         text1: 'CV Scan Failed',
+        text2: error.message,
+      });
+    },
+  });
+}
+
+/**
+ * useTransformStock - Break bulk into pieces
+ */
+export function useTransformStock() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      parent_product_id: string;
+      quantity_to_break: number;
+      store_id: string;
+    }) => inventoryService.transformInventoryStock(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.stock() });
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.products() });
+      Toast.show({
+        type: 'success',
+        text1: 'Stock Transformed',
+        text2: 'Bulk items converted to units successfully',
+      });
+    },
+    onError: (error: Error) => {
+      Toast.show({
+        type: 'error',
+        text1: 'Transformation Failed',
         text2: error.message,
       });
     },

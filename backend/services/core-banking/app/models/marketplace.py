@@ -13,35 +13,7 @@ def _id() -> str:
     return str(uuid.uuid4())
 
 
-class Product(Base):
-    """
-    A product a business owner can list in the marketplace.
-    """
-
-    __tablename__ = "products"
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
-    owner_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False)
-
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    description: Mapped[str | None] = mapped_column(String, nullable=True)
-    sku: Mapped[str | None] = mapped_column(String, nullable=True)
-    category: Mapped[str | None] = mapped_column(String, nullable=True)
-
-    # Base price per unit in kobo (Naira * 100)
-    unit_price_kobo: Mapped[int] = mapped_column(Integer, nullable=False)
-
-    # Simple geo fields (estate / area + optional lat/lng)
-    estate: Mapped[str | None] = mapped_column(String, nullable=True)
-    city: Mapped[str | None] = mapped_column(String, nullable=True)
-    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
-    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
-
-    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
-
-    owner = relationship("User")
-
+from app.models.inventory import Product
 
 class Listing(Base):
     """

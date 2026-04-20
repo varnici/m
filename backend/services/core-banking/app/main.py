@@ -7,7 +7,19 @@ from app.core.config import settings
 from app.infrastructure.database import init_db
 
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="VentureRoot Core Banking", version="0.1.0")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(api_router, prefix="/v1")
 
 

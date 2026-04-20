@@ -15,6 +15,13 @@ import InventoryDashboardScreen from '@/screens/inventory/InventoryDashboardScre
 import StockLodgerScreen from '@/screens/inventory/StockLodgerScreen';
 import VoiceStockScreen from '@/screens/inventory/VoiceStockScreen';
 import ScanShelveScreen from '@/screens/inventory/ScanShelveScreen';
+import { ProductListScreen } from '@/screens/inventory/ProductListScreen';
+import AddProductScreen from '@/screens/inventory/AddProductScreen';
+import StockAdjustmentScreen from '@/screens/inventory/StockAdjustmentScreen';
+import { ProductDetailScreen } from '@/screens/inventory/ProductDetailScreen';
+import { PurchaseOrderScreen } from '@/screens/inventory/PurchaseOrderScreen';
+import { AIInsightsScreen } from '@/screens/inventory/AIInsightsScreen';
+import CreatePurchaseOrderScreen from '@/screens/inventory/CreatePurchaseOrderScreen';
 import RecordSaleScreen from '@/screens/sales/RecordSaleScreen';
 import InsuranceSummaryScreen from '@/screens/insurance/InsuranceSummaryScreen';
 import FileClaimScreen from '@/screens/insurance/FileClaimScreen';
@@ -75,6 +82,13 @@ const RootNavigator = () => {
       <Stack.Screen name="StockLodger" component={StockLodgerScreen} />
       <Stack.Screen name="VoiceStock" component={VoiceStockScreen} />
       <Stack.Screen name="ScanShelve" component={ScanShelveScreen} />
+      <Stack.Screen name="ProductList" component={ProductListScreen} />
+      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+      <Stack.Screen name="AddProduct" component={AddProductScreen} />
+      <Stack.Screen name="StockAdjustment" component={StockAdjustmentScreen} />
+      <Stack.Screen name="PurchaseOrders" component={PurchaseOrderScreen} />
+      <Stack.Screen name="AddPurchaseOrder" component={CreatePurchaseOrderScreen} />
+      <Stack.Screen name="AIInsights" component={AIInsightsScreen} />
       <Stack.Screen name="RecordSale" component={RecordSaleScreen} />
       <Stack.Screen name="InsuranceSummary" component={InsuranceSummaryScreen} />
       <Stack.Screen name="FileClaim" component={FileClaimScreen} />
