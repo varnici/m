@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,38 +8,43 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { BowlHeader, CleanCard, CleanInput, RichButton } from '../../../components/ThemeComponents';
-import { ChevronLeft } from 'lucide-react-native';
 
 const ShopInformationScreen = ({
   navigation,
 }: RootStackScreenProps<'OnboardingShopInfo'>) => {
   const { data, updateData } = useOnboarding();
+  
+  const [form, setForm] = useState({
+    businessName: data.businessName || '',
+    tradingName: data.tradingName || '',
+    yearsInOperation: data.yearsInOperation || 0,
+    ownershipType: data.ownershipType || 'Rented',
+    employee_count: data.employee_count || 0,
+    registrationStatus: data.registrationStatus || 'Not Registered',
+  });
 
-  const [businessName, setBusinessName] = useState(data.businessName || '');
-  const [tradingName, setTradingName] = useState(data.tradingName || '');
-  const [yearsInOperation, setYearsInOperation] = useState(
-    String(data.yearsInOperation ?? ''),
-  );
-  const [ownershipType, setOwnershipType] = useState(data.ownershipType || 'Rented');
-  const [registrationStatus, setRegistrationStatus] = useState(
-    data.registrationStatus || 'Not Registered',
-  );
+  const isFormValid = form.businessName.trim().length > 0;
 
-  const isFormValid = businessName.trim().length > 0;
-
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     updateData({
-      businessName: businessName.trim(),
-      tradingName: tradingName.trim(),
-      yearsInOperation: Number.parseInt(yearsInOperation, 10) || 0,
-      ownershipType,
-      registrationStatus,
+      ...form,
+      businessName: form.businessName.trim(),
+      tradingName: form.tradingName.trim(),
     });
     navigation.navigate('OnboardingCategory');
-  };
+  }, [form, updateData, navigation]);
+
+  const handleOwnershipChange = useCallback((opt: string) => {
+    setForm((prev) => ({ ...prev, ownershipType: opt }));
+  }, []);
+
+  const handleRegistrationChange = useCallback((opt: string) => {
+    setForm((prev) => ({ ...prev, registrationStatus: opt }));
+  }, []);
 
   return (
     <View className="flex-1 bg-ventureroot-clean-background">
@@ -71,24 +76,24 @@ const ShopInformationScreen = ({
 
           <CleanCard>
             <CleanInput
-              label="Business Name"
-              placeholder="Acme Retail Ventures"
-              value={businessName}
-              onChangeText={setBusinessName}
+              label="REGISTERED BUSINESS NAME"
+              placeholder="e.g. Acme Retail Ventures"
+              value={form.businessName}
+              onChangeText={(val: string) => setForm((prev) => ({ ...prev, businessName: val }))}
             />
 
             <CleanInput
-              label="Trading Name"
-              placeholder="Oga's Shop"
-              value={tradingName}
-              onChangeText={setTradingName}
+              label="TRADING NAME (IF DIFFERENT)"
+              placeholder="e.g. Oga's Shop"
+              value={form.tradingName}
+              onChangeText={(val: string) => setForm((prev) => ({ ...prev, tradingName: val }))}
             />
 
             <CleanInput
-              label="Years in Operation"
-              placeholder="e.g. 3"
-              value={yearsInOperation}
-              onChangeText={setYearsInOperation}
+              label="YEARS IN OPERATION"
+              placeholder="0"
+              value={form.yearsInOperation.toString()}
+              onChangeText={(val: string) => setForm((prev) => ({ ...prev, yearsInOperation: parseInt(val) || 0 }))}
               keyboardType="number-pad"
             />
 
@@ -100,14 +105,14 @@ const ShopInformationScreen = ({
                 {['Rented', 'Owned', 'Mobile'].map((option) => (
                   <TouchableOpacity
                     key={option}
-                    onPress={() => setOwnershipType(option)}
-                    className={`rounded-2xl px-4 py-3 border ${
-                      ownershipType === option
-                        ? 'border-ventureroot-green bg-ventureroot-green/10'
-                        : 'border-slate-200 bg-white'
+                    onPress={() => handleOwnershipChange(option)}
+                    className={`flex-1 py-4 rounded-xl items-center border-2 ${
+                      form.ownershipType === option 
+                      ? 'bg-ventureroot-green/5 border-ventureroot-green' 
+                      : 'bg-white border-slate-100 shadow-sm'
                     }`}
                   >
-                    <Text className={`text-sm font-semibold ${ownershipType === option ? 'text-ventureroot-green' : 'text-ventureroot-clean-text'}`}>
+                    <Text className={`text-sm font-semibold ${form.ownershipType === option ? 'text-ventureroot-green' : 'text-ventureroot-clean-text'}`}>
                       {option}
                     </Text>
                   </TouchableOpacity>
@@ -123,14 +128,14 @@ const ShopInformationScreen = ({
                 {['Registered', 'Not Registered'].map((option) => (
                   <TouchableOpacity
                     key={option}
-                    onPress={() => setRegistrationStatus(option)}
-                    className={`rounded-2xl px-4 py-3 border ${
-                      registrationStatus === option
-                        ? 'border-ventureroot-green bg-ventureroot-green/10'
-                        : 'border-slate-200 bg-white'
+                    onPress={() => handleRegistrationChange(option)}
+                    className={`flex-1 py-4 rounded-xl items-center border-2 ${
+                      form.registrationStatus === option 
+                      ? 'bg-ventureroot-green/5 border-ventureroot-green' 
+                      : 'bg-white border-slate-100 shadow-sm'
                     }`}
                   >
-                    <Text className={`text-sm font-semibold ${registrationStatus === option ? 'text-ventureroot-green' : 'text-ventureroot-clean-text'}`}>
+                    <Text className={`text-sm font-semibold ${form.registrationStatus === option ? 'text-ventureroot-green' : 'text-ventureroot-clean-text'}`}>
                       {option}
                     </Text>
                   </TouchableOpacity>

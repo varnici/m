@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
@@ -28,11 +28,14 @@ const BusinessCategoryScreen = ({
   navigation,
 }: RootStackScreenProps<'OnboardingCategory'>) => {
   const { data, updateData } = useOnboarding();
+  const navigationRef = useRef(navigation);
 
-  const handleSelect = (id: string) => {
+  const handleSelect = useCallback((id: string) => {
     updateData({ primaryCategory: id });
-    navigation.navigate('OnboardingLocation');
-  };
+    setTimeout(() => {
+      navigationRef.current?.navigate('OnboardingLocation');
+    }, 0);
+  }, [updateData]);
 
   return (
     <View className="flex-1 bg-ventureroot-clean-background">
@@ -48,7 +51,7 @@ const BusinessCategoryScreen = ({
         showsVerticalScrollIndicator={false}
       >
         <TouchableOpacity 
-          onPress={() => navigation.goBack()}
+          onPress={() => navigationRef.current?.goBack()}
           className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mb-6"
         >
           <ChevronLeft color="#1E293B" size={24} />
