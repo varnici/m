@@ -8,16 +8,31 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
+  Image,
 } from 'react-native';
 import { useProductDetail, useStockMovements, useTransformStock } from '@/hooks/useInventory';
 import { Ionicons } from '@expo/vector-icons';
+import { Edit2 } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit'; // Assume this is installed
+
+import { retailCategoriesData } from '@/data/retailCategories';
 
 const screenWidth = Dimensions.get('window').width;
 
-// ============================================================================
-// COMPONENTS
-// ============================================================================
+// Helper to find parent category icon for items/subcategories
+const getCategoryInfo = (categoryId?: string) => {
+  if (!categoryId) return null;
+  const cat = retailCategoriesData.find(c => c.id === categoryId);
+  if (cat) return cat;
+  
+  for (const c of retailCategoriesData) {
+    if (c.subcategories) {
+      const sub = c.subcategories.find(s => s.id === categoryId);
+      if (sub) return c;
+    }
+  }
+  return null;
+};
 
 export const ProductDetailScreen = ({ route, navigation }: any) => {
   const { productId } = route.params;
@@ -112,6 +127,12 @@ export const ProductDetailScreen = ({ route, navigation }: any) => {
         </Text>
         <TouchableOpacity 
           style={styles.editButton}
+          onPress={() => navigation.navigate('EditProduct', { productId })}
+        >
+          <Edit2 size={20} color="#4F46E5" />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.editButton}
           onPress={() => navigation.navigate('StockAdjustment', { productId })}
         >
           <Ionicons name="settings-outline" size={20} color="#4F46E5" />
@@ -122,6 +143,27 @@ export const ProductDetailScreen = ({ route, navigation }: any) => {
       <View style={styles.card}>
         <View className="flex-row justify-between items-start mb-4">
           <View className="flex-1">
+            <View className="flex-row items-center mb-2">
+               <View 
+                style={{ 
+                  backgroundColor: getCategoryInfo(product.category_id)?.backgroundColor || '#F3F4F6',
+                  padding: 8,
+                  borderRadius: 12,
+                  marginRight: 10
+                }}
+               >
+                 {getCategoryInfo(product.category_id)?.icon ? (
+                   <View style={{ width: 24, height: 24 }}>
+                     <Image source={getCategoryInfo(product.category_id)?.icon} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+                   </View>
+                 ) : (
+                   <Ionicons name="cube" size={20} color="#6B7280" />
+                 )}
+               </View>
+               <Text style={{ fontSize: 14, color: '#6B7280', fontWeight: '600' }}>
+                 {getCategoryInfo(product.category_id)?.name || 'General'}
+               </Text>
+            </View>
             <View style={styles.skuRow}>
               <Text style={styles.skuLabel}>SKU:</Text>
               <Text style={styles.skuValue}>{product.sku}</Text>
@@ -173,6 +215,14 @@ export const ProductDetailScreen = ({ route, navigation }: any) => {
       {/* Pricing & Margin Metrics */}
       <Text style={styles.sectionTitle}>Pricing & Profitability</Text>
       <View style={styles.metricsGrid}>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Total QOH</Text>
+          <Text style={styles.metricValue}>{product.total_quantity_on_hand || 0}</Text>
+        </View>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Reserved</Text>
+          <Text style={[styles.metricValue, { color: '#D97706' }]}>{product.total_reserved_quantity || 0}</Text>
+        </View>
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Cost Price</Text>
           <Text style={styles.metricValue}>{costPriceFormatted}</Text>

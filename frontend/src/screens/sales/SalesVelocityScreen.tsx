@@ -1,90 +1,135 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { 
+  ChevronLeft, 
+  Info, 
+  BarChart, 
+  TrendingUp, 
+  Zap, 
+  Activity,
+  ArrowUpRight,
+  Target
+} from 'lucide-react-native';
+
 import type { RootStackScreenProps } from '@/navigation/types';
-import { ChevronLeft, Info, BarChart, TrendingUp, Zap } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
+import { useInventoryDashboard, useProductHealthScores } from '@/hooks/useInventory';
 
 const SalesVelocityScreen = ({
   navigation,
 }: RootStackScreenProps<'SalesVelocity'>) => {
+  const { data: dashboardData } = useInventoryDashboard();
+  const { data: healthScores, isLoading } = useProductHealthScores(5);
+
+  const avgTurnover = dashboardData?.turnover_ratio || 0;
+
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />
       
       {/* Header */}
-      <View className="bg-ventureroot-green pt-12 pb-6 px-4">
-        <View className="flex-row items-center mb-4">
-           <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
+      <View className="bg-ventureroot-green pt-12 pb-8 px-4 rounded-b-[40px] shadow-lg">
+        <View className="flex-row items-center mb-6">
+           <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3 bg-white/20 p-2 rounded-full">
               <ChevronLeft color="white" size={24} />
            </TouchableOpacity>
-           <Text className="text-white text-xl font-bold">Sales Velocity</Text>
+           <Text className="text-white text-2xl font-black">Sales Velocity</Text>
+        </View>
+        
+        <View className="flex-row justify-between items-center bg-white/10 p-4 rounded-3xl border border-white/20">
+           <View>
+              <Text className="text-white/60 text-[10px] font-black uppercase tracking-widest">Global Turnover</Text>
+              <Text className="text-white text-3xl font-black">{avgTurnover.toFixed(1)}x</Text>
+           </View>
+           <View className="bg-emerald-400 w-12 h-12 rounded-2xl items-center justify-center">
+              <Activity size={24} color="white" />
+           </View>
         </View>
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Velocity Score Card */}
-        <View className="bg-white m-4 p-6 rounded-3xl border border-gray-100 shadow-sm items-center">
-           <View className="w-20 h-20 bg-emerald-50 rounded-full items-center justify-center mb-4 border-2 border-emerald-100">
-              <Zap size={40} color="#10B981" />
+        <View className="m-4">
+           <Text className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-4 ml-2">Performance Breakdown</Text>
+           <View className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm items-center">
+              <View className="w-24 h-24 bg-emerald-50 rounded-full items-center justify-center mb-6 border-4 border-emerald-100 shadow-inner">
+                 <Zap size={48} color="#10B981" fill="#10B981" />
+              </View>
+              <Text className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-2">Portfolio Speed</Text>
+              <View className="flex-row items-end">
+                 <Text className="text-gray-900 text-5xl font-black">84</Text>
+                 <Text className="text-gray-400 text-lg font-bold mb-1 ml-1">/100</Text>
+              </View>
+              <View className="bg-emerald-50 px-3 py-1 rounded-full mt-4 flex-row items-center">
+                 <ArrowUpRight size={12} color="#059669" />
+                 <Text className="text-emerald-600 text-[10px] font-bold ml-1">+12% faster than last month</Text>
+              </View>
            </View>
-           <Text className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">Current Speed</Text>
-           <Text className="text-emerald-600 text-4xl font-black">8.4x</Text>
-           <Text className="text-gray-500 text-[10px] mt-2 italic">Standard regional average: 5.2x</Text>
         </View>
 
-        {/* Comparison Chart Mock */}
-        <View className="bg-slate-900 mx-4 p-6 rounded-2xl mb-8">
-           <Text className="text-white font-bold text-base mb-6">Inventory Turnaround</Text>
+        {/* Inventory Turnaround Charts */}
+        <View className="bg-slate-900 mx-4 p-6 rounded-3xl mb-8 shadow-2xl">
+           <View className="flex-row justify-between items-center mb-8">
+              <View>
+                 <Text className="text-white font-black text-lg">Product Turnaround</Text>
+                 <Text className="text-white/40 text-[10px]">Restock cycle frequency</Text>
+              </View>
+              <Target size={20} color="#10B981" />
+           </View>
            
-           <View className="gap-6">
-              <View>
-                 <View className="flex-row justify-between mb-2">
-                    <Text className="text-white/60 text-[10px] font-bold uppercase">Indomie 70g</Text>
-                    <Text className="text-emerald-400 text-[10px] font-bold">2.4 days / restock</Text>
-                 </View>
-                 <View className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <View className="h-full bg-emerald-500 rounded-full w-[85%]" />
-                 </View>
-              </View>
-
-              <View>
-                 <View className="flex-row justify-between mb-2">
-                    <Text className="text-white/60 text-[10px] font-bold uppercase">Peak Milk</Text>
-                    <Text className="text-blue-400 text-[10px] font-bold">8.1 days / restock</Text>
-                 </View>
-                 <View className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <View className="h-full bg-blue-500 rounded-full w-[45%]" />
-                 </View>
-              </View>
-
-              <View>
-                 <View className="flex-row justify-between mb-2">
-                    <Text className="text-white/60 text-[10px] font-bold uppercase">Milo 400g</Text>
-                    <Text className="text-orange-400 text-[10px] font-bold">12.5 days / restock</Text>
-                 </View>
-                 <View className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <View className="h-full bg-orange-500 rounded-full w-[30%]" />
-                 </View>
-              </View>
+           <View className="gap-8">
+              {healthScores?.map((item, i) => (
+                <View key={item.id}>
+                  <View className="flex-row justify-between mb-3 items-center">
+                     <View>
+                        <Text className="text-white font-bold text-xs">{item.name}</Text>
+                        <Text className="text-white/40 text-[8px] uppercase tracking-tighter">{item.sku}</Text>
+                     </View>
+                     <View className="items-end">
+                        <Text className={`${item.turnover_30d > 5 ? 'text-emerald-400' : 'text-blue-400'} text-[11px] font-black`}>
+                           {item.turnover_30d} days / restock
+                        </Text>
+                        <Text className="text-white/20 text-[8px] uppercase">30D Avg</Text>
+                     </View>
+                  </View>
+                  <View className="h-2 bg-white/5 rounded-full overflow-hidden">
+                     <View 
+                        className={`h-full ${item.turnover_30d < 7 ? 'bg-emerald-500 shadow-emerald-500' : 'bg-blue-500'} rounded-full`} 
+                        style={{ width: `${Math.min(100, (14 / item.turnover_30d) * 100)}%` }} 
+                     />
+                  </View>
+                </View>
+              ))}
+              {isLoading && <ActivityIndicator color="white" />}
+              {(!healthScores || healthScores.length === 0) && (
+                <Text className="text-white/40 text-xs italic text-center py-4">No product metrics available yet.</Text>
+              )}
            </View>
         </View>
 
-        {/* Insight Card */}
-        <View className="bg-emerald-50 mx-4 p-4 rounded-2xl border border-emerald-100 flex-row items-start mb-10">
-           <Info size={20} color="#059669" style={{ marginTop: 2 }} />
-           <View className="ml-3 flex-1">
-              <Text className="text-emerald-900 font-bold text-sm mb-1">AI Recommendation</Text>
-              <Text className="text-emerald-800 text-[10px] leading-5">
-                Your <Text className="font-bold">Indomie 70g</Text> velocity is 2x faster than the average. We recommend increasing your next restock order by <Text className="font-bold">30%</Text> to avoid stockouts.
-              </Text>
-           </View>
-        </View>
+        {/* AI Strategic Insight */}
+        {dashboardData?.global_recommendations?.find(r => r.type === 'restock') && (
+          <BlurView intensity={30} tint="light" className="mx-4 p-5 rounded-3xl border border-gray-200 flex-row items-start mb-10 overflow-hidden">
+             <View className="w-10 h-10 bg-indigo-500 rounded-xl items-center justify-center mr-4">
+                <TrendingUp size={20} color="white" />
+             </View>
+             <View className="flex-1">
+                <Text className="text-indigo-900 font-black text-sm mb-2">AI Restock Strategy</Text>
+                <Text className="text-indigo-800 text-[11px] leading-5 font-medium">
+                  {dashboardData.global_recommendations.find(r => r.type === 'restock')?.description}
+                </Text>
+             </View>
+          </BlurView>
+        )}
       </ScrollView>
 
-      {/* Footer Info */}
-      <View className="p-6 items-center">
-         <Text className="text-gray-400 text-[10px] text-center">Sales velocity directly contributes to <Text className="font-bold text-gray-500">35%</Text> of your total trust score.</Text>
+      {/* Footer Trust Score */}
+      <View className="p-8 items-center bg-gray-50 rounded-t-[40px]">
+         <Text className="text-gray-400 text-[10px] text-center leading-5 px-10 font-medium">
+            Sales velocity contributes to <Text className="font-black text-gray-900">35%</Text> of your total Credit Trust Score. High velocity unlocks <Text className="text-emerald-600 font-black">lower interest loans</Text>.
+         </Text>
       </View>
     </SafeAreaView>
   );

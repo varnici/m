@@ -10,9 +10,9 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Plus, Trash2, Search, Building2, Package, Save } from 'lucide-react-native';
+import { ChevronLeft, Plus, Trash2, Search, Building2, Package, Save, Calendar } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
-import { useSuppliers, useProducts, useCreatePurchaseOrder } from '@/hooks/useInventory';
+import { useSuppliers, useProducts, useCreatePurchaseOrder, useCreateSupplier } from '@/hooks/useInventory';
 import Toast from 'react-native-toast-message';
 import type { RootStackScreenProps } from '@/navigation/types';
 
@@ -23,17 +23,37 @@ interface OrderItem {
   unit_price_kobo: number;
 }
 
-const CreatePurchaseOrderScreen = ({ navigation }: RootStackScreenProps<'AddPurchaseOrder'>) => {
+const CreatePurchaseOrderScreen = ({ navigation, route }: RootStackScreenProps<'AddPurchaseOrder'>) => {
   const [supplierId, setSupplierId] = useState('');
   const [supplierName, setSupplierName] = useState('Select Supplier');
   const [items, setItems] = useState<OrderItem[]>([]);
   const [notes, setNotes] = useState('');
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>('');
 
   const { data: suppliers, isLoading: loadingSuppliers } = useSuppliers();
   const { data: products, isLoading: loadingProducts } = useProducts();
   const { mutate: createPO, isPending: isSaving } = useCreatePurchaseOrder();
+  const { mutate: createSupplier, isPending: isCreatingSupplier } = useCreateSupplier();
+
+  // Handle pre-filling from route params
+  React.useEffect(() => {
+    if (route.params?.productId && products && products.length > 0) {
+      const product = products.find(p => p.id === route.params?.productId);
+      if (product) {
+        const alreadyAdded = items.some(i => i.product_id === product.id);
+        if (!alreadyAdded) {
+          setItems([{
+            product_id: product.id,
+            name: product.name,
+            quantity_ordered: route.params.qty || 10,
+            unit_price_kobo: product.cost_price_kobo || 0,
+          }]);
+        }
+      }
+    }
+  }, [route.params?.productId, products]);
 
   const totalAmount = useMemo(() => {
     return items.reduce((sum, item) => sum + (item.quantity_ordered * item.unit_price_kobo), 0);
@@ -78,6 +98,7 @@ const CreatePurchaseOrderScreen = ({ navigation }: RootStackScreenProps<'AddPurc
     createPO({
       supplier_id: supplierId,
       items: items.map(({ name, ...rest }) => rest),
+      expected_delivery_date: expectedDeliveryDate.trim() || undefined,
       notes: notes.trim() || undefined,
     }, {
       onSuccess: () => {
@@ -89,6 +110,23 @@ const CreatePurchaseOrderScreen = ({ navigation }: RootStackScreenProps<'AddPurc
           text1: 'Failed to Create PO',
           text2: err.message,
         });
+      }
+    });
+  };
+
+  const handleCreateDefaultSupplier = () => {
+    createSupplier({
+      name: "Default Market Supplier",
+      phone: "08000000000",
+      address: "Main Market",
+      city: "Local City",
+      state: "Local State"
+    }, {
+      onSuccess: (data: any) => {
+        setSupplierId(data.id);
+        setSupplierName(data.name);
+        setShowSupplierModal(false);
+        Toast.show({ type: 'success', text1: 'Default Supplier Created' });
       }
     });
   };
@@ -183,6 +221,22 @@ const CreatePurchaseOrderScreen = ({ navigation }: RootStackScreenProps<'AddPurc
           )}
         </View>
 
+        {/* Delivery Details */}
+        <View className="bg-white p-6 rounded-3xl mb-6 border border-gray-100 shadow-sm">
+          <View className="flex-row items-center mb-4">
+            <Calendar size={18} color="#F59E0B" />
+            <Text className="text-gray-900 font-bold text-base ml-2">Delivery Details</Text>
+          </View>
+          
+          <Text className="text-gray-400 text-[10px] font-bold uppercase mb-2 ml-1">Expected Delivery Date (Optional)</Text>
+          <TextInput
+            value={expectedDeliveryDate || ''}
+            onChangeText={setExpectedDeliveryDate}
+            placeholder="YYYY-MM-DD"
+            className="bg-gray-50 p-4 rounded-2xl border border-gray-100 text-gray-900"
+          />
+        </View>
+
         {/* Notes */}
         <View className="bg-white p-6 rounded-3xl mb-10 border border-gray-100 shadow-sm">
           <Text className="text-gray-400 text-[10px] font-bold uppercase mb-2 ml-1">Optional Notes</Text>
@@ -246,7 +300,31 @@ const CreatePurchaseOrderScreen = ({ navigation }: RootStackScreenProps<'AddPurc
               )}
               ListEmptyComponent={
                 <View className="py-20 items-center">
-                  <Text className="text-gray-400">No suppliers found</Text>
+                  <Building2 size={48} color="#E2E8F0" className="mb-4" />
+                  <Text className="text-gray-900 font-bold text-lg mb-2">No suppliers found</Text>
+                  <Text className="text-gray-400 text-center mb-6">You need a supplier to create a purchase order.</Text>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setShowSupplierModal(false);
+                      navigation.navigate('AddSupplier');
+                    }}
+                    className="bg-indigo-600 px-6 py-4 rounded-xl flex-row items-center w-full justify-center mb-3"
+                  >
+                    <Plus size={18} color="white" className="mr-2" />
+                    <Text className="text-white font-bold">Add New Supplier</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    onPress={handleCreateDefaultSupplier}
+                    disabled={isCreatingSupplier}
+                    className="bg-slate-100 px-6 py-3 rounded-xl flex-row items-center w-full justify-center"
+                  >
+                    {isCreatingSupplier ? (
+                      <ActivityIndicator color="#475569" size="small" />
+                    ) : (
+                      <Text className="text-slate-600 font-bold text-xs">Quick Create Default Supplier</Text>
+                    )}
+                  </TouchableOpacity>
                 </View>
               }
             />

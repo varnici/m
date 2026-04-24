@@ -6,8 +6,8 @@ from app.models.repayment import Repayment
 from app.models.marketplace import Listing
 from app.models.inventory import (
     Store, Category, Product, Supplier, StockLevel, 
-    StockMovement, PurchaseOrder, PurchaseOrderItem, SalesTransactionItem,
-    InventorySnapshot
+    StockMovement, PurchaseOrder, PurchaseOrderItem, SalesTransaction, 
+    SalesTransactionItem, InventorySnapshot
 )
 from app.models.inventory_domain import (
     InventoryLedgerEntryModel,
@@ -32,7 +32,7 @@ from app.models.cluster import ClusterDelivery, ClusterParticipant
 __all__ = [
     "User", "Wallet", "Sale", "Loan", "Repayment", "Product", "Listing",
     "Store", "Category", "Supplier", "StockLevel", "StockMovement",
-    "PurchaseOrder", "PurchaseOrderItem", "SalesTransactionItem", "InventorySnapshot",
+    "PurchaseOrder", "PurchaseOrderItem", "SalesTransaction", "SalesTransactionItem", "InventorySnapshot",
     "InventoryLedgerEntryModel", "InventoryIdempotencyKeyModel", "DomainOutboxMessageModel", "InventoryReservationModel",
     "Artisan", "ArtisanBooking", "ArtisanRating", "DriverProfile",
     "TransportBooking", "BookingTrackingPoint", "CreditScore", "SalesMetrics",

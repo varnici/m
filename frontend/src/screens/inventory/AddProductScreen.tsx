@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
-import { ChevronLeft, Box, Tag, DollarSign, BarChart3, Save } from 'lucide-react-native';
+import { ChevronLeft, Box, Tag, DollarSign, BarChart3, Save, Layers } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import { useCreateProduct } from '@/hooks/useInventory';
 import Toast from 'react-native-toast-message';
+import { retailCategoriesData } from '@/data/retailCategories';
 
 const AddProductScreen = ({ navigation }: RootStackScreenProps<'AddProduct'>) => {
   const [name, setName] = useState('');
@@ -16,11 +17,16 @@ const AddProductScreen = ({ navigation }: RootStackScreenProps<'AddProduct'>) =>
   const [minStock, setMinStock] = useState('10');
   const [initialStock, setInitialStock] = useState('0');
   
+  // Category Selections
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
+  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+  
   const { mutate: createProduct, isPending } = useCreateProduct();
 
   const handleSave = () => {
     // Basic validation
-    if (!name.trim() || !sku.trim() || !costPrice || !sellingPrice) {
+    if (!name.trim() || !costPrice || !sellingPrice) {
       Toast.show({
         type: 'error',
         text1: 'Required Fields',
@@ -30,7 +36,10 @@ const AddProductScreen = ({ navigation }: RootStackScreenProps<'AddProduct'>) =>
     }
 
     // Clean data
-    const formattedSku = sku.trim().toUpperCase();
+    let formattedSku = sku.trim() 
+      ? sku.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '-') 
+      : `PRD-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      
     const costKobo = Math.round(parseFloat(costPrice) * 100);
     const sellingKobo = Math.round(parseFloat(sellingPrice) * 100);
     const minQty = parseInt(minStock) || 0;
@@ -46,6 +55,7 @@ const AddProductScreen = ({ navigation }: RootStackScreenProps<'AddProduct'>) =>
     }
 
     createProduct({
+      category_id: selectedSubCategory || selectedCategory,
       name: name.trim(),
       sku: formattedSku,
       description: description.trim(),
@@ -79,7 +89,7 @@ const AddProductScreen = ({ navigation }: RootStackScreenProps<'AddProduct'>) =>
       <StatusBar barStyle="light-content" />
       
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 pt-4 pb-6">
+      <View className="bg-ventureroot-green flex-row items-center justify-between px-4 pt-4 pb-10 rounded-b-[40px]">
         <TouchableOpacity onPress={() => navigation.goBack()} className="p-2">
           <ChevronLeft color="white" size={24} />
         </TouchableOpacity>
@@ -94,6 +104,54 @@ const AddProductScreen = ({ navigation }: RootStackScreenProps<'AddProduct'>) =>
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Quick Setup / Categories Section */}
+        <View className="bg-white mx-4 mb-6 p-6 rounded-3xl border border-gray-100 shadow-sm">
+          <View className="flex-row items-center mb-4">
+             <Layers size={18} color="#0EA5E9" />
+             <Text className="text-gray-900 font-bold text-base ml-2">Quick Categorization</Text>
+          </View>
+          
+          <Text className="text-gray-400 text-[10px] font-bold uppercase mb-2 ml-1">Category</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+            {retailCategoriesData.map(cat => (
+              <TouchableOpacity
+                key={cat.id}
+                onPress={() => {
+                  setSelectedCategory(cat.id);
+                  setSelectedSubCategory(null);
+                  setSelectedBrand(null);
+                }}
+                className={`mr-3 px-4 py-3 rounded-2xl flex-row items-center border ${selectedCategory === cat.id ? 'border-ventureroot-green bg-emerald-50' : 'border-gray-100 bg-gray-50'}`}
+              >
+                <Image source={cat.icon} style={{ width: 24, height: 24, marginRight: 8 }} resizeMode="contain" />
+                <Text className={`font-bold ${selectedCategory === cat.id ? 'text-ventureroot-green' : 'text-gray-600'}`}>{cat.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {selectedCategory && (
+            <>
+              <Text className="text-gray-400 text-[10px] font-bold uppercase mb-2 ml-1">Subcategory</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+                {retailCategoriesData.find(c => c.id === selectedCategory)?.subcategories.map(sub => (
+                  <TouchableOpacity
+                    key={sub.id}
+                    onPress={() => {
+                      setSelectedSubCategory(sub.id);
+                      setSelectedBrand(null);
+                    }}
+                    className={`mr-3 px-4 py-2 rounded-xl border ${selectedSubCategory === sub.id ? 'border-blue-500 bg-blue-50' : 'border-gray-100 bg-gray-50'}`}
+                  >
+                    <Text className={`font-bold ${selectedSubCategory === sub.id ? 'text-blue-700' : 'text-gray-600'}`}>{sub.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </>
+          )}
+
+
+        </View>
+
         {/* Basic Info Section */}
         <View className="bg-white mx-4 mb-6 p-6 rounded-3xl border border-gray-100 shadow-sm">
           <View className="flex-row items-center mb-4">
@@ -113,11 +171,18 @@ const AddProductScreen = ({ navigation }: RootStackScreenProps<'AddProduct'>) =>
             </View>
             
             <View>
-              <Text className="text-gray-400 text-[10px] font-bold uppercase mb-1 ml-1">SKU / Barcode *</Text>
+              <View className="flex-row justify-between items-center mb-1">
+                <Text className="text-gray-400 text-[10px] font-bold uppercase ml-1">SKU / Barcode</Text>
+                <TouchableOpacity 
+                  onPress={() => setSku(`PRD-${Math.random().toString(36).substring(2, 8).toUpperCase()}`)}
+                >
+                  <Text className="text-indigo-600 text-[10px] font-bold uppercase">Auto Generate</Text>
+                </TouchableOpacity>
+              </View>
               <TextInput
                 value={sku}
                 onChangeText={setSku}
-                placeholder="e.g. COCOA-001"
+                placeholder="Leave blank to auto-generate"
                 className="bg-gray-50 p-4 rounded-2xl border border-gray-100 text-gray-900"
               />
             </View>

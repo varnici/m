@@ -18,15 +18,20 @@ export type RootStackParamList = {
   StockAdjustment: {
     productId?: string;
     storeId?: string;
+    prefillDrift?: number;
   };
   ProductList: undefined;
+  LowStockAlerts: { storeId?: string };
   ProductDetail: { productId: string };
   AddProduct: undefined;
+  EditProduct: { productId: string };
   PurchaseOrders: undefined;
-  AddPurchaseOrder: undefined;
+  AddPurchaseOrder: { productId?: string; qty?: number };
+  AddSupplier: undefined;
   PurchaseOrderDetail: { poId: string };
   AIInsights: undefined;
-  RecordSale: undefined;
+  RecordSale: { saleId?: string };
+  Receipt: { saleId: string };
   InsuranceSummary: undefined;
   FileClaim: undefined;
   Repayment: undefined;
@@ -41,6 +46,11 @@ export type RootStackParamList = {
   ClusterPickup: undefined;
   PoolDetail: { poolId: number };
   PoolList: undefined;
+  InventoryReconciliation: { storeId: string };
+  Shop: undefined;
+  Cart: undefined;
+  Checkout: { totalKobo: number };
+  ShopProductDetail: { product: any };
   
   // Onboarding Retail
   OnboardingAccountType: undefined;

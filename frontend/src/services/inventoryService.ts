@@ -8,6 +8,10 @@ export class InventoryService extends BaseService {
   // ========================================================================
   // PRODUCTS
   // ========================================================================
+  async getCategories(): Promise<any[]> {
+    const response = await this.fetchWithAuth('/v1/inventory/categories');
+    return response.json();
+  }
 
   async createProduct(data: any): Promise<any> {
     const response = await this.fetchWithAuth('/v1/inventory/products', {
@@ -21,13 +25,15 @@ export class InventoryService extends BaseService {
     skip: number = 0,
     limit: number = 100,
     categoryId?: string,
-    search?: string
+    search?: string,
+    storeId?: string
   ): Promise<any[]> {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
       ...(categoryId && { category_id: categoryId }),
       ...(search && { search }),
+      ...(storeId && { store_id: storeId }),
     });
 
     const response = await this.fetchWithAuth(
@@ -71,6 +77,15 @@ export class InventoryService extends BaseService {
     const response = await this.fetchWithAuth(
       `/v1/inventory/analytics/ledger?${params}`
     );
+    return response.json();
+  }
+
+  async reconcileInventory(storeId?: string, productId?: string): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (storeId) params.append('store_id', storeId);
+    if (productId) params.append('product_id', productId);
+    
+    const response = await this.fetchWithAuth(`/v1/inventory/analytics/reconcile?${params.toString()}`);
     return response.json();
   }
 
@@ -436,6 +451,13 @@ export class InventoryService extends BaseService {
     });
     return response.json();
   }
+
+  async getStores(): Promise<any[]> {
+    const response = await this.fetchWithAuth('/v1/inventory/stores');
+    return response.json();
+  }
+
+
 }
 
 export const inventoryService = new InventoryService();

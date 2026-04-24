@@ -7,8 +7,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import json
 import logging
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -113,6 +114,8 @@ class InventoryOutboxService:
         if mode == "noop":
             return
 
+            return
+
         if mode == "log":
             logger.info(
                 "inventory_outbox_published id=%s topic=%s event_type=%s owner_id=%s command_id=%s payload=%s",
@@ -123,6 +126,25 @@ class InventoryOutboxService:
                 message.command_id,
                 message.payload,
             )
+            return
+
+        if mode == "redis":
+            from app.infrastructure.cache import redis_client
+            client = redis_client()
+            
+            # Prepare event payload
+            event_data = {
+                "id": str(message.id),
+                "event_type": message.event_type,
+                "owner_id": str(message.owner_id),
+                "command_id": str(message.command_id) if message.command_id else None,
+                "payload": json.dumps(message.payload),
+                "created_at": message.created_at.isoformat()
+            }
+            
+            # Use XADD to publish to a Redis Stream
+            stream_name = f"events:{message.topic}"
+            client.xadd(stream_name, event_data)
             return
 
         raise ValueError(f"Unsupported inventory outbox publisher mode: {mode}")

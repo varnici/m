@@ -1,12 +1,28 @@
 import React from 'react';
 import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { 
+  ChevronLeft, 
+  Box, 
+  AlertTriangle, 
+  List, 
+  Mic, 
+  Camera, 
+  TrendingDown, 
+  ChevronRight,
+  Sparkles,
+  Zap,
+  LayoutGrid,
+  History as HistoryIcon,
+  Search
+} from 'lucide-react-native';
+import { FlashList } from '@shopify/flash-list';
+
 import type { RootStackScreenProps } from '@/navigation/types';
-import { ChevronLeft, Box, AlertTriangle, List, Mic, Camera, TrendingDown } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import BottomTabBar from '@/components/ui/BottomTabBar';
 import ScreenHeader from '@/components/ui/ScreenHeader';
-
 import { useInventoryDashboard, useLowStockAlerts } from '@/hooks/useInventory';
 
 const InventoryDashboardScreen = ({
@@ -17,9 +33,47 @@ const InventoryDashboardScreen = ({
 
   const inventoryValue = dashboardData?.total_value_kobo || 0;
   const turnoverText = dashboardData?.turnover_description || 'Loading turnover data...';
+  const recommendations = dashboardData?.global_recommendations || [];
   
   const criticalItems = lowStockData?.slice(0, 4) || [];
   const criticalCount = lowStockData?.length || 0;
+
+  const renderRecommendation = ({ item }: { item: any }) => (
+    <TouchableOpacity 
+      className="mr-4 w-72 rounded-3xl overflow-hidden"
+      onPress={() => navigation.navigate(item.action_route as any, item.metadata)}
+    >
+      <BlurView intensity={20} tint="light" className="p-5 h-full bg-white/20 border border-white/30">
+        <View className="flex-row items-center mb-3">
+          <View className={`p-2 rounded-xl ${item.type === 'restock' ? 'bg-orange-500/20' : 'bg-indigo-500/20'}`}>
+            {item.type === 'restock' ? <Zap size={16} color="#F97316" /> : <Sparkles size={16} color="#6366F1" />}
+          </View>
+          <View className="ml-3">
+             <Text className="text-gray-900 font-bold text-sm">{item.title}</Text>
+             <View className="flex-row items-center">
+                <Text className={`text-[8px] font-bold uppercase tracking-widest ${item.impact === 'high' ? 'text-red-500' : 'text-indigo-500'}`}>
+                   {item.impact} IMPACT
+                </Text>
+             </View>
+          </View>
+        </View>
+        <Text className="text-gray-700 text-xs leading-5 mb-4" numberOfLines={2}>
+          {item.description}
+        </Text>
+        <View className="flex-row items-center justify-between mt-auto">
+           <View className="flex-row -space-x-2">
+              {[1, 2, 3].map(i => (
+                <View key={i} className="w-6 h-6 rounded-full border-2 border-white bg-gray-200" />
+              ))}
+           </View>
+           <View className="bg-slate-900 px-3 py-1.5 rounded-lg flex-row items-center">
+              <Text className="text-white font-bold text-[10px]">{item.action_text}</Text>
+              <ChevronRight size={10} color="white" style={{ marginLeft: 4 }} />
+           </View>
+        </View>
+      </BlurView>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-background-page">
@@ -32,116 +86,129 @@ const InventoryDashboardScreen = ({
       />
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="px-4 py-2">
-           <View className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm mb-4">
-              <View className="flex-row justify-between items-center mb-4">
+        {/* Global Recommendations Carousel */}
+        {recommendations.length > 0 && (
+          <View className="mt-4">
+             <View className="px-4 mb-3 flex-row items-center justify-between">
+                <Text className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Global Recommendations</Text>
+                <Sparkles size={14} color="#4F46E5" />
+             </View>
+             <FlashList
+                data={recommendations}
+                renderItem={renderRecommendation}
+                horizontal
+                estimatedItemSize={288}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 16 }}
+             />
+          </View>
+        )}
+
+        <View className="px-4 py-6">
+           <View className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm mb-6">
+              <View className="flex-row justify-between items-center mb-6">
                  <View>
-                    <Text className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Total Inventory Value</Text>
+                    <Text className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-1">Total Assets</Text>
                     <Text className="text-gray-900 text-3xl font-black">
                       ₦{(inventoryValue / 100).toLocaleString()}
                     </Text>
                  </View>
-                 <View className="w-12 h-12 bg-emerald-50 rounded-2xl items-center justify-center">
-                    <Box size={24} color="#10B981" />
+                 <View className="w-14 h-14 bg-emerald-50 rounded-2xl items-center justify-center border border-emerald-100">
+                    <Box size={28} color="#10B981" />
                  </View>
               </View>
-              <View className="flex-row items-center bg-gray-50 p-3 rounded-xl">
+              <View className="flex-row items-center bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100">
                  <TrendingDown size={14} color="#F59E0B" />
-                 <Text className="text-gray-600 text-[10px] ml-2">
+                 <Text className="text-gray-600 font-bold text-[10px] ml-3">
                     {turnoverText}
                  </Text>
               </View>
            </View>
 
-           <View className="flex-row gap-3">
-              <View className="flex-1 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
-                 <Text className="text-gray-400 text-[8px] font-bold uppercase mb-1">30D Revenue</Text>
+           <View className="flex-row gap-4 mb-6">
+              <View className="flex-1 bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
+                 <Text className="text-gray-400 text-[9px] font-black uppercase mb-2">30D Revenue</Text>
                  <Text className="text-gray-900 text-xl font-black">
                    ₦{((dashboardData?.total_revenue_kobo || 0) / 100).toLocaleString()}
                  </Text>
               </View>
-              <View className="flex-1 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
-                 <Text className="text-gray-400 text-[8px] font-bold uppercase mb-1">30D Profit</Text>
+              <View className="flex-1 bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
+                 <Text className="text-gray-400 text-[9px] font-black uppercase mb-2">30D Profit</Text>
                  <Text className="text-emerald-600 text-xl font-black">
                    ₦{((dashboardData?.total_profit_kobo || 0) / 100).toLocaleString()}
                  </Text>
               </View>
            </View>
-        </View>{(criticalCount > 0) && (
-          <TouchableOpacity 
-            className="mx-4 mb-6 bg-red-50 border border-red-100 rounded-2xl p-4 flex-row items-center"
-            onPress={() => navigation.navigate('ProductList')}
-          >
-             <View className="w-10 h-10 bg-red-100 rounded-full items-center justify-center mr-3">
-                <AlertTriangle size={20} color="#EF4444" />
-             </View>
-             <View className="flex-1">
-                <Text className="text-red-900 font-bold text-sm">{criticalCount} Items Critical</Text>
-                <Text className="text-red-800 text-[10px]">
-                  {criticalItems.map(i => i.name).join(', ')}...
-                </Text>
-             </View>
-             <View className="bg-red-500 px-3 py-1.5 rounded-lg">
-                <Text className="text-white font-bold text-[10px]">Restock</Text>
-             </View>
-          </TouchableOpacity>
-        )}
 
-         {/* Utils Grid */}
-         <View className="flex-row px-4 gap-3 mb-4">
-            <TouchableOpacity 
-              className="flex-1 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm items-center"
-              onPress={() => navigation.navigate('ProductList')}
-            >
-               <View className="w-12 h-12 bg-slate-50 rounded-xl items-center justify-center mb-3">
-                  <List size={24} color="#4B5563" />
-               </View>
-               <Text className="text-gray-900 font-bold text-xs text-center">Products Catalog</Text>
-            </TouchableOpacity>
+           {(criticalCount > 0) && (
+             <TouchableOpacity 
+               className="bg-red-50 border border-red-100 rounded-3xl p-5 flex-row items-center mb-8"
+               onPress={() => navigation.navigate('LowStockAlerts', {})}
+             >
+                <View className="w-12 h-12 bg-red-100 rounded-2xl items-center justify-center mr-4">
+                   <AlertTriangle size={24} color="#EF4444" />
+                </View>
+                <View className="flex-1">
+                   <Text className="text-red-900 font-black text-base">{criticalCount} Critical Alerts</Text>
+                   <Text className="text-red-800 text-[10px] font-medium" numberOfLines={1}>
+                     {criticalItems.map(i => i.name).join(', ')}...
+                   </Text>
+                </View>
+                <ChevronRight size={20} color="#EF4444" opacity={0.5} />
+             </TouchableOpacity>
+           )}
 
-            <TouchableOpacity 
-              className="flex-1 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm items-center"
-              onPress={() => navigation.navigate('PurchaseOrders')}
-            >
-               <View className="w-12 h-12 bg-emerald-50 rounded-xl items-center justify-center mb-3">
-                  <Box size={24} color="#10B981" />
-               </View>
-               <Text className="text-gray-900 font-bold text-xs text-center">Purchase Orders</Text>
-            </TouchableOpacity>
+           {/* Quick Actions Grid */}
+           <View className="mb-8">
+              <Text className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-4">Operations Center</Text>
+              <View className="flex-row gap-4 mb-4">
+                 <TouchableOpacity 
+                   className="flex-1 bg-white p-5 rounded-3xl border border-gray-100 shadow-sm"
+                   onPress={() => navigation.navigate('ProductList')}
+                 >
+                    <View className="w-10 h-10 bg-slate-50 rounded-xl items-center justify-center mb-3">
+                       <LayoutGrid size={20} color="#4B5563" />
+                    </View>
+                    <Text className="text-gray-900 font-black text-xs">Catalog</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity 
+                   className="flex-1 bg-white p-5 rounded-3xl border border-gray-100 shadow-sm"
+                   onPress={() => navigation.navigate('PurchaseOrders')}
+                 >
+                    <View className="w-10 h-10 bg-emerald-50 rounded-xl items-center justify-center mb-3">
+                       <Box size={20} color="#10B981" />
+                    </View>
+                    <Text className="text-gray-900 font-black text-xs">Orders</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity 
+                   className="flex-1 bg-white p-5 rounded-3xl border border-gray-100 shadow-sm"
+                   onPress={() => navigation.navigate('StockLodger')}
+                 >
+                    <View className="w-10 h-10 bg-indigo-50 rounded-xl items-center justify-center mb-3">
+                       <HistoryIcon size={20} color="#4F46E5" />
+                    </View>
+                    <Text className="text-gray-900 font-black text-xs">History</Text>
+                 </TouchableOpacity>
+              </View>
 
-            <TouchableOpacity 
-              className="flex-1 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm items-center"
-              onPress={() => navigation.navigate('AIInsights')}
-            >
-               <View className="w-12 h-12 bg-indigo-50 rounded-xl items-center justify-center mb-3">
-                  <TrendingDown size={24} color="#4F46E5" />
-               </View>
-               <Text className="text-gray-900 font-bold text-xs text-center">AI Insights</Text>
-            </TouchableOpacity>
-         </View>
-
-         <View className="flex-row px-4 gap-3 mb-8">
-            <TouchableOpacity 
-              className="flex-1 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm items-center"
-              onPress={() => navigation.navigate('StockLodger')}
-            >
-               <Text className="text-gray-900 font-bold text-xs">Ledger</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              className="flex-1 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm items-center"
-              onPress={() => navigation.navigate('VoiceStock')}
-            >
-               <Text className="text-gray-900 font-bold text-xs">Voice Update</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              className="flex-1 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm items-center"
-              onPress={() => navigation.navigate('ScanShelve')}
-            >
-               <Text className="text-gray-900 font-bold text-xs">Scan Shelf</Text>
-            </TouchableOpacity>
-         </View>
+              <View className="flex-row gap-4">
+                 <TouchableOpacity 
+                   className="flex-1 bg-slate-900 p-5 rounded-3xl shadow-xl flex-row items-center justify-center"
+                   onPress={() => navigation.navigate('ScanShelve')}
+                 >
+                    <Camera size={20} color="white" />
+                    <Text className="text-white font-black text-xs ml-3">AR SCAN</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity 
+                   className="flex-1 bg-ventureroot-green p-5 rounded-3xl shadow-xl flex-row items-center justify-center"
+                   onPress={() => navigation.navigate('VoiceStock')}
+                 >
+                    <Mic size={20} color="white" />
+                    <Text className="text-white font-black text-xs ml-3">VOICE</Text>
+                 </TouchableOpacity>
+              </View>
+           </View>
+        </View>
 
         <View className="px-4 mb-8">
            <Text className="text-gray-900 font-bold text-base mb-4">Recent Sales (Sheet)</Text>
@@ -172,29 +239,10 @@ const InventoryDashboardScreen = ({
            </View>
         </View>
 
-        <View className="px-4 mb-10">
-           <Text className="text-gray-900 font-bold text-base mb-4">Categories</Text>
-           <View className="gap-4">
-              {dashboardData?.categories?.map((cat: any, i: number) => (
-                 <View key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex-row items-center">
-                    <View className="w-2 h-10 rounded-full mr-4" style={{ backgroundColor: cat.color || '#10B981' }} />
-                    <View className="flex-1">
-                       <Text className="text-gray-900 font-bold text-sm">{cat.name}</Text>
-                       <Text className="text-gray-400 text-[10px]">{cat.count} individual items</Text>
-                    </View>
-                    <View className="bg-gray-50 px-3 py-1 rounded-full">
-                       <Text className="text-gray-600 font-bold text-[10px]">{cat.health_score}% Healthy</Text>
-                    </View>
-                 </View>
-              ))}
-              {(!dashboardData?.categories || dashboardData.categories.length === 0) && (
-                <Text className="text-gray-400 text-xs text-center italic">No category data available yet.</Text>
-              )}
-           </View>
-        </View>
-        <View className="h-20" />
+        <View className="h-32" />
+        <View className="h-32" />
       </ScrollView>
-      <BottomTabBar navigation={navigation} />
+      <BottomTabBar navigation={navigation} activeRoute="InventoryDashboard" />
     </SafeAreaView>
   );
 };

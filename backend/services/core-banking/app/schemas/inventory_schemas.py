@@ -9,7 +9,7 @@ from typing import List, Optional, Any, Dict
 from decimal import Decimal
 from enum import Enum
 
-from pydantic import BaseModel, Field, validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
 
 # ============================================================================
@@ -87,8 +87,8 @@ class StoreOut(StoreCreate):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 
 # ============================================================================
@@ -103,8 +103,9 @@ class CategoryCreate(BaseModel):
     image_url: Optional[str] = None
     position: int = 0
 
-    @validator("slug")
-    def validate_slug(cls, v):
+    @field_validator("slug")
+    @classmethod
+    def validate_slug(cls, v: str) -> str:
         if not v.islower() and "-" in v:
             return v
         return v.lower().replace(" ", "-")
@@ -117,8 +118,8 @@ class CategoryOut(CategoryCreate):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 
 # ============================================================================
@@ -154,22 +155,21 @@ class ProductCreate(BaseModel):
     quantity_on_hand: Optional[int] = Field(None, ge=0)
     store_id: Optional[str] = None
 
-    @validator("selling_price_kobo")
-    def validate_selling_price(cls, v, values):
-        if "cost_price_kobo" in values and v < values["cost_price_kobo"]:
+    @model_validator(mode="after")
+    def validate_product_logic(self) -> ProductCreate:
+        if self.selling_price_kobo < self.cost_price_kobo:
             raise ValueError("Selling price cannot be less than cost price")
-        return v
-
-    @validator("maximum_stock_level")
-    def validate_max_stock(cls, v, values):
-        if "minimum_stock_level" in values and v <= values["minimum_stock_level"]:
+        if self.maximum_stock_level <= self.minimum_stock_level:
             raise ValueError("Maximum stock must be greater than minimum stock")
-        return v
+        return self
 
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    category_id: Optional[str] = None
+    sku: Optional[str] = None
+    barcode: Optional[str] = None
     brand: Optional[str] = None
     cost_price_kobo: Optional[int] = Field(None, ge=0)
     selling_price_kobo: Optional[int] = Field(None, ge=0)
@@ -190,9 +190,11 @@ class ProductOut(ProductCreate):
     conversion_factor: int
     created_at: datetime
     updated_at: datetime
+    total_quantity_on_hand: int = 0
+    total_reserved_quantity: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 
 class ProductDetailOut(ProductOut):
@@ -228,8 +230,8 @@ class StockLevelOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 
 class StockMovementCreate(BaseModel):
@@ -244,8 +246,9 @@ class StockMovementCreate(BaseModel):
     notes: Optional[str] = None
     voice_input_raw: Optional[str] = None
 
-    @validator("quantity")
-    def validate_quantity(cls, v):
+    @field_validator("quantity")
+    @classmethod
+    def validate_quantity(cls, v: int) -> int:
         if v <= 0:
             raise ValueError("Quantity must be greater than 0")
         return v
@@ -257,8 +260,8 @@ class StockMovementOut(StockMovementCreate):
     staff_id: Optional[str] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 
 class StockReservationCreate(BaseModel):
@@ -296,8 +299,8 @@ class StockReservationOut(BaseModel):
     released_at: Optional[datetime] = None
     committed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 
 class OutboxMessageOut(BaseModel):
@@ -312,8 +315,8 @@ class OutboxMessageOut(BaseModel):
     published_at: Optional[datetime] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 
 class OutboxProcessResult(BaseModel):
@@ -365,8 +368,8 @@ class SupplierOut(SupplierCreate):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 
 class ProductSupplierLink(BaseModel):
@@ -418,8 +421,8 @@ class PurchaseOrderItemOut(PurchaseOrderItemCreate):
     quantity_received: int = 0
     line_total_kobo: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 
 class PurchaseOrderOut(BaseModel):
@@ -438,8 +441,8 @@ class PurchaseOrderOut(BaseModel):
     supplier: Optional[SupplierOut] = None
     store: Optional[StoreOut] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 
 class PurchaseOrderDetailOut(PurchaseOrderOut):
@@ -463,6 +466,18 @@ class RecentTransactionItem(BaseModel):
     unit_price_kobo: int
     profit_kobo: int
 
+class GlobalRecommendation(BaseModel):
+    """Smart AI-driven recommendations displayed globally."""
+    id: str
+    type: str  # 'restock', 'cross_sell', 'bundle', 'insight', 'promo'
+    title: str
+    description: str
+    impact: str  # 'high', 'medium', 'low'
+    priority: int = 0
+    action_text: str
+    action_route: str
+    metadata: Dict[str, Any] = {}
+
 class InventoryDashboardSummary(BaseModel):
     """Simplified summary for the main inventory dashboard."""
     total_value_kobo: int
@@ -474,6 +489,7 @@ class InventoryDashboardSummary(BaseModel):
     best_sellers: List[Dict[str, Any]] = []
     categories: List[Dict[str, Any]] = []
     recent_transactions: List[RecentTransactionItem] = []
+    global_recommendations: List[GlobalRecommendation] = []
 
 class InventoryMetricsOut(BaseModel):
     """Comprehensive inventory dashboard metrics."""
@@ -494,8 +510,8 @@ class InventoryMetricsOut(BaseModel):
     dead_stock_value_kobo: int = 0
     obsolete_stock_percentage: Decimal = 0.0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 
 class ProductHealthOut(BaseModel):
@@ -566,6 +582,7 @@ class LedgerEntry(BaseModel):
     id: str
     product_name: str
     customer_name: Optional[str]
+    customer_phone: Optional[str] = None
     customer_id: Optional[str]
     quantity: int
     unit_price_kobo: int
@@ -574,8 +591,8 @@ class LedgerEntry(BaseModel):
     profit_kobo: int
     transaction_date: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 
 # ============================================================================
@@ -586,14 +603,26 @@ class SalesTransactionItemCreate(BaseModel):
     product_id: str
     quantity_sold: int
     unit_price_kobo: int
+    reservation_id: Optional[str] = None
 
 class SalesTransactionCreate(BaseModel):
     store_id: Optional[str] = None
     customer_id: Optional[str] = None
     customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
     payment_method: Optional[str] = "cash"
+    discount_amount_kobo: Optional[int] = 0
     notes: Optional[str] = None
     items: List[SalesTransactionItemCreate]
+
+class SalesTransactionUpdate(BaseModel):
+    customer_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    payment_method: Optional[str] = None
+    discount_amount_kobo: Optional[int] = None
+    notes: Optional[str] = None
+    items: Optional[List[SalesTransactionItemCreate]] = None
 
 class SalesTransactionItemOut(BaseModel):
     id: str
@@ -603,8 +632,18 @@ class SalesTransactionItemOut(BaseModel):
     line_total_kobo: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
+
+class ReconciliationResult(BaseModel):
+    product_id: str
+    sku: str
+    name: str
+    current_on_hand: int
+    ledger_sum: int
+    drift: int
+    status: str
+    timestamp: datetime
 
 class SalesTransactionOut(BaseModel):
     id: str
@@ -612,13 +651,15 @@ class SalesTransactionOut(BaseModel):
     store_id: Optional[str]
     customer_id: Optional[str]
     customer_name: Optional[str]
+    customer_phone: Optional[str] = None
     total_amount_kobo: int
+    discount_amount_kobo: int
     payment_method: Optional[str]
     notes: Optional[str]
     transaction_date: datetime
     items: List[SalesTransactionItemOut]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+        
 
 

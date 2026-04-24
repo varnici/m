@@ -53,7 +53,7 @@ const QUICK_ACCESS_ITEMS = [
   { icon: Users, label: 'Group Buy', bgColor: '#FCE7F3', iconColor: '#DB2777' },
   { icon: Shield, label: 'Insurance', bgColor: '#FEE2E2', iconColor: '#EF4444' },
   { icon: Bot, label: 'AI Assist', bgColor: '#D1FAE5', iconColor: '#059669' },
-  { icon: Store, label: 'Market', bgColor: '#E0E7FF', iconColor: '#4F46E5' },
+  { icon: Store, label: 'Shop', bgColor: '#E0E7FF', iconColor: '#4F46E5' },
   { icon: Mic, label: 'Voice Stock', bgColor: '#F3E8FF', iconColor: '#9333EA' },
 ];
 
@@ -125,23 +125,23 @@ const DashboardScreen = ({
         bounces={false}
       >
         {/* ═══ GREEN HEADER SECTION ═══ */}
-        <View className="bg-ventureroot-green pt-12 pb-6">
+        <View className="bg-ventureroot-green pt-16 pb-8">
           {/* Greeting Row */}
-          <View className="flex-row items-center justify-between px-4 mb-4">
+          <View className="flex-row items-center justify-between px-6 mb-6">
             <TouchableOpacity 
               className="flex-row items-center"
               onPress={() => navigation.navigate('More')}
               activeOpacity={0.7}
             >
               {/* Avatar with border */}
-              <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center mr-3 border border-white/40">
-                <Text className="text-white font-bold text-sm">
+              <View className="w-12 h-12 rounded-2xl bg-white/20 items-center justify-center mr-4 border border-white/40 shadow-sm">
+                <Text className="text-white font-black text-base">
                   {dashboard.user.avatar_initials || dashboard.user.full_name.substring(0, 2).toUpperCase()}
                 </Text>
               </View>
               <View>
-                <Text className="text-white/70 text-xs font-medium">Good evening 👋</Text>
-                <Text className="text-white font-bold text-base">{dashboard.user.full_name}</Text>
+                <Text className="text-white/70 text-xs font-bold uppercase tracking-wider">Good evening 👋</Text>
+                <Text className="text-white font-black text-xl">{dashboard.user.full_name}</Text>
               </View>
             </TouchableOpacity>
 
@@ -256,6 +256,7 @@ const DashboardScreen = ({
                     if (item.label === 'Inventory') navigation.navigate('InventoryDashboard');
                     if (item.label === 'Insurance') navigation.navigate('InsuranceSummary');
                     if (item.label === 'Group Buy') navigation.navigate('PoolList');
+                    if (item.label === 'Shop') navigation.navigate('Shop');
                   }}
                 />
               </View>
@@ -420,8 +421,7 @@ const DashboardScreen = ({
           />
         </View>
 
-        {/* Bottom spacing for tab bar */}
-        <View className="h-20" />
+        <View className="h-32" />
       </ScrollView>
 
       <BottomTabBar navigation={navigation} activeRoute="Dashboard" />

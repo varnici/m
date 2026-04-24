@@ -91,6 +91,7 @@ export const inventoryKeys = {
   deadStock: (days?: number) => [...inventoryKeys.analytics(), 'dead-stock', days],
   aiInsights: (storeId?: string) => [...inventoryKeys.analytics(), 'ai-insights', storeId],
   ledger: (skip: number, limit: number) => [...inventoryKeys.all, 'ledger', { skip, limit }],
+  reconcile: (storeId?: string, productId?: string) => [...inventoryKeys.analytics(), 'reconcile', { storeId, productId }],
 };
 
 // ============================================================================
@@ -273,9 +274,10 @@ export function useRecordStockMovement() {
     mutationFn: (data: any) =>
       inventoryService.recordStockMovement(data),
     onSuccess: (data: any) => {
-      // Invalidate all stock-related queries
+      // Invalidate all stock-related queries including products, alerts, and reconciliation
       queryClient.invalidateQueries({ queryKey: inventoryKeys.stock() });
       queryClient.invalidateQueries({ queryKey: inventoryKeys.analytics() });
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.products() });
       Toast.show({
         type: 'success',
         text1: 'Stock Updated',
@@ -898,6 +900,43 @@ export function useTransformStock() {
       Toast.show({
         type: 'error',
         text1: 'Transformation Failed',
+        text2: error.message,
+      });
+    },
+  });
+}
+
+/**
+ * useReconcileInventory - Fetch reconciliation report
+ */
+export function useReconcileInventory(storeId?: string, productId?: string) {
+  return useQuery({
+    queryKey: inventoryKeys.reconcile(storeId, productId),
+    queryFn: () => inventoryService.reconcileInventory(storeId, productId),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+  });
+}
+
+/**
+ * useDeleteProduct - Mutation to delete product
+ */
+export function useDeleteProduct() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (productId: string) => inventoryService.deleteProduct(productId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.products() });
+      Toast.show({
+        type: 'success',
+        text1: 'Product Deleted',
+      });
+    },
+    onError: (error: Error) => {
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to Delete Product',
         text2: error.message,
       });
     },

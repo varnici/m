@@ -9,8 +9,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 import logging
 
-from app.schemas.inventory_schemas import StockMovementCreate
-from app.services.inventory_service_v2 import InventoryService
+from app.schemas.inventory_schemas import StockMovementCreate, SalesTransactionCreate, SalesTransactionItemCreate
+from app.services.inventory_service_v2 import InventoryServiceV2
 
 from app.models.sales import Sale
 from app.models.inventory import Product, StockMovement
@@ -47,7 +47,7 @@ def record_sale(
         ).first()
         
         if product:
-            inventory_service = InventoryService(db, user_id)
+            inventory_service = InventoryServiceV2(db, user_id)
             # Find primary store for this user
             from app.models.inventory import Store
             store = db.query(Store).filter(
@@ -98,47 +98,55 @@ class SalesService:
     def __init__(self, db: Session, owner_id: str):
         self.db = db
         self.owner_id = owner_id
-        self.inventory_service = InventoryService(db, owner_id)
+        self.inventory_service = InventoryServiceV2(db, owner_id)
 
     async def process_sale(self, store_id: str, items: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Process a sale transaction.
         items: List of {"product_id": str, "quantity": int, "unit_price": int}
         """
-        transaction_id = f"SALE-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
-        processed_items = []
-        
-        for item in items:
-            movement = StockMovementCreate(
-                product_id=item["product_id"],
-                from_store_id=store_id,
-                movement_type="sale",
-                quantity=item["quantity"],
-                reference_id=transaction_id,
-                reference_type="sale_transaction",
-                input_method="api",
-                notes=f"Sale transaction {transaction_id}"
+        try:
+            # 1. Create SalesTransactionCreate payload
+            transaction_items = []
+            for item in items:
+                unit_price = item.get("unit_price")
+                if unit_price is None:
+                    # Fetch current product price
+                    product = self.db.query(Product).filter(
+                        Product.id == item["product_id"],
+                        Product.owner_id == self.owner_id
+                    ).first()
+                    unit_price = product.selling_price_kobo if product else 0
+                
+                transaction_items.append(SalesTransactionItemCreate(
+                    product_id=item["product_id"],
+                    quantity_sold=item["quantity"],
+                    unit_price_kobo=unit_price
+                ))
+            
+            payload = SalesTransactionCreate(
+                store_id=store_id,
+                items=transaction_items,
+                payment_method="cash" # Default
             )
             
-            try:
-                await self.inventory_service.record_stock_movement(movement)
-                processed_items.append({
-                    "product_id": item["product_id"],
-                    "status": "success"
-                })
-            except Exception as e:
-                logger.error(f"Failed to process sale item {item['product_id']}: {str(e)}")
-                processed_items.append({
-                    "product_id": item["product_id"],
-                    "status": "failed",
-                    "reason": str(e)
-                })
-
-        return {
-            "transaction_id": transaction_id,
-            "items": processed_items,
-            "timestamp": datetime.utcnow()
-        }
+            # 2. Call inventory service to create transaction and deplete stock
+            result = await self.inventory_service.create_sales_transaction(payload)
+            
+            return {
+                "transaction_id": result.id,
+                "status": "success",
+                "total_amount": result.total_amount_kobo,
+                "items_count": len(result.items),
+                "timestamp": result.transaction_date
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to process sale: {str(e)}")
+            return {
+                "status": "failed",
+                "reason": str(e)
+            }
 
     async def process_voice_sale(self, text_command: str, store_id: str) -> Dict[str, Any]:
         """

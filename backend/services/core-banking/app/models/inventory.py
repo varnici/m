@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
 
@@ -32,8 +32,8 @@ class Store(Base):
     email: Mapped[str | None] = mapped_column(String, nullable=True)
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String, default="active")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     owner = relationship("User")
     stock_levels = relationship("StockLevel", back_populates="store")
@@ -51,8 +51,8 @@ class Category(Base):
     image_url: Mapped[str | None] = mapped_column(String, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     position: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     owner = relationship("User")
     products = relationship("Product", back_populates="category")
@@ -90,8 +90,8 @@ class Product(Base):
     parent_id: Mapped[str | None] = mapped_column(String, ForeignKey("products.id", ondelete="SET NULL"), nullable=True)
     conversion_factor: Mapped[int] = mapped_column(Integer, default=1) 
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     owner = relationship("User")
     category = relationship("Category", back_populates="products")
@@ -122,8 +122,8 @@ class Supplier(Base):
     is_preferred: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String, default="active")
     rating: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=5.00)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     owner = relationship("User")
 
@@ -139,8 +139,8 @@ class StockLevel(Base):
     status: Mapped[str] = mapped_column(String, default="in_stock")
     last_counted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_movement_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     product = relationship("Product", back_populates="stock_levels")
     store = relationship("Store", back_populates="stock_levels")
@@ -166,7 +166,7 @@ class StockMovement(Base):
     voice_input_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
     staff_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     owner_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     product = relationship("Product", back_populates="movements")
 
@@ -184,8 +184,8 @@ class PurchaseOrder(Base):
     expected_delivery_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     actual_delivery_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     items = relationship("PurchaseOrderItem", back_populates="purchase_order")
     supplier = relationship("Supplier")
@@ -202,8 +202,8 @@ class PurchaseOrderItem(Base):
     quantity_received: Mapped[int] = mapped_column(Integer, default=0)
     unit_price_kobo: Mapped[int] = mapped_column(BigInteger, nullable=False)
     line_total_kobo: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     purchase_order = relationship("PurchaseOrder", back_populates="items")
     product = relationship("Product")
@@ -219,13 +219,15 @@ class SalesTransaction(Base):
     # Customer Tracking
     customer_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     customer_name: Mapped[str | None] = mapped_column(String, nullable=True) # For guest users
+    customer_phone: Mapped[str | None] = mapped_column(String, nullable=True)
     
     total_amount_kobo: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    discount_amount_kobo: Mapped[int] = mapped_column(BigInteger, default=0)
     payment_method: Mapped[str | None] = mapped_column(String, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     
-    transaction_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    transaction_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     items = relationship("SalesTransactionItem", back_populates="transaction")
 
@@ -234,12 +236,12 @@ class SalesTransactionItem(Base):
     __tablename__ = "sales_transaction_items"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
-    sales_transaction_id: Mapped[str] = mapped_column(String, ForeignKey("sales_transactions.id", ondelete="CASCADE"), nullable=False, index=True)
+    sale_id: Mapped[str] = mapped_column(String, ForeignKey("sales_transactions.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id: Mapped[str] = mapped_column(String, ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
     quantity_sold: Mapped[int] = mapped_column(Integer, nullable=False)
     unit_price_kobo: Mapped[int] = mapped_column(BigInteger, nullable=False)
     line_total_kobo: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     transaction = relationship("SalesTransaction", back_populates="items")
     product = relationship("Product")
@@ -259,7 +261,7 @@ class InventorySnapshot(Base):
     out_of_stock_items_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     inventory_turnover_ratio: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     owner = relationship("User")
     store = relationship("Store")

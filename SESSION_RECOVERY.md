@@ -142,15 +142,39 @@
   - `POST /v1/inventory/events/outbox/process`
   - `POST /v1/inventory/events/outbox/replay`
 
-### Critical Fix Applied
-- Reordered stock routes in `backend/services/core-banking/app/api/v1/endpoints/inventory.py` so:
-  - `/stock/movements` and `/stock/reservations` are no longer shadowed by `/stock/{store_id}`.
+---
 
-### Validation Notes
-- Backend Python compile checks passed for updated files.
-- Frontend `npx tsc --noEmit` still fails on pre-existing `DashboardScreen.tsx` typing issues (not introduced by reservation/outbox work).
+## 🛠 Project Evolution: April 21-22
 
-### Next Build Targets
-1. Enforce reservation-first policy in `create_sales_transaction`.
-2. Add reconciliation command (stock projection vs ledger).
-3. Add tests for reservation invariants and outbox replay lifecycle.
+### Phase 5: Sales Terminal & Ledger Auditing
+- **Sales Terminal UX**: Stabilized `RecordSaleScreen`, added high-frequency barcode scanning layout, and fixed multi-store switching.
+- **Ledger Reconciliation**: Implemented `/analytics/reconcile` API and `InventoryReconciliationScreen` to audit physical stock against transaction history.
+- **Financial Integrity**: Verified transactional integrity for stock depletion and movement logging.
+
+---
+
+## 🛠 Project Evolution: April 23 (TODAY)
+
+### Phase 6: Intelligence Layer & Dashboard Overhaul
+- **Global Recommendation Engine**: 
+    - Added `get_global_recommendations` to `AnalyticsService`.
+    - Implemented real-time AI-driven insight carousels on the Sales and Inventory dashboards.
+- **Sales Velocity Mastery**:
+    - Replaced mocks with live data-driven gauges and Portfolio Speed scores.
+    - Implemented product health scoring based on 30-day turnover calculations.
+- **Premium Feature Suite**:
+    - **Voice AI**: Interactive voice visualizer with command history and processing states.
+    - **AR HUD Scanner**: Cyberpunk-style HUD for shelf scanning with discrepancy alerts and confidence scores.
+- **Backend Stability**: Fixed critical `NameError` imports in the inventory router (`Dict`, `Any`).
+
+---
+
+## 📋 Immediate Next Build Targets (Backlog)
+
+1. **Product & Category CRUD Mastery**: Implement "Edit" workflows for products (Metadata, Pricing, Images).
+2. **PO Lifecycle Phase 2**: Implement partial receiving and draft confirmation workflows.
+3. **Supplier Hub**: Centralized vendor management and performance tracking.
+4. **Advanced Scanning**: Actual barcode/OCR integration into the AR HUD.
+
+---
+*Note: This log is cumulative and intended to preserve technical context across all architecture phases.*

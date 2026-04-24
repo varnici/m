@@ -3,7 +3,7 @@ Inventory Management Router - Production-Grade FastAPI Endpoints
 Handles products, stock levels, purchase orders, suppliers, and analytics.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import date, datetime
 from decimal import Decimal
 import logging
@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.infrastructure.database import get_db
 from app.infrastructure.auth import get_current_user_id
-from app.services.inventory_service_v2 import InventoryService
+from app.services.inventory_service_v2 import InventoryServiceV2
 from app.services.inventory_outbox_service import InventoryOutboxService
 from app.services.analytics_service import AnalyticsService
 from app.schemas.inventory_schemas import (
@@ -55,6 +55,7 @@ from app.schemas.inventory_schemas import (
     AIInsightsOut,
     LedgerEntry,
     SalesTransactionCreate,
+    SalesTransactionUpdate,
     SalesTransactionOut,
 )
 
@@ -96,7 +97,7 @@ async def create_store(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Create a new store/warehouse location."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.create_store(payload)
 
 
@@ -106,7 +107,7 @@ async def list_stores(
     owner_id: str = Depends(get_current_user_id),
 ):
     """List all stores for the current user."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_all_stores()
 
 
@@ -117,7 +118,7 @@ async def get_store(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get details of a specific store."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_store_by_id(store_id)
 
 
@@ -129,7 +130,7 @@ async def update_store(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Update store details."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.update_store(store_id, payload)
 
 
@@ -144,7 +145,7 @@ async def create_category(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Create a product category."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.create_category(payload)
 
 
@@ -154,7 +155,7 @@ async def list_categories(
     owner_id: str = Depends(get_current_user_id),
 ):
     """List all product categories."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_all_categories()
 
 
@@ -170,19 +171,50 @@ async def get_inventory_ledger_sheet(
     current_user_id: str = Depends(get_current_user_id)
 ):
     """Get the inventory sales ledger sheet."""
-    service = InventoryService(db, current_user_id)
+    service = InventoryServiceV2(db, current_user_id)
     return service.get_ledger(skip, limit)
 
 
-@router.post("/sales", response_model=SalesTransactionOut)
+@router.post("/sales/process", response_model=SalesTransactionOut)
 async def create_sale(
     payload: SalesTransactionCreate,
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id)
 ):
     """Record a sale and deplete stock."""
-    service = InventoryService(db, current_user_id)
-    return await service.create_sales_transaction(payload)
+    service = InventoryServiceV2(db, current_user_id)
+    try:
+        return await service.create_sales_transaction(payload)
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        logger.exception("Sale processing failed for owner_id=%s", current_user_id)
+        raise HTTPException(status_code=500, detail="Internal server error while processing sale.")
+
+
+@router.get("/sales/{tx_id}", response_model=SalesTransactionOut)
+async def get_sale(
+    tx_id: str,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Get sale details."""
+    service = InventoryServiceV2(db, owner_id)
+    return service.get_sales_transaction_by_id(tx_id)
+
+
+@router.put("/sales/{tx_id}", response_model=SalesTransactionOut)
+async def update_sale(
+    tx_id: str,
+    payload: SalesTransactionUpdate,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Update a sale transaction and adjust stock levels."""
+    service = InventoryServiceV2(db, owner_id)
+    return await service.update_sales_transaction(tx_id, payload)
 
 
 @router.post("/products", response_model=ProductOut, status_code=201)
@@ -193,7 +225,7 @@ async def create_product(
 ):
     """Create a new product in the catalog."""
     try:
-        service = InventoryService(db, owner_id)
+        service = InventoryServiceV2(db, owner_id)
         return await service.create_product(payload)
     except HTTPException:
         raise
@@ -210,12 +242,13 @@ async def list_products(
     limit: int = Query(100, ge=1, le=500),
     category_id: Optional[str] = None,
     search: Optional[str] = None,
+    store_id: Optional[str] = None,
     db: Session = Depends(get_db),
     owner_id: str = Depends(get_current_user_id),
 ):
     """List products with pagination and filtering."""
-    service = InventoryService(db, owner_id)
-    return service.list_products(skip, limit, category_id, search)
+    service = InventoryServiceV2(db, owner_id)
+    return service.list_products(skip, limit, category_id, search, store_id)
 
 
 @router.get("/products/search/by-barcode", response_model=ProductOut)
@@ -225,7 +258,7 @@ async def search_by_barcode(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Search product by barcode or QR code."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_product_by_barcode(barcode)
 
 
@@ -237,7 +270,7 @@ async def get_product(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get detailed product information including stock and prices."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_product_detail(product_id, store_id)
 
 
@@ -249,7 +282,7 @@ async def update_product(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Update product information."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.update_product(product_id, payload)
 
 
@@ -260,7 +293,7 @@ async def delete_product(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Soft-delete a product (mark as inactive)."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     await service.delete_product(product_id)
 
 
@@ -275,7 +308,7 @@ async def adjust_stock(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Record a stock adjustment (manual, voice, scan, or API)."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.record_stock_movement(payload)
 
 
@@ -300,13 +333,15 @@ async def transfer_stock(
             detail="from_store_id, to_store_id, product_id, and quantity are required.",
         )
 
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.transfer_stock(
         resolved_from_store_id,
         resolved_to_store_id,
         resolved_product_id,
         resolved_quantity,
     )
+
+
 
 
 @router.get("/stock/movements", response_model=List[StockMovementOut])
@@ -322,7 +357,7 @@ async def list_stock_movements(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get stock movement history with filtering."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_stock_movements(
         store_id, product_id, movement_type, start_date, end_date, skip, limit
     )
@@ -335,7 +370,7 @@ async def reserve_stock(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Reserve available stock for downstream checkout/fulfillment."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.reserve_stock(payload)
 
 
@@ -350,7 +385,7 @@ async def list_stock_reservations(
     owner_id: str = Depends(get_current_user_id),
 ):
     """List stock reservations for current tenant."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.list_stock_reservations(store_id, product_id, status, skip, limit)
 
 
@@ -361,7 +396,7 @@ async def get_stock_reservation(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get a single stock reservation."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_stock_reservation(reservation_id)
 
 
@@ -373,7 +408,7 @@ async def release_stock_reservation(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Release an active reservation fully or partially."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.release_stock_reservation(reservation_id, payload)
 
 
@@ -385,7 +420,7 @@ async def commit_stock_reservation(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Commit an active reservation into stock depletion."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.commit_stock_reservation(reservation_id, payload)
 
 
@@ -397,7 +432,7 @@ async def get_stock_levels(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get current stock levels for a store."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_stock_levels(store_id, status)
 
 
@@ -454,7 +489,7 @@ async def create_supplier(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Create a new supplier."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.create_supplier(payload)
 
 
@@ -467,7 +502,7 @@ async def list_suppliers(
     owner_id: str = Depends(get_current_user_id),
 ):
     """List suppliers with filtering."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_all_suppliers(status, skip, limit)
 
 
@@ -478,7 +513,7 @@ async def get_supplier(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get supplier details."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_supplier_by_id(supplier_id)
 
 
@@ -490,7 +525,7 @@ async def update_supplier(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Update supplier information."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.update_supplier(supplier_id, payload)
 
 
@@ -506,7 +541,7 @@ async def create_purchase_order(
 ):
     """Create a new purchase order."""
     try:
-        service = InventoryService(db, owner_id)
+        service = InventoryServiceV2(db, owner_id)
         return await service.create_purchase_order(payload)
     except HTTPException:
         raise
@@ -530,7 +565,7 @@ async def list_purchase_orders(
     owner_id: str = Depends(get_current_user_id),
 ):
     """List purchase orders with filtering."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_purchase_orders(
         status, supplier_id, store_id, start_date, end_date, skip, limit
     )
@@ -543,7 +578,7 @@ async def get_purchase_order(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get purchase order details."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_purchase_order_by_id(po_id)
 
 
@@ -555,7 +590,7 @@ async def update_purchase_order(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Update purchase order."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.update_purchase_order(po_id, payload)
 
 
@@ -566,7 +601,7 @@ async def confirm_purchase_order(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Confirm (send) a purchase order."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.confirm_purchase_order(po_id)
 
 
@@ -579,7 +614,7 @@ async def receive_purchase_order(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Mark purchase order as received and update stock."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.receive_purchase_order(po_id, items, background_tasks)
 
 
@@ -607,7 +642,7 @@ async def get_product_health_scores(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get health scores for all products (stock status, margin, turnover)."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_product_health_scores(limit)
 
 
@@ -618,7 +653,7 @@ async def get_low_stock_alerts(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get products below minimum stock level."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_low_stock_items(store_id)
 
 
@@ -629,7 +664,7 @@ async def get_dead_stock_detection(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get products with no sales in specified days."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.detect_dead_stock(days_no_sales)
 
 
@@ -640,7 +675,7 @@ async def get_ai_insights(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get AI-powered inventory insights and recommendations."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_ai_insights(store_id)
 
 
@@ -653,7 +688,7 @@ async def calculate_inventory_turnover(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Calculate inventory turnover ratio."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.calculate_turnover_ratio(product_id, store_id, days)
 
 
@@ -676,7 +711,7 @@ async def process_voice_input(
     if not resolved_audio_base64 or not resolved_store_id:
         raise HTTPException(status_code=422, detail="audio_base64 and store_id are required.")
 
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.process_voice_input(resolved_audio_base64, resolved_store_id, background_tasks)
 
 
@@ -689,7 +724,7 @@ async def scan_barcode(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Scan barcode and return product info with current stock."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_product_by_barcode(barcode_data, store_id)
 
 
@@ -708,7 +743,7 @@ async def scan_shelf_vision(
     if not resolved_image_base64 or not resolved_store_id:
         raise HTTPException(status_code=422, detail="image_base64 and store_id are required.")
 
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return await service.process_vision_scan(resolved_image_base64, resolved_store_id, background_tasks)
 
 
@@ -720,8 +755,22 @@ async def get_inventory_analytics_ledger(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get detailed sales ledger for inventory."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     return service.get_ledger(skip, limit)
+
+
+@router.get("/analytics/reconcile", response_model=List[Dict[str, Any]])
+async def reconcile_inventory_ledger(
+    store_id: str = Query(...),
+    product_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Reconcile stock levels against the immutable domain ledger."""
+    service = InventoryServiceV2(db, owner_id)
+    return service.reconcile_inventory(store_id, product_id)
+
+
 @router.post("/analytics/transform")
 async def transform_inventory_stock(
     payload: StockTransform,
@@ -729,7 +778,7 @@ async def transform_inventory_stock(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Break bulk packaging into unit pieces."""
-    service = InventoryService(db, owner_id)
+    service = InventoryServiceV2(db, owner_id)
     await service.transform_stock(
         payload.parent_product_id,
         payload.quantity_to_break,

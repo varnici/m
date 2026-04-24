@@ -44,10 +44,17 @@ class SQLAlchemyInventoryLedgerRepository(InventoryLedgerRepository):
         )
 
     def current_quantity(self, owner_id: str, product_id: str, store_id: str) -> int:
-        # Use current stock projection table for validation during migration.
+        # Use current stock on-hand for domain validation.
+        # Note: We intentionally use only quantity_on_hand (not subtracting
+        # quantity_reserved) because during the reservation-first sale flow,
+        # reserve_stock() increments quantity_reserved *before*
+        # commit_stock_reservation() decrements quantity_on_hand.
+        # Subtracting reserved here would double-count the stock reduction
+        # and falsely reject valid sales as "Insufficient stock".
+        # The reservation system already enforces availability upstream.
         quantity = (
             self.db.query(
-                func.coalesce(func.sum(StockLevel.quantity_on_hand - StockLevel.quantity_reserved), 0)
+                func.coalesce(func.sum(StockLevel.quantity_on_hand), 0)
             )
             .join(Product, Product.id == StockLevel.product_id)
             .filter(

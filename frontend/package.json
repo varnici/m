@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "^8.4.4",
     "@react-navigation/native": "^7.2.2",
     "@react-navigation/native-stack": "^7.14.10",
     "@react-navigation/stack": "^7.8.10",
@@ -21,6 +22,10 @@
     "babel-plugin-module-resolver": "^5.0.2",
     "date-fns": "^4.1.0",
     "expo": "~54.0.0",
+    "expo-barcode-scanner": "^13.0.1",
+    "expo-blur": "~15.0.8",
+    "expo-camera": "~17.0.10",
+    "expo-haptics": "~15.0.8",
     "expo-linear-gradient": "~15.0.8",
     "expo-location": "~19.0.8",
     "expo-status-bar": "~3.0.9",
@@ -39,8 +44,10 @@
     "react-native-svg": "15.12.1",
     "react-native-toast-message": "^2.3.3",
     "react-native-url-polyfill": "^3.0.0",
+    "react-native-view-shot": "^4.0.3",
     "react-native-worklets": "0.5.1",
-    "tailwindcss": "^3.4.1"
+    "tailwindcss": "^3.4.1",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

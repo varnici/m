@@ -60,7 +60,7 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
         </View>
 
         {/* Refer & Earn */}
-        <TouchableOpacity className="bg-emerald-50 rounded-2xl p-4 flex-row items-center mb-6 border border-emerald-100">
+        <TouchableOpacity className="bg-emerald-50 rounded-2xl p-4 flex-row items-center mb-4 border border-emerald-100">
            <View className="w-10 h-10 bg-emerald-100 rounded-xl items-center justify-center mr-4">
               <Text className="text-xl">🎁</Text>
            </View>
@@ -71,6 +71,30 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
            <TouchableOpacity className="bg-emerald-600 px-4 py-1.5 rounded-lg">
               <Text className="text-white font-bold text-[10px]">Share</Text>
            </TouchableOpacity>
+        </TouchableOpacity>
+
+        {/* Share Shopfront */}
+        <TouchableOpacity 
+          className="bg-indigo-50 rounded-2xl p-4 flex-row items-center mb-6 border border-indigo-100"
+          onPress={() => {
+            const shopUrl = `https://shop.ventureroot.ng/chidi-okonkwo`; // Hardcoded for demo, should use user id
+            const message = `Check out my shop on VentureRoot! 🛍️\n${shopUrl}`;
+            const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+            require('react-native').Linking.openURL(whatsappUrl).catch(() => {
+              require('react-native').Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
+            });
+          }}
+        >
+           <View className="w-10 h-10 bg-indigo-100 rounded-xl items-center justify-center mr-4">
+              <Share2 size={20} color="#4F46E5" />
+           </View>
+           <View className="flex-1">
+              <Text className="text-indigo-900 font-bold text-sm">Share Your Shopfront</Text>
+              <Text className="text-indigo-800 text-[10px]">Grow your retail reach via WhatsApp</Text>
+           </View>
+           <View className="bg-indigo-600 px-4 py-1.5 rounded-lg">
+              <Text className="text-white font-bold text-[10px]">Share</Text>
+           </View>
         </TouchableOpacity>
 
         {/* Menu Items */}

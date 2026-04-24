@@ -13,12 +13,28 @@ const StockAdjustmentScreen = ({
   navigation,
   route,
 }: RootStackScreenProps<'StockAdjustment'>) => {
-  const { productId, storeId } = route.params || {};
+  const { productId, storeId, prefillDrift } = route.params || {};
   
-  const [quantity, setQuantity] = useState('');
-  const [movementType, setMovementType] = useState<MovementType>('adjustment');
+  const [quantity, setQuantity] = useState(() => {
+    if (prefillDrift !== undefined && prefillDrift !== 0) {
+      return Math.abs(prefillDrift).toString();
+    }
+    return '';
+  });
+  
+  const [movementType, setMovementType] = useState<MovementType>(() => {
+    if (prefillDrift !== undefined) {
+      return prefillDrift < 0 ? 'damage' : 'adjustment';
+    }
+    return 'adjustment';
+  });
   const [inputMethod, setInputMethod] = useState<'manual' | 'voice' | 'scan'>('manual');
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(() => {
+    if (prefillDrift !== undefined && prefillDrift !== 0) {
+      return `Reconciliation Adjustment (Drift: ${prefillDrift > 0 ? '+' : ''}${prefillDrift})`;
+    }
+    return '';
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 

@@ -17,12 +17,17 @@ import VoiceStockScreen from '@/screens/inventory/VoiceStockScreen';
 import ScanShelveScreen from '@/screens/inventory/ScanShelveScreen';
 import { ProductListScreen } from '@/screens/inventory/ProductListScreen';
 import AddProductScreen from '@/screens/inventory/AddProductScreen';
+import EditProductScreen from '@/screens/inventory/EditProductScreen';
 import StockAdjustmentScreen from '@/screens/inventory/StockAdjustmentScreen';
 import { ProductDetailScreen } from '@/screens/inventory/ProductDetailScreen';
 import { PurchaseOrderScreen } from '@/screens/inventory/PurchaseOrderScreen';
 import { AIInsightsScreen } from '@/screens/inventory/AIInsightsScreen';
 import CreatePurchaseOrderScreen from '@/screens/inventory/CreatePurchaseOrderScreen';
+import AddSupplierScreen from '@/screens/inventory/AddSupplierScreen';
 import RecordSaleScreen from '@/screens/sales/RecordSaleScreen';
+import ReceiptScreen from '@/screens/sales/ReceiptScreen';
+import InventoryReconciliationScreen from '@/screens/inventory/InventoryReconciliationScreen';
+import LowStockAlertsScreen from '@/screens/inventory/LowStockAlertsScreen';
 import InsuranceSummaryScreen from '@/screens/insurance/InsuranceSummaryScreen';
 import FileClaimScreen from '@/screens/insurance/FileClaimScreen';
 import RepaymentScreen from '@/screens/wallet/RepaymentScreen';
@@ -37,6 +42,10 @@ import CreditDashboardScreen from '@/screens/credit/CreditDashboardScreen';
 import ClusterPickupScreen from '@/screens/pools/ClusterPickupScreen';
 import PoolDetailScreen from '@/screens/pools/PoolDetailScreen';
 import PoolListScreen from '@/screens/pools/PoolListScreen';
+import ShopScreen from '@/screens/shop/ShopScreen';
+import CartScreen from '@/screens/shop/CartScreen';
+import CheckoutScreen from '@/screens/shop/CheckoutScreen';
+import ShopProductDetailScreen from '@/screens/shop/ShopProductDetailScreen';
 
 // Onboarding Retail Screens
 import AccountTypeScreen from '@/screens/onboarding/retail/AccountTypeScreen';
@@ -85,11 +94,14 @@ const RootNavigator = () => {
       <Stack.Screen name="ProductList" component={ProductListScreen} />
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
       <Stack.Screen name="AddProduct" component={AddProductScreen} />
+      <Stack.Screen name="EditProduct" component={EditProductScreen} />
       <Stack.Screen name="StockAdjustment" component={StockAdjustmentScreen} />
       <Stack.Screen name="PurchaseOrders" component={PurchaseOrderScreen} />
       <Stack.Screen name="AddPurchaseOrder" component={CreatePurchaseOrderScreen} />
+      <Stack.Screen name="AddSupplier" component={AddSupplierScreen} />
       <Stack.Screen name="AIInsights" component={AIInsightsScreen} />
       <Stack.Screen name="RecordSale" component={RecordSaleScreen} />
+      <Stack.Screen name="Receipt" component={ReceiptScreen} />
       <Stack.Screen name="InsuranceSummary" component={InsuranceSummaryScreen} />
       <Stack.Screen name="FileClaim" component={FileClaimScreen} />
       <Stack.Screen name="Repayment" component={RepaymentScreen} />
@@ -104,6 +116,12 @@ const RootNavigator = () => {
       <Stack.Screen name="ClusterPickup" component={ClusterPickupScreen} />
       <Stack.Screen name="PoolDetail" component={PoolDetailScreen} />
       <Stack.Screen name="PoolList" component={PoolListScreen} />
+      <Stack.Screen name="InventoryReconciliation" component={InventoryReconciliationScreen} />
+      <Stack.Screen name="LowStockAlerts" component={LowStockAlertsScreen} />
+      <Stack.Screen name="Shop" component={ShopScreen} />
+      <Stack.Screen name="Cart" component={CartScreen} />
+      <Stack.Screen name="Checkout" component={CheckoutScreen} />
+      <Stack.Screen name="ShopProductDetail" component={ShopProductDetailScreen} />
 
       {/* Onboarding Retail */}
       <Stack.Screen name="OnboardingAccountType" component={AccountTypeScreen} />
