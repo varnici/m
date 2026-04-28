@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Info, TrendingUp, Sliders, Shield } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
-import BottomTabBar from '@/components/ui/BottomTabBar';
 import ScreenHeader from '@/components/ui/ScreenHeader';
 
 const CreditDashboardScreen = ({
@@ -107,7 +106,6 @@ const CreditDashboardScreen = ({
         </TouchableOpacity>
         <View className="h-20" />
       </ScrollView>
-      <BottomTabBar navigation={navigation} />
     </SafeAreaView>
   );
 };

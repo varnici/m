@@ -83,8 +83,8 @@ export const PurchaseOrderScreen = ({ navigation }: any) => {
   );
 
   const handlePOPress = useCallback((id: string) => {
-    // navigation.navigate('PurchaseOrderDetail', { poId: id });
-  }, []);
+    navigation.navigate('PurchaseOrderDetail', { poId: id });
+  }, [navigation]);
 
   const renderItem = useCallback(
     ({ item }: { item: PurchaseOrder }) => (

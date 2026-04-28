@@ -13,6 +13,34 @@ from pydantic import BaseModel, Field, field_validator, model_validator, ConfigD
 
 
 # ============================================================================
+# MARKETPLACE SCHEMAS
+# ============================================================================
+
+class ListingCreate(BaseModel):
+    product_id: str
+    price_kobo: int = Field(..., ge=0)
+    available_quantity: int = Field(..., ge=0)
+    slug: str = Field(..., min_length=1, max_length=100, pattern="^[a-z0-9-]+$")
+    is_active: bool = True
+
+class ListingUpdate(BaseModel):
+    price_kobo: Optional[int] = Field(None, ge=0)
+    available_quantity: Optional[int] = Field(None, ge=0)
+    is_active: Optional[bool] = None
+
+class ListingOut(BaseModel):
+    id: str
+    product_id: str
+    price_kobo: int
+    available_quantity: int
+    slug: str
+    is_active: bool
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
 # ENUMS
 # ============================================================================
 
@@ -182,6 +210,13 @@ class ProductUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+class ProductSellerInfo(BaseModel):
+    business_name: str
+    latitude: Optional[Decimal] = None
+    longitude: Optional[Decimal] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+
 class ProductOut(ProductCreate):
     id: str
     owner_id: str
@@ -192,9 +227,21 @@ class ProductOut(ProductCreate):
     updated_at: datetime
     total_quantity_on_hand: int = 0
     total_reserved_quantity: int = 0
+    rating: float = 5.0
+    review_count: int = 0
+    seller_info: Optional[ProductSellerInfo] = None
 
     model_config = ConfigDict(from_attributes=True)
-        
+
+class DemandForecastPoint(BaseModel):
+    date: str
+    quantity: int
+
+
+class ProductIntelligence(BaseModel):
+    headline: str
+    subtitle: str
+    impact: str # 'positive', 'negative', 'neutral'
 
 
 class ProductDetailOut(ProductOut):
@@ -211,6 +258,15 @@ class ProductDetailOut(ProductOut):
     preferred_supplier_id: Optional[str] = None
     is_dead_stock: bool = False
     children: List[ProductOut] = []
+    demand_forecast: List[DemandForecastPoint] = []
+    ai_intelligence: List[ProductIntelligence] = []
+
+
+class MarketplaceProductOut(ProductOut):
+    listing_id: Optional[str] = None
+    marketplace_price_kobo: Optional[int] = None
+    marketplace_available_quantity: Optional[int] = None
+    marketplace_slug: Optional[str] = None
 
 
 # ============================================================================
@@ -612,6 +668,15 @@ class SalesTransactionCreate(BaseModel):
     customer_phone: Optional[str] = None
     payment_method: Optional[str] = "cash"
     discount_amount_kobo: Optional[int] = 0
+    
+    # Marketplace Fields
+    status: Optional[str] = "completed"
+    order_type: Optional[str] = "pos"
+    shipping_address: Optional[str] = None
+    shipping_city: Optional[str] = None
+    shipping_state: Optional[str] = None
+    shipping_fee_kobo: Optional[int] = 0
+    
     notes: Optional[str] = None
     items: List[SalesTransactionItemCreate]
 
@@ -655,6 +720,15 @@ class SalesTransactionOut(BaseModel):
     total_amount_kobo: int
     discount_amount_kobo: int
     payment_method: Optional[str]
+    
+    # Marketplace Fields
+    status: str
+    order_type: str
+    shipping_address: Optional[str]
+    shipping_city: Optional[str]
+    shipping_state: Optional[str]
+    shipping_fee_kobo: int
+    
     notes: Optional[str]
     transaction_date: datetime
     items: List[SalesTransactionItemOut]

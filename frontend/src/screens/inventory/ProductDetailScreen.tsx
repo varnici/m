@@ -64,17 +64,26 @@ export const ProductDetailScreen = ({ route, navigation }: any) => {
     return `₦${(product.selling_price_kobo / 100).toFixed(2)}`;
   }, [product]);
 
-  // Mock forecast data for graph if AI predictions not directly available in hook
-  const forecastData = {
-    labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
-    datasets: [
-      {
-        data: [20, 45, 28, 80, 99, 43, 50],
-        color: (opacity = 1) => `rgba(79, 70, 229, ${opacity})`, // indigo-600
-        strokeWidth: 2,
-      },
-    ],
-  };
+  // AI demand forecast data from backend
+  const forecastChartData = useMemo(() => {
+    if (!product?.demand_forecast || product.demand_forecast.length === 0) {
+       return {
+        labels: ['No Data'],
+        datasets: [{ data: [0], color: (opacity = 1) => `rgba(79, 70, 229, ${opacity})`, strokeWidth: 2 }],
+      };
+    }
+
+    return {
+      labels: product.demand_forecast.map(p => p.date),
+      datasets: [
+        {
+          data: product.demand_forecast.map(p => p.quantity),
+          color: (opacity = 1) => `rgba(79, 70, 229, ${opacity})`,
+          strokeWidth: 2,
+        },
+      ],
+    };
+  }, [product?.demand_forecast]);
 
   const transformMutation = useTransformStock();
 
@@ -245,7 +254,7 @@ export const ProductDetailScreen = ({ route, navigation }: any) => {
       <Text style={styles.sectionTitle}>AI Demand Forecast (7 Days)</Text>
       <View style={styles.chartContainer}>
         <LineChart
-          data={forecastData}
+          data={forecastChartData}
           width={screenWidth - 32}
           height={220}
           chartConfig={{

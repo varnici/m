@@ -1,16 +1,50 @@
-export type RootStackParamList = {
+import { NavigatorScreenParams } from '@react-navigation/native';
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { NavigationProp } from '@react-navigation/native';
+
+export type AuthStackParamList = {
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
   RoleSelection: undefined;
   BVNVerification: undefined;
   PINSetup: undefined;
+  PatternSetup: undefined;
   BiometricSetup: undefined;
+};
+
+export type OnboardingStackParamList = {
+  OnboardingAccountType: undefined;
+  OnboardingPhone: undefined;
+  OnboardingBasicInfo: undefined;
+  OnboardingShopInfo: undefined;
+  OnboardingCategory: undefined;
+  OnboardingLocation: undefined;
+  OnboardingKYC: undefined;
+  OnboardingFaceVerification: undefined;
+  OnboardingBankLink: undefined;
+  OnboardingInventory: undefined;
+  OnboardingSalesEstimation: undefined;
+  OnboardingTaxCompliance: undefined;
+  OnboardingTerms: undefined;
+  OnboardingActivation: undefined;
+  OnboardingReview: undefined;
+};
+
+export type MainTabParamList = {
   Dashboard: undefined;
-  Wallet: undefined;
-  LoanDashboard: undefined;
+  InventoryDashboard: undefined;
   SalesDashboard: undefined;
+  Wallet: undefined;
   More: undefined;
+};
+
+export type RootStackParamList = {
+  Auth: NavigatorScreenParams<AuthStackParamList>;
+  Onboarding: NavigatorScreenParams<OnboardingStackParamList>;
+  Main: NavigatorScreenParams<MainTabParamList>;
+  
+  // App Stack Screens (Accessible after onboarding)
   InventoryDashboard: undefined;
   StockLodger: undefined;
   VoiceStock: undefined;
@@ -51,37 +85,11 @@ export type RootStackParamList = {
   Cart: undefined;
   Checkout: { totalKobo: number };
   ShopProductDetail: { product: any };
-  
-  // Onboarding Retail
-  OnboardingAccountType: undefined;
-  OnboardingPhone: undefined;
-  OnboardingBasicInfo: undefined;
-  OnboardingShopInfo: undefined;
-  OnboardingCategory: undefined;
-  OnboardingLocation: undefined;
-  OnboardingKYC: undefined;
-  OnboardingFaceVerification: undefined;
-  OnboardingBankLink: undefined;
-  OnboardingInventory: undefined;
-  OnboardingSalesEstimation: undefined;
-  OnboardingTaxCompliance: undefined;
-  OnboardingTerms: undefined;
-  OnboardingActivation: undefined;
-  OnboardingReview: undefined;
+  Settings: undefined;
+  Profile: undefined;
+  SecuritySettings: undefined;
+  SecurityLock: undefined;
 };
-
-type NavigateFn = <RouteName extends keyof RootStackParamList>(
-  name: RouteName,
-  ...args: RootStackParamList[RouteName] extends undefined
-    ? []
-    : [params: RootStackParamList[RouteName]]
-) => void;
-
-import type { NavigationProp } from '@react-navigation/native';
-import type {
-  NativeStackNavigationProp,
-  NativeStackScreenProps,
-} from '@react-navigation/native-stack';
 
 export type RootStackNavigation = NavigationProp<RootStackParamList>;
 

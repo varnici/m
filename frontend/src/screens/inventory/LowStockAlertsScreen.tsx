@@ -419,7 +419,7 @@ const LowStockAlertsScreen = ({
                     <TouchableOpacity
                       onPress={() =>
                         navigation.navigate('AddPurchaseOrder', { 
-                          productId: item.product_id, 
+                          productId: item.id, 
                           qty: Math.max(0, restockQty) 
                         })
                       }

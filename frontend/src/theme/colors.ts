@@ -14,13 +14,28 @@ export const colors = {
     // Industrial Monolith Tokens
     industrial: {
       primary: '#88d982',
+      // Dynamic Variants
+      light: {
+        background: '#FFFFFF',
+        surface: '#FFFFFF',
+        surfaceLow: '#F9FAFB',
+        surfaceHigh: '#F3F4F6',
+        surfaceHighest: '#E5E7EB',
+        onSurface: '#111827',
+        outline: '#D1D5DB',
+      },
+      dark: {
+        background: '#131313',
+        surface: '#131313',
+        surfaceLow: '#1C1B1B',
+        surfaceHigh: '#2A2A2A',
+        surfaceHighest: '#353534',
+        onSurface: '#E5E2E1',
+        outline: '#454652',
+      },
+      // Keep legacy for compatibility
       background: '#131313',
-      surface: '#131313',
-      surfaceLow: '#1C1B1B',
-      surfaceHigh: '#2A2A2A',
-      surfaceHighest: '#353534',
       onSurface: '#E5E2E1',
-      outline: '#454652',
     },
     // Rich Vibe Tokens (Glassmorphism & Gradients)
     rich: {

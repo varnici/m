@@ -19,7 +19,7 @@ from app.infrastructure.database import db_session
 from app.models.credit_score import CreditScore
 from app.models.loan import Loan
 from app.models.repayment import Repayment
-from app.models.sales import Sale
+from app.models.inventory import SalesTransaction
 from app.models.user import User
 
 
@@ -53,11 +53,11 @@ def calculate_sales_velocity_score(session: Session, user_id: str) -> int:
     # Get 7-day sales (last 7 days)
     week_ago = today - timedelta(days=7)
     weekly_sales_query = select(
-        func.sum(Sale.quantity * Sale.unit_price_kobo)
+        func.coalesce(func.sum(SalesTransaction.total_amount_kobo), 0)
     ).where(
-        Sale.user_id == user_id,
-        func.date(Sale.sold_at) >= week_ago,
-        func.date(Sale.sold_at) <= today
+        SalesTransaction.owner_id == user_id,
+        func.date(SalesTransaction.transaction_date) >= week_ago,
+        func.date(SalesTransaction.transaction_date) <= today
     )
     weekly_sales = session.execute(weekly_sales_query).scalar() or 0
     weekly_avg = weekly_sales / 7
@@ -65,11 +65,11 @@ def calculate_sales_velocity_score(session: Session, user_id: str) -> int:
     # Get 30-day sales (last 30 days)
     month_ago = today - timedelta(days=30)
     monthly_sales_query = select(
-        func.sum(Sale.quantity * Sale.unit_price_kobo)
+        func.coalesce(func.sum(SalesTransaction.total_amount_kobo), 0)
     ).where(
-        Sale.user_id == user_id,
-        func.date(Sale.sold_at) >= month_ago,
-        func.date(Sale.sold_at) <= today
+        SalesTransaction.owner_id == user_id,
+        func.date(SalesTransaction.transaction_date) >= month_ago,
+        func.date(SalesTransaction.transaction_date) <= today
     )
     monthly_sales = session.execute(monthly_sales_query).scalar() or 0
     monthly_avg = monthly_sales / 30
@@ -134,13 +134,13 @@ def calculate_income_stability_score(session: Session, user_id: str) -> int:
 
     # Get daily sales for last 30 days
     daily_sales_query = select(
-        func.date(Sale.sold_at).label('sale_date'),
-        func.sum(Sale.quantity * Sale.unit_price_kobo).label('daily_sales')
+        func.date(SalesTransaction.transaction_date).label('sale_date'),
+        func.coalesce(func.sum(SalesTransaction.total_amount_kobo), 0).label('daily_sales')
     ).where(
-        Sale.user_id == user_id,
-        func.date(Sale.sold_at) >= month_ago,
-        func.date(Sale.sold_at) <= today
-    ).group_by(func.date(Sale.sold_at))
+        SalesTransaction.owner_id == user_id,
+        func.date(SalesTransaction.transaction_date) >= month_ago,
+        func.date(SalesTransaction.transaction_date) <= today
+    ).group_by(func.date(SalesTransaction.transaction_date))
 
     daily_result = session.execute(daily_sales_query).all()
     daily_sales = {row.sale_date: row.daily_sales for row in daily_result}

@@ -18,7 +18,6 @@ import { FlashList } from '@shopify/flash-list';
 
 import type { RootStackScreenProps } from '@/navigation/types';
 import { colors } from '@/theme/colors';
-import BottomTabBar from '@/components/ui/BottomTabBar';
 import ScreenHeader from '@/components/ui/ScreenHeader';
 import StatCard from '@/components/ui/StatCard';
 import { useInventoryDashboard } from '@/hooks/useInventory';
@@ -224,7 +223,6 @@ const SalesDashboardScreen = ({
       >
          <ShoppingBag color="white" size={28} />
       </TouchableOpacity>
-      <BottomTabBar navigation={navigation} activeRoute="SalesDashboard" />
     </SafeAreaView>
   );
 };

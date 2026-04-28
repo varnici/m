@@ -336,3 +336,52 @@ class AnalyticsService:
             }
             for r in results
         ]
+
+    def get_product_health_scores(self, limit: int = 50) -> List[ProductHealthOut]:
+        """Get health scores for all products (stock status, margin, turnover)."""
+        # This implementation uses the best_selling_products and margin_percentage SQL functions
+        query = text("""
+            SELECT p.id, p.sku, p.name, 
+                   margin_percentage(p.id) as margin,
+                   COALESCE(sl.quantity_on_hand, 0) as stock,
+                   p.minimum_stock_level
+            FROM products p
+            LEFT JOIN stock_levels sl ON p.id = sl.product_id
+            WHERE p.owner_id = :owner_id AND p.is_active = TRUE
+            ORDER BY margin DESC
+            LIMIT :limit
+        """)
+        results = self.db.execute(query, {"owner_id": self.owner_id, "limit": limit}).fetchall()
+        
+        health_scores = []
+        for r in results:
+            stock_status = "in_stock"
+            if r[4] <= 0:
+                stock_status = "out_of_stock"
+            elif r[4] <= r[5]:
+                stock_status = "low_stock"
+                
+            health_scores.append(ProductHealthOut(
+                product_id=str(r[0]),
+                sku=r[1],
+                name=r[2],
+                health_score=int(r[3]), # Using margin as a proxy for health score
+                stock_status=stock_status,
+                margin_percentage=float(r[3]),
+                turnover_rate=0.0 # Placeholder
+            ))
+        return health_scores
+
+    def detect_dead_stock(self, days: int = 30) -> List[Any]:
+        """Get products with no sales in specified days."""
+        query = text("SELECT * FROM dead_stock_detection(:owner_id, :days)")
+        results = self.db.execute(query, {"owner_id": self.owner_id, "days": days}).fetchall()
+        # Mapping to ProductDetailOut would happen here
+        return results
+
+    def calculate_turnover_ratio(self, product_id: Optional[str], store_id: Optional[str], days: int) -> float:
+        """Calculate inventory turnover ratio."""
+        query = text("SELECT inventory_turnover(:owner_id, :days)")
+        # In a more granular implementation, we'd filter by product/store in SQL
+        result = self.db.execute(query, {"owner_id": self.owner_id, "days": days}).scalar()
+        return float(result or 0.0)

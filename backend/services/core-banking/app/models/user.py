@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,14 +27,27 @@ class User(Base):
     # Business profile fields
     business_name: Mapped[str | None] = mapped_column(String, nullable=True)
     trading_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    business_category: Mapped[str | None] = mapped_column(String, nullable=True)
+    bank_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    account_number: Mapped[str | None] = mapped_column(String, nullable=True)
+    tin: Mapped[str | None] = mapped_column(String, nullable=True)
     ownership_type: Mapped[str | None] = mapped_column(String, nullable=True)  # sole_proprietorship, partnership, corporation
     registration_status: Mapped[str | None] = mapped_column(String, nullable=True)  # registered, unregistered, pending
     location: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # JSON for address details
+    profile_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    settings: Mapped[dict | None] = mapped_column(JSON, nullable=True, default={})
+    hashed_pin: Mapped[str | None] = mapped_column(String, nullable=True)
+    hashed_pattern: Mapped[str | None] = mapped_column(String, nullable=True)
+    security_type: Mapped[str] = mapped_column(String, nullable=False, default="pin") # pin | pattern
 
     # bronze | silver | gold | platinum
     trust_level: Mapped[str] = mapped_column(String, nullable=False, default="bronze")
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
 
     wallet = relationship("Wallet", back_populates="user", uselist=False, cascade="all, delete-orphan")
     credit_scores = relationship("CreditScore", back_populates="user", cascade="all, delete-orphan")

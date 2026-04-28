@@ -1,41 +1,107 @@
-from typing import Optional
-from fastapi import Header, HTTPException, Depends
+from __future__ import annotations
 
-def get_current_user_id(x_user_id: str = Header(..., alias="X-User-Id")) -> str:
+import logging
+from typing import Optional
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
+from sqlalchemy.orm import Session
+
+from app.core.config import settings
+from app.infrastructure.database import get_db
+from app.models.user import User
+from app.models.wallet import Wallet
+
+security = HTTPBearer()
+logger = logging.getLogger(__name__)
+
+
+def _decode_user_id(token: str) -> str:
+    if not settings.jwt_secret:
+        logger.error("JWT secret is not configured")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication is not configured",
+        )
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm],
+            options={"require_sub": True, "require_exp": True},
+        )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user_id
+
+
+def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> str:
     """
-    Extracts and ensures the current user ID exists in the local database.
+    Validates JWT token and returns the user ID.
+    Optional auto-sync behavior can be enabled via settings.auth_auto_sync_users.
     """
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id header missing")
-    
+    user_id = _decode_user_id(credentials.credentials)
+
+    if not settings.auth_auto_sync_users:
+        return user_id
+
     # Auto-sync user if they don't exist locally
-    from app.infrastructure.database import SessionLocal
-    from app.models.user import User
-    from app.models.wallet import Wallet
-    
-    with SessionLocal()() as db:
-        user = db.get(User, x_user_id)
-        if not user:
-            print(f"[DEBUG] User {x_user_id} not found in local DB. Syncing...")
-            # Create stub user to satisfy foreign key constraints
+    user = db.get(User, user_id)
+    if not user:
+        logger.info("User %s not found in local DB; syncing", user_id)
+        try:
             user = User(
-                id=x_user_id,
-                phone=f"sync_{x_user_id[:8]}", # Dummy unique phone
-                category="business_owner"
+                id=user_id,
+                phone=f"sync_{user_id[:8]}",  # Dummy unique phone
+                category="business_owner",
             )
             db.add(user)
-            
-            # Ensure they have a wallet too
-            wallet = Wallet(user_id=x_user_id, balance_kobo=0)
-            db.add(wallet)
-            
-            db.commit()
-            print(f"[DEBUG] User {x_user_id} synced successfully.")
-            
-    return x_user_id
 
-def get_current_user_id_optional(x_user_id: Optional[str] = Header(None, alias="X-User-Id")) -> Optional[str]:
+            wallet = Wallet(user_id=user_id, balance_kobo=0)
+            db.add(wallet)
+
+            db.commit()
+            logger.info("User %s synced successfully", user_id)
+        except Exception:
+            db.rollback()
+            logger.exception("Failed to sync user %s", user_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error during user synchronization",
+            )
+
+    return user_id
+
+
+def get_current_user_id_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(
+        HTTPBearer(auto_error=False)
+    ),
+) -> Optional[str]:
     """
-    Optional version of get_current_user_id.
+    Optional version of get_current_user_id. Does not perform DB sync.
     """
-    return x_user_id
+    if not credentials:
+        return None
+
+    try:
+        return _decode_user_id(credentials.credentials)
+    except HTTPException:
+        return None

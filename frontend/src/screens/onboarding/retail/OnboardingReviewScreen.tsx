@@ -5,21 +5,37 @@ import type { RootStackScreenProps } from '@/navigation/types';
 import { ShieldCheck, User, Store, Landmark, ChevronRight } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { colors, spacing } from '../../../theme/colors';
-import { IndustrialCard, IndustrialButton, IndustrialText } from '../../../components/ui/IndustrialComponents';
+import { userService } from '../../../services/userService';
+import { IndustrialCard, IndustrialButton, IndustrialText, useIndustrialTheme, IndustrialPage } from '../../../components/ui/IndustrialComponents';
 
 const OnboardingReviewScreen = ({
   navigation,
 }: RootStackScreenProps<'OnboardingReview'>) => {
   const { data } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const theme = useIndustrialTheme();
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    // Simulate API Submission
-    setTimeout(() => {
+    try {
+      await userService.updateProfile({
+        full_name: data.fullName,
+        business_name: data.businessName,
+        business_category: data.primaryCategory,
+        bank_name: data.bankName,
+        tin: data.tin,
+        location: {
+          state: data.state,
+          address: data.shopAddress,
+        }
+      });
       setIsSubmitting(false);
       navigation.navigate('OnboardingTerms');
-    }, 2500);
+    } catch (error) {
+      console.error('Failed to submit onboarding:', error);
+      setIsSubmitting(false);
+      // In production, show a toast or alert
+    }
   };
 
   const SummaryNode = ({ icon: Icon, title, dataPoints }: any) => (
@@ -38,11 +54,11 @@ const OnboardingReviewScreen = ({
               paddingVertical: spacing.md, 
               paddingHorizontal: spacing.lg,
               borderBottomWidth: index !== dataPoints.length - 1 ? 1 : 0,
-              borderBottomColor: colors.ventureroot.industrial.surfaceHigh
+              borderBottomColor: theme.surfaceHigh
             }}
           >
             <IndustrialText style={{ fontSize: 12, opacity: 0.4 }}>{item.label}</IndustrialText>
-            <IndustrialText style={{ fontSize: 12, fontWeight: '700', color: !item.value ? colors.ventureroot.industrial.primary : colors.ventureroot.industrial.onSurface }}>
+            <IndustrialText style={{ fontSize: 12, fontWeight: '700', color: !item.value ? colors.ventureroot.industrial.primary : theme.onSurface }}>
               {item.value || 'COMPLETE_LATER'}
             </IndustrialText>
           </View>
@@ -52,9 +68,7 @@ const OnboardingReviewScreen = ({
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.ventureroot.industrial.background }}>
-      <StatusBar barStyle="light-content" />
-      
+    <IndustrialPage>
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 40 }}>
         {/* Monolith Header */}
         <View style={{ marginBottom: 40 }}>
@@ -135,7 +149,7 @@ const OnboardingReviewScreen = ({
           </TouchableOpacity>
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </IndustrialPage>
   );
 };
 

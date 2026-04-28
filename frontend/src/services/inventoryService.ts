@@ -1,4 +1,9 @@
 import { BaseService } from './baseService';
+import { 
+  Category, Product, Store, StockLevel, StockMovement, 
+  StockReservation, Supplier, PurchaseOrder, 
+  InventoryDashboardMetrics, AIInsight, TurnoverRatio 
+} from '@/types/inventory';
 
 export class InventoryService extends BaseService {
   /**
@@ -8,12 +13,12 @@ export class InventoryService extends BaseService {
   // ========================================================================
   // PRODUCTS
   // ========================================================================
-  async getCategories(): Promise<any[]> {
+  async getCategories(): Promise<Category[]> {
     const response = await this.fetchWithAuth('/v1/inventory/categories');
     return response.json();
   }
 
-  async createProduct(data: any): Promise<any> {
+  async createProduct(data: Partial<Product>): Promise<Product> {
     const response = await this.fetchWithAuth('/v1/inventory/products', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -27,7 +32,7 @@ export class InventoryService extends BaseService {
     categoryId?: string,
     search?: string,
     storeId?: string
-  ): Promise<any[]> {
+  ): Promise<Product[]> {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
@@ -42,7 +47,47 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async getProductDetail(productId: string, storeId?: string): Promise<any> {
+  async getMarketplaceProducts(
+    skip: number = 0,
+    limit: number = 100,
+    categoryId?: string,
+    search?: string
+  ): Promise<Product[]> {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+      ...(categoryId && { category_id: categoryId }),
+      ...(search && { search }),
+    });
+
+    const response = await this.fetchWithAuth(
+      `/v1/inventory/marketplace/products?${params}`
+    );
+    return response.json();
+  }
+
+  async marketplaceCheckout(data: {
+    customer_name?: string;
+    customer_phone?: string;
+    payment_method?: string;
+    shipping_address?: string;
+    shipping_city?: string;
+    shipping_state?: string;
+    shipping_fee_kobo?: number;
+    items: Array<{
+      product_id: string;
+      quantity_sold: number;
+      unit_price_kobo: number;
+    }>;
+  }): Promise<any> {
+    const response = await this.fetchWithAuth('/v1/inventory/marketplace/checkout', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  async getProductDetail(productId: string, storeId?: string): Promise<Product> {
     const params = storeId ? `?store_id=${storeId}` : '';
     const response = await this.fetchWithAuth(
       `/v1/inventory/products/${productId}${params}`
@@ -50,14 +95,14 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async searchByBarcode(barcode: string): Promise<any> {
+  async searchByBarcode(barcode: string): Promise<Product> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/products/search/by-barcode?barcode=${encodeURIComponent(barcode)}`
     );
     return response.json();
   }
 
-  async updateProduct(productId: string, data: any): Promise<any> {
+  async updateProduct(productId: string, data: Partial<Product>): Promise<Product> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/products/${productId}`,
       {
@@ -80,7 +125,7 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async reconcileInventory(storeId?: string, productId?: string): Promise<any[]> {
+  async reconcileInventory(storeId?: string, productId?: string): Promise<any> {
     const params = new URLSearchParams();
     if (storeId) params.append('store_id', storeId);
     if (productId) params.append('product_id', productId);
@@ -93,7 +138,7 @@ export class InventoryService extends BaseService {
   // STOCK MANAGEMENT
   // ========================================================================
 
-  async getStockLevels(storeId: string, status?: string): Promise<any[]> {
+  async getStockLevels(storeId: string, status?: string): Promise<StockLevel[]> {
     const params = status ? `?status=${status}` : '';
     const response = await this.fetchWithAuth(
       `/v1/inventory/stock/${storeId}${params}`
@@ -101,7 +146,7 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async recordStockMovement(data: any): Promise<any> {
+  async recordStockMovement(data: Partial<StockMovement>): Promise<StockMovement> {
     const response = await this.fetchWithAuth('/v1/inventory/stock/adjust', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -114,7 +159,7 @@ export class InventoryService extends BaseService {
     toStoreId: string,
     productId: string,
     quantity: number
-  ): Promise<any> {
+  ): Promise<StockMovement> {
     const response = await this.fetchWithAuth('/v1/inventory/stock/transfer', {
       method: 'POST',
       body: JSON.stringify({
@@ -135,7 +180,7 @@ export class InventoryService extends BaseService {
     endDate?: string,
     skip: number = 0,
     limit: number = 100
-  ): Promise<any[]> {
+  ): Promise<StockMovement[]> {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
@@ -152,7 +197,7 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async reserveStock(data: any): Promise<any> {
+  async reserveStock(data: Partial<StockReservation>): Promise<StockReservation> {
     const response = await this.fetchWithAuth('/v1/inventory/stock/reservations', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -166,7 +211,7 @@ export class InventoryService extends BaseService {
     status?: string,
     skip: number = 0,
     limit: number = 100
-  ): Promise<any[]> {
+  ): Promise<StockReservation[]> {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
@@ -181,14 +226,14 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async getStockReservation(reservationId: string): Promise<any> {
+  async getStockReservation(reservationId: string): Promise<StockReservation> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/stock/reservations/${reservationId}`
     );
     return response.json();
   }
 
-  async releaseStockReservation(reservationId: string, quantity?: number, notes?: string): Promise<any> {
+  async releaseStockReservation(reservationId: string, quantity?: number, notes?: string): Promise<StockReservation> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/stock/reservations/${reservationId}/release`,
       {
@@ -199,7 +244,7 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async commitStockReservation(reservationId: string, quantity?: number, notes?: string): Promise<any> {
+  async commitStockReservation(reservationId: string, quantity?: number, notes?: string): Promise<StockReservation> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/stock/reservations/${reservationId}/commit`,
       {
@@ -214,7 +259,7 @@ export class InventoryService extends BaseService {
   // SUPPLIERS
   // ========================================================================
 
-  async createSupplier(data: any): Promise<any> {
+  async createSupplier(data: Partial<Supplier>): Promise<Supplier> {
     const response = await this.fetchWithAuth('/v1/inventory/suppliers', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -226,7 +271,7 @@ export class InventoryService extends BaseService {
     status?: string,
     skip: number = 0,
     limit: number = 100
-  ): Promise<any[]> {
+  ): Promise<Supplier[]> {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
@@ -239,14 +284,14 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async getSupplierDetails(supplierId: string): Promise<any> {
+  async getSupplierDetails(supplierId: string): Promise<Supplier> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/suppliers/${supplierId}`
     );
     return response.json();
   }
 
-  async updateSupplier(supplierId: string, data: any): Promise<any> {
+  async updateSupplier(supplierId: string, data: Partial<Supplier>): Promise<Supplier> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/suppliers/${supplierId}`,
       {
@@ -261,7 +306,7 @@ export class InventoryService extends BaseService {
   // PURCHASE ORDERS
   // ========================================================================
 
-  async createPurchaseOrder(data: any): Promise<any> {
+  async createPurchaseOrder(data: Partial<PurchaseOrder>): Promise<PurchaseOrder> {
     const response = await this.fetchWithAuth(
       '/v1/inventory/purchase-orders',
       {
@@ -280,7 +325,7 @@ export class InventoryService extends BaseService {
     endDate?: string,
     skip: number = 0,
     limit: number = 100
-  ): Promise<any[]> {
+  ): Promise<PurchaseOrder[]> {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
@@ -297,14 +342,14 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async getPurchaseOrderDetail(poId: string): Promise<any> {
+  async getPurchaseOrderDetail(poId: string): Promise<PurchaseOrder> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/purchase-orders/${poId}`
     );
     return response.json();
   }
 
-  async updatePurchaseOrder(poId: string, data: any): Promise<any> {
+  async updatePurchaseOrder(poId: string, data: Partial<PurchaseOrder>): Promise<PurchaseOrder> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/purchase-orders/${poId}`,
       {
@@ -315,7 +360,7 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async confirmPurchaseOrder(poId: string): Promise<any> {
+  async confirmPurchaseOrder(poId: string): Promise<PurchaseOrder> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/purchase-orders/${poId}/confirm`,
       {
@@ -325,7 +370,7 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async receivePurchaseOrder(poId: string, items?: any[]): Promise<any> {
+  async receivePurchaseOrder(poId: string, items?: any[]): Promise<PurchaseOrder> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/purchase-orders/${poId}/receive`,
       {
@@ -344,7 +389,7 @@ export class InventoryService extends BaseService {
     storeId?: string,
     startDate?: string,
     endDate?: string
-  ): Promise<any> {
+  ): Promise<InventoryDashboardMetrics> {
     const params = new URLSearchParams({
       ...(storeId && { store_id: storeId }),
       ...(startDate && { start_date: startDate }),
@@ -357,14 +402,14 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async getProductHealthScores(limit: number = 50): Promise<any[]> {
+  async getProductHealthScores(limit: number = 50): Promise<Product[]> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/analytics/product-health?limit=${limit}`
     );
     return response.json();
   }
 
-  async getLowStockAlerts(storeId?: string): Promise<any[]> {
+  async getLowStockAlerts(storeId?: string): Promise<Product[]> {
     const params = storeId ? `?store_id=${storeId}` : '';
     const response = await this.fetchWithAuth(
       `/v1/inventory/analytics/low-stock${params}`
@@ -372,14 +417,14 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async getDeadStockDetection(daysNoSales: number = 30): Promise<any[]> {
+  async getDeadStockDetection(daysNoSales: number = 30): Promise<Product[]> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/analytics/dead-stock?days_no_sales=${daysNoSales}`
     );
     return response.json();
   }
 
-  async getAIInsights(storeId?: string): Promise<any> {
+  async getAIInsights(storeId?: string): Promise<AIInsight[]> {
     const params = storeId ? `?store_id=${storeId}` : '';
     const response = await this.fetchWithAuth(
       `/v1/inventory/analytics/ai-insights${params}`
@@ -391,7 +436,7 @@ export class InventoryService extends BaseService {
     productId?: string,
     storeId?: string,
     days: number = 30
-  ): Promise<any> {
+  ): Promise<TurnoverRatio> {
     const params = new URLSearchParams({
       days: days.toString(),
       ...(productId && { product_id: productId }),
@@ -452,7 +497,7 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async getStores(): Promise<any[]> {
+  async getStores(): Promise<Store[]> {
     const response = await this.fetchWithAuth('/v1/inventory/stores');
     return response.json();
   }

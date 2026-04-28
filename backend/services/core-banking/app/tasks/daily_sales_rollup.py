@@ -7,13 +7,12 @@ Runs at 00:15 Lagos time (15 minutes past midnight).
 from datetime import date, datetime, timedelta
 from typing import List
 
-from sqlalchemy import func, select, text
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database import db_session
-from app.models.sales import Sale
 from app.models.sales_metrics import SalesMetrics
-from app.models.inventory import Product, StockMovement
+from app.models.inventory import Product, SalesTransaction, SalesTransactionItem
 
 
 def calculate_daily_sales_rollup(target_date: date) -> None:
@@ -27,13 +26,15 @@ def calculate_daily_sales_rollup(target_date: date) -> None:
         try:
             # Get all users who had sales on the target date
             user_sales_query = select(
-                Sale.user_id,
-                func.count(Sale.id).label('transaction_count'),
-                func.sum(Sale.quantity).label('total_units'),
-                func.sum(Sale.quantity * Sale.unit_price_kobo).label('total_sales_kobo')
+                SalesTransaction.owner_id.label("user_id"),
+                func.count(func.distinct(SalesTransaction.id)).label("transaction_count"),
+                func.coalesce(func.sum(SalesTransactionItem.quantity_sold), 0).label("total_units"),
+                func.coalesce(func.sum(SalesTransactionItem.line_total_kobo), 0).label("total_sales_kobo"),
             ).where(
-                func.date(Sale.sold_at) == target_date
-            ).group_by(Sale.user_id)
+                func.date(SalesTransaction.transaction_date) == target_date
+            ).join(
+                SalesTransactionItem, SalesTransactionItem.sale_id == SalesTransaction.id
+            ).group_by(SalesTransaction.owner_id)
 
             user_sales_data = session.execute(user_sales_query).all()
 
@@ -52,10 +53,10 @@ def calculate_daily_sales_rollup(target_date: date) -> None:
                 # Get previous day's sales for comparison
                 prev_date = target_date - timedelta(days=1)
                 prev_sales_query = select(
-                    func.sum(Sale.quantity * Sale.unit_price_kobo)
+                    func.coalesce(func.sum(SalesTransaction.total_amount_kobo), 0)
                 ).where(
-                    Sale.user_id == user_id,
-                    func.date(Sale.sold_at) == prev_date
+                    SalesTransaction.owner_id == user_id,
+                    func.date(SalesTransaction.transaction_date) == prev_date
                 )
                 prev_sales = session.execute(prev_sales_query).scalar() or 0
 
@@ -65,15 +66,24 @@ def calculate_daily_sales_rollup(target_date: date) -> None:
                     vs_yesterday_percent = ((total_sales_kobo - prev_sales) / prev_sales) * 100
 
                 # Get top products for the user on this date
-                top_products_query = text("""
-                    SELECT sku, name, total_sold 
-                    FROM best_selling_products(:owner_id, 5, :target_date, :target_date)
-                """)
-                top_products_data = session.execute(top_products_query, {
-                    "owner_id": user_id,
-                    "target_date": target_date
-                }).all()
-                
+                top_products_data = (
+                    session.query(
+                        Product.sku.label("sku"),
+                        Product.name.label("name"),
+                        func.sum(SalesTransactionItem.quantity_sold).label("total_sold"),
+                    )
+                    .join(SalesTransactionItem, SalesTransactionItem.product_id == Product.id)
+                    .join(SalesTransaction, SalesTransaction.id == SalesTransactionItem.sale_id)
+                    .filter(
+                        SalesTransaction.owner_id == user_id,
+                        func.date(SalesTransaction.transaction_date) == target_date,
+                    )
+                    .group_by(Product.sku, Product.name)
+                    .order_by(desc(func.sum(SalesTransactionItem.quantity_sold)))
+                    .limit(5)
+                    .all()
+                )
+
                 top_products_json = [
                     {"sku": p.sku, "name": p.name, "quantity": int(p.total_sold)}
                     for p in top_products_data

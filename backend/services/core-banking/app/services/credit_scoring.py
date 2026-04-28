@@ -25,7 +25,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.trust_score import TrustScore
-from app.models.sales import Sale
+from app.models.inventory import SalesTransaction
 from app.models.loan import Loan
 from app.models.repayment import Repayment
 from app.models.wallet import Wallet
@@ -114,9 +114,9 @@ async def _score_sales_velocity(user_id: UUID, db: AsyncSession) -> tuple[float,
     seven_days_ago = datetime.utcnow() - timedelta(days=7)
 
     result = await db.execute(
-        select(func.count(Sale.id)).where(
-            Sale.user_id == user_id,
-            Sale.created_at >= thirty_days_ago,
+        select(func.count(SalesTransaction.id)).where(
+            SalesTransaction.owner_id == str(user_id),
+            SalesTransaction.transaction_date >= thirty_days_ago,
         )
     )
     total_sales: int = result.scalar() or 0
@@ -126,9 +126,9 @@ async def _score_sales_velocity(user_id: UUID, db: AsyncSession) -> tuple[float,
 
     # Streak bonus: check last 7 days
     result7 = await db.execute(
-        select(func.count(func.distinct(func.date(Sale.created_at)))).where(
-            Sale.user_id == user_id,
-            Sale.created_at >= seven_days_ago,
+        select(func.count(func.distinct(func.date(SalesTransaction.transaction_date)))).where(
+            SalesTransaction.owner_id == str(user_id),
+            SalesTransaction.transaction_date >= seven_days_ago,
         )
     )
     active_days: int = result7.scalar() or 0

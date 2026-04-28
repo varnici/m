@@ -37,7 +37,6 @@ import IntelligenceCard from '@/components/ui/IntelligenceCard';
 import CommunityCard from '@/components/ui/CommunityCard';
 import ActivityItem from '@/components/ui/ActivityItem';
 import RepaymentBanner from '@/components/ui/RepaymentBanner';
-import BottomTabBar from '@/components/ui/BottomTabBar';
 import { colors } from '@/theme/colors';
 
 import { useAuth } from '@/context/AuthContext';
@@ -276,7 +275,12 @@ const DashboardScreen = ({
 
         {/* ═══ SALES STREAK ═══ */}
         <View className="mb-4">
-          <SalesStreakCard streakDays={5} totalDays={7} pointsEarned={50} nextReward="Silver" />
+          <SalesStreakCard 
+            streakDays={dashboard.sales_streak?.streak_days || 0} 
+            totalDays={dashboard.sales_streak?.total_days || 7} 
+            pointsEarned={dashboard.sales_streak?.points_earned || 0} 
+            nextReward={dashboard.sales_streak?.next_reward_tier || 'Silver'} 
+          />
         </View>
 
         {/* ═══ DAILY INTELLIGENCE ═══ */}
@@ -355,7 +359,7 @@ const DashboardScreen = ({
             platform="WhatsApp Business"
             icon={<Text className="text-lg">💬</Text>}
             description="Daily price alerts · Supplier deals · Trade tips"
-            memberCount="14,400"
+            memberCount={(dashboard.community_stats?.total_members || 14400).toLocaleString()}
             isOfficial={true}
             bgColor="#D1FAE5"
           />
@@ -410,21 +414,25 @@ const DashboardScreen = ({
           </View>
         </View>
 
-        {/* ═══ REPAYMENT BANNER ═══ */}
-        <View className="mb-6">
-          <RepaymentBanner
-            daysUntilDue={9}
-            amount={dashboard.wallet.repayment_amount_kobo ? dashboard.wallet.repayment_amount_kobo / 100 : 0}
-            dueDate={dashboard.wallet.next_repayment_date || '--'}
-            bank="GTBank"
-            onPayNow={() => navigation.navigate('Repayment')}
-          />
-        </View>
+        {/* ═══ REPAYMENT BANNER (IF DEBT EXISTS) ═══ */}
+        {dashboard.wallet.total_debt_kobo > 0 && (
+          <View className="mb-4">
+            <RepaymentBanner 
+              amount={dashboard.wallet.repayment_amount_kobo / 100} 
+              daysUntilDue={
+                dashboard.wallet.next_repayment_date 
+                  ? Math.max(0, Math.ceil((new Date(dashboard.wallet.next_repayment_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
+                  : 0
+              } 
+              bank="VentureRoot Ledger"
+              onPayNow={() => navigation.navigate('Repayment')}
+            />
+          </View>
+        )}
 
         <View className="h-32" />
       </ScrollView>
 
-      <BottomTabBar navigation={navigation} activeRoute="Dashboard" />
     </View>
   );
 };

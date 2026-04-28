@@ -68,12 +68,44 @@ class TransactionSummary(BaseModel):
         from_attributes = True
 
 
+class MarketTickerItem(BaseModel):
+    symbol: str
+    price: Optional[str] = None
+    change: str
+    positive: bool
+
+
+class IntelligenceItem(BaseModel):
+    category: str
+    source: str
+    timeAgo: str
+    headline: str
+    subtitle: str
+
+
+class SalesStreak(BaseModel):
+    streak_days: int
+    total_days: int
+    points_earned: int
+    next_reward_tier: str
+
+
+class CommunityStats(BaseModel):
+    total_members: int
+    active_discussions: int
+    new_opportunities: int
+
+
 class DashboardSummary(BaseModel):
     user: UserProfile
     wallet: WalletState
     credit_score: Optional[CreditScoreDetail]
     today_sales: Optional[SalesMetricsSummary]
     recent_activity: List[TransactionSummary]
+    market_ticker: List[MarketTickerItem] = []
+    intelligence: List[IntelligenceItem] = []
+    sales_streak: Optional[SalesStreak] = None
+    community_stats: Optional[CommunityStats] = None
 
 
 # Sales Metrics Schemas

@@ -1,6 +1,5 @@
 from app.models.user import User
 from app.models.wallet import Wallet
-from app.models.sales import Sale
 from app.models.loan import Loan
 from app.models.repayment import Repayment
 from app.models.marketplace import Listing
@@ -30,7 +29,7 @@ from app.models.support_ticket import SupportTicket
 from app.models.cluster import ClusterDelivery, ClusterParticipant
 
 __all__ = [
-    "User", "Wallet", "Sale", "Loan", "Repayment", "Product", "Listing",
+    "User", "Wallet", "Loan", "Repayment", "Product", "Listing",
     "Store", "Category", "Supplier", "StockLevel", "StockMovement",
     "PurchaseOrder", "PurchaseOrderItem", "SalesTransaction", "SalesTransactionItem", "InventorySnapshot",
     "InventoryLedgerEntryModel", "InventoryIdempotencyKeyModel", "DomainOutboxMessageModel", "InventoryReservationModel",

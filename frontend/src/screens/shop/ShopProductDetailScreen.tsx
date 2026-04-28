@@ -7,6 +7,7 @@ import {
   Image,
   ScrollView,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -29,7 +30,21 @@ import { inventoryService } from '@/services/inventoryService';
 import { getCategoryInfo } from '@/data/retailCategories';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { useCartStore } from '@/store/cartStore';
+import { supabase } from '@/lib/supabase';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+
+// Conditionally import Mapbox
+let MapboxGL: any = null;
+try {
+  MapboxGL = require('@rnmapbox/maps');
+} catch (e) {
+  console.warn('Mapbox not available');
+}
+
+if (MapboxGL) {
+  const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbGV4YW1wbGUifQ.example'; 
+  MapboxGL.setAccessToken(MAPBOX_ACCESS_TOKEN);
+}
 
 const { width } = Dimensions.get('window');
 
@@ -44,11 +59,40 @@ const ShopProductDetailScreen = ({ navigation, route }: RootStackScreenProps<'Sh
 
   const { data: allProducts = [] } = useQuery({
     queryKey: ['shop_products_all'],
-    queryFn: () => inventoryService.getProducts(0, 20),
+    queryFn: () => inventoryService.getMarketplaceProducts(0, 20),
+    staleTime: 120000, // 2 minutes
+    gcTime: 600000, // 10 minutes
   });
 
   // Filter out the current product and slice 4 for recommendations
   const similarProducts = allProducts.filter((p: any) => p.id !== product.id).slice(0, 4);
+
+  // Fetch shop details via Supabase based on product owner
+  const { data: shopDetails } = useQuery({
+    queryKey: ['shop_details', product.owner_id],
+    queryFn: async () => {
+      if (!product.owner_id) return null;
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('name, trading_name, state, address, is_physical_store')
+        .eq('owner_id', product.owner_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!product.owner_id,
+    staleTime: 300000, // 5 minutes
+    gcTime: 600000, // 10 minutes
+  });
+
+  // Use seller_info from backend if available, fallback to Supabase query or defaults
+  const sellerInfo = product.seller_info;
+  const shopName = sellerInfo?.business_name || product.brand || 'VentureRoot Official';
+  const shopLocation = sellerInfo?.city ? `${sellerInfo.city}, Nigeria` : 'Lagos, Nigeria';
+  const shopAddress = sellerInfo?.address || 'Verified Business Address';
+  const isPhysical = true; // Assuming marketplace sellers have a physical presence for mapping
+  const latitude = sellerInfo?.latitude ? Number(sellerInfo.latitude) : 6.5244;
+  const longitude = sellerInfo?.longitude ? Number(sellerInfo.longitude) : 3.3792;
 
   const handleAddToCart = () => {
     for (let i = 0; i < quantity; i++) {
@@ -151,7 +195,7 @@ const ShopProductDetailScreen = ({ navigation, route }: RootStackScreenProps<'Sh
                 <Store size={20} color="#16A34A" />
               </View>
               <View style={styles.shopInfo}>
-                <Text style={styles.shopName}>VentureRoot Official</Text>
+                <Text style={styles.shopName}>{shopName}</Text>
                 <View style={styles.shopMetaRow}>
                   <CheckCircle size={12} color="#16A34A" />
                   <Text style={styles.shopMetaText}>Verified Retailer</Text>
@@ -161,24 +205,65 @@ const ShopProductDetailScreen = ({ navigation, route }: RootStackScreenProps<'Sh
             <View style={styles.shopDetailsRow}>
               <View style={styles.shopDetailItem}>
                 <MapPin size={14} color="#6B7280" />
-                <Text style={styles.shopDetailText}>Lagos, Nigeria</Text>
+                <Text style={styles.shopDetailText}>{shopLocation}</Text>
               </View>
               <View style={styles.shopDetailItem}>
-                <Truck size={14} color="#6B7280" />
-                <Text style={styles.shopDetailText}>Delivery Available</Text>
+                <Store size={14} color="#6B7280" />
+                <Text style={styles.shopDetailText}>{isPhysical ? 'Physical Store' : 'Online Store'}</Text>
               </View>
             </View>
             
-            {/* Map Placeholder */}
-            <View style={styles.mapPlaceholder}>
-              <View style={styles.mapPinShadow} />
-              <MapPin size={28} color="#EF4444" style={styles.mapPinIcon} />
-              <View style={styles.mapLinesContainer}>
-                <View style={styles.mapLineH} />
-                <View style={styles.mapLineV} />
-                <View style={[styles.mapLineH, { top: '70%' }]} />
-              </View>
-              <Text style={styles.mapText}>Tap to view on map</Text>
+            {/* Real Map Integration */}
+            <View style={styles.mapWrapper}>
+              {MapboxGL && sellerInfo?.latitude ? (
+                <View style={styles.mapContainer}>
+                  <MapboxGL.MapView
+                    style={styles.map}
+                    styleURL={MapboxGL.StyleURL.Street}
+                    logoEnabled={false}
+                    compassEnabled={false}
+                    scrollEnabled={false}
+                    zoomEnabled={false}
+                    pitchEnabled={false}
+                    rotateEnabled={false}
+                  >
+                    <MapboxGL.Camera
+                      centerCoordinate={[longitude, latitude]}
+                      zoomLevel={14}
+                    />
+                    <MapboxGL.PointAnnotation
+                      id="shop-location"
+                      coordinate={[longitude, latitude]}
+                    >
+                      <View style={styles.markerContainer}>
+                        <View style={styles.markerInner}>
+                          <MapPin size={16} color="#FFF" />
+                        </View>
+                        <View style={styles.markerPointer} />
+                      </View>
+                    </MapboxGL.PointAnnotation>
+                  </MapboxGL.MapView>
+                  <View style={styles.mapOverlay}>
+                    <TouchableOpacity 
+                      style={styles.mapActionBtn}
+                      onPress={() => Alert.alert('Location', shopAddress)}
+                    >
+                      <Text style={styles.mapActionText}>View on Map</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.mapPlaceholder}>
+                  <View style={styles.mapPinShadow} />
+                  <MapPin size={28} color="#EF4444" style={styles.mapPinIcon} />
+                  <View style={styles.mapLinesContainer}>
+                    <View style={styles.mapLineH} />
+                    <View style={styles.mapLineV} />
+                    <View style={[styles.mapLineH, { top: '70%' }]} />
+                  </View>
+                  <Text style={styles.mapText}>Location preview unavailable</Text>
+                </View>
+              )}
             </View>
           </View>
 
@@ -377,15 +462,69 @@ const styles = StyleSheet.create({
   shopDetailsRow: { flexDirection: 'row', alignItems: 'center', gap: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 12 },
   shopDetailItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   shopDetailText: { fontSize: 12, color: '#4B5563', fontWeight: '500' },
-  mapPlaceholder: {
-    marginTop: 16,
-    height: 100,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 12,
+  mapWrapper: {
+    height: 160,
+    borderRadius: 20,
     overflow: 'hidden',
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  mapContainer: { flex: 1 },
+  map: { flex: 1 },
+  mapOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+  },
+  mapActionBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  mapActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  markerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative'
+  },
+  markerInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#16A34A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFF',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  markerPointer: {
+    width: 10,
+    height: 10,
+    backgroundColor: '#16A34A',
+    transform: [{ rotate: '45deg' }],
+    marginTop: -5,
+    borderRightWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: '#FFF',
+  },
+  mapPlaceholder: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mapPinIcon: { position: 'absolute', zIndex: 2, top: 25 },
   mapPinShadow: { position: 'absolute', width: 14, height: 4, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 2, top: 52, zIndex: 1 },

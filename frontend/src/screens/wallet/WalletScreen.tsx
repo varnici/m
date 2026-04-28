@@ -5,7 +5,6 @@ import type { RootStackScreenProps } from '@/navigation/types';
 import { ArrowUpCircle, Send, ArrowDownCircle, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import ActivityItem from '@/components/ui/ActivityItem';
-import BottomTabBar from '@/components/ui/BottomTabBar';
 
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -110,7 +109,6 @@ const WalletScreen = ({ navigation }: RootStackScreenProps<'Wallet'>) => {
         </View>
       </ScrollView>
 
-      <BottomTabBar navigation={navigation} activeRoute="Wallet" />
     </SafeAreaView>
   );
 };

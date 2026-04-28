@@ -4,10 +4,48 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { FingerprintPattern, CheckCircle2 } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { useSecurityStore } from '@/store/securityStore';
+import Toast from 'react-native-toast-message';
 
 const BiometricSetupScreen = ({
   navigation,
 }: RootStackScreenProps<'BiometricSetup'>) => {
+  const { setBiometricsEnabled } = useSecurityStore();
+
+  const handleBiometricAuth = async () => {
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (!hasHardware || !isEnrolled) {
+        Toast.show({
+          type: 'error',
+          text1: 'Biometrics Unavailable',
+          text2: 'Please ensure you have set up FaceID/Fingerprint in device settings.',
+        });
+        return;
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Authorize VentureRoot Access',
+        fallbackLabel: 'Use PIN',
+      });
+
+      if (result.success) {
+        setBiometricsEnabled(true);
+        Toast.show({
+          type: 'success',
+          text1: 'Biometrics Enabled',
+          text2: 'Your account is now even more secure.',
+        });
+        setTimeout(() => navigation.navigate('Dashboard'), 1000);
+      }
+    } catch (error) {
+      console.error('Biometric Error:', error);
+    }
+  };
+
   const benefits = [
     'Log in instantly',
     'No PIN needed',
@@ -55,7 +93,7 @@ const BiometricSetupScreen = ({
         <View className="w-full gap-4">
           <TouchableOpacity
             className="bg-ventureroot-green py-4 rounded-xl items-center shadow-lg"
-            onPress={() => navigation.navigate('Dashboard')}
+            onPress={handleBiometricAuth}
           >
             <Text className="text-white font-bold text-base">Enable Fingerprint</Text>
           </TouchableOpacity>

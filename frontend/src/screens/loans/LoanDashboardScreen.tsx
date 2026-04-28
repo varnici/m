@@ -3,7 +3,6 @@ import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, PlusCircle, CheckCircle2, History, Info } from 'lucide-react-native';
-import BottomTabBar from '@/components/ui/BottomTabBar';
 import ScreenHeader from '@/components/ui/ScreenHeader';
 import { colors } from '@/theme/colors';
 
@@ -17,7 +16,6 @@ const LoanDashboardScreen = ({
       <ScreenHeader
         title="Loan Centre"
         subtitle="Your Loans"
-        navigation={navigation}
       />
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -119,7 +117,6 @@ const LoanDashboardScreen = ({
         </View>
         <View className="h-20" />
       </ScrollView>
-      <BottomTabBar navigation={navigation} activeRoute="LoanDashboard" />
     </SafeAreaView>
   );
 };

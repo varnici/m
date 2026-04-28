@@ -17,7 +17,11 @@ import {
   MapPin, 
   CheckCircle2,
   Lock,
+  User,
+  Phone,
 } from 'lucide-react-native';
+import { inventoryService } from '@/services/inventoryService';
+import { useAuth } from '@/context/AuthContext';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { useCartStore } from '@/store/cartStore';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
@@ -26,16 +30,52 @@ const CheckoutScreen = ({ navigation, route }: RootStackScreenProps<'Checkout'>)
   const { totalKobo } = route.params;
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const { clearCart } = useCartStore();
+  const { items, clearCart } = useCartStore();
+  const { user } = useAuth();
 
-  const handlePayment = () => {
+  // Shipping Form State
+  const [name, setName] = useState(user?.user_metadata?.full_name || '');
+  const [phone, setPhone] = useState(user?.user_metadata?.phone || '');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('Lagos');
+
+  const shippingFeeKobo = 250000; // Flat ₦2,500 shipping fee
+  const grandTotalKobo = totalKobo + shippingFeeKobo;
+
+  const handlePayment = async () => {
+    if (!address || !city || !phone) {
+      Alert.alert('Missing Information', 'Please fill in your delivery details.');
+      return;
+    }
+
     setIsProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false);
+    try {
+      const payload = {
+        customer_name: name,
+        customer_phone: phone,
+        payment_method: 'wallet',
+        shipping_address: address,
+        shipping_city: city,
+        shipping_state: state,
+        shipping_fee_kobo: shippingFeeKobo,
+        items: items.map(item => ({
+          product_id: item.id,
+          quantity_sold: item.quantity,
+          unit_price_kobo: item.price_kobo
+        }))
+      };
+
+      await inventoryService.marketplaceCheckout(payload);
+      
       setIsSuccess(true);
       clearCart();
-    }, 2000);
+    } catch (error: any) {
+      console.error('Checkout error:', error);
+      Alert.alert('Checkout Failed', error.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (isSuccess) {
@@ -75,12 +115,62 @@ const CheckoutScreen = ({ navigation, route }: RootStackScreenProps<'Checkout'>)
             <Truck size={20} color="#16A34A" />
             <Text style={styles.sectionTitle}>Delivery Information</Text>
           </View>
-          <View style={styles.card}>
-            <View style={styles.infoRow}>
-              <MapPin size={18} color="#9CA3AF" />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Delivery Address</Text>
-                <Text style={styles.infoValue}>123 Business Way, Lagos, Nigeria</Text>
+          
+          <View style={styles.formCard}>
+            <View style={styles.inputGroup}>
+              <View style={styles.inputIcon}>
+                <User size={18} color="#9CA3AF" />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Full Name"
+                value={name}
+                onChangeText={setName}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <View style={styles.inputIcon}>
+                <Phone size={18} color="#9CA3AF" />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Phone Number"
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <View style={styles.inputIcon}>
+                <MapPin size={18} color="#9CA3AF" />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Delivery Address"
+                value={address}
+                onChangeText={setAddress}
+                multiline
+              />
+            </View>
+
+            <View style={styles.row}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="City"
+                  value={city}
+                  onChangeText={setCity}
+                />
+              </View>
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 12 }]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="State"
+                  value={state}
+                  onChangeText={setState}
+                />
               </View>
             </View>
           </View>
@@ -107,9 +197,18 @@ const CheckoutScreen = ({ navigation, route }: RootStackScreenProps<'Checkout'>)
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Payment Summary</Text>
           <View style={styles.summaryCard}>
+            <View style={styles.summaryLine}>
+              <Text style={styles.summaryLabel}>Subtotal</Text>
+              <Text style={styles.summaryValue}>₦{(totalKobo / 100).toLocaleString()}</Text>
+            </View>
+            <View style={styles.summaryLine}>
+              <Text style={styles.summaryLabel}>Shipping Fee</Text>
+              <Text style={styles.summaryValue}>₦{(shippingFeeKobo / 100).toLocaleString()}</Text>
+            </View>
+            <View style={styles.divider} />
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total Amount</Text>
-              <Text style={styles.totalValue}>₦{(totalKobo / 100).toLocaleString()}</Text>
+              <Text style={styles.totalLabel}>Total Amount</Text>
+              <Text style={styles.totalValue}>₦{(grandTotalKobo / 100).toLocaleString()}</Text>
             </View>
             <View style={styles.secureTag}>
               <Lock size={12} color="#6B7280" />
@@ -129,7 +228,7 @@ const CheckoutScreen = ({ navigation, route }: RootStackScreenProps<'Checkout'>)
             <ActivityIndicator color="#FFF" />
           ) : (
             <>
-              <Text style={styles.payBtnText}>Pay ₦{(totalKobo / 100).toLocaleString()}</Text>
+              <Text style={styles.payBtnText}>Pay ₦{(grandTotalKobo / 100).toLocaleString()}</Text>
               <Lock size={18} color="#FFF" />
             </>
           )}
@@ -172,12 +271,32 @@ const styles = StyleSheet.create({
   },
   paymentLabel: { fontSize: 14, fontWeight: '700', color: '#111827' },
   paymentSub: { fontSize: 12, color: '#6B7280' },
-  summaryCard: { backgroundColor: '#F9FAFB', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#F3F4F6' },
+  summaryCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#F3F4F6' },
+  summaryLine: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  summaryValue: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  divider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 12 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   summaryLabel: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
+  totalLabel: { fontSize: 16, fontWeight: '800', color: '#111827' },
   totalValue: { fontSize: 22, fontWeight: '900', color: '#111827' },
   secureTag: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, justifyContent: 'center' },
   secureText: { fontSize: 11, color: '#6B7280' },
+  
+  // Form Styles
+  formCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#F3F4F6' },
+  inputGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12,
+    paddingHorizontal: 12,
+  },
+  inputIcon: { marginRight: 10 },
+  input: { flex: 1, paddingVertical: 12, fontSize: 14, color: '#111827' },
+  row: { flexDirection: 'row' },
   footer: { padding: 16, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#F3F4F6' },
   payBtn: {
     backgroundColor: '#111827',

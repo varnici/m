@@ -21,7 +21,6 @@ import { FlashList } from '@shopify/flash-list';
 
 import type { RootStackScreenProps } from '@/navigation/types';
 import { colors } from '@/theme/colors';
-import BottomTabBar from '@/components/ui/BottomTabBar';
 import ScreenHeader from '@/components/ui/ScreenHeader';
 import { useInventoryDashboard, useLowStockAlerts } from '@/hooks/useInventory';
 
@@ -242,7 +241,6 @@ const InventoryDashboardScreen = ({
         <View className="h-32" />
         <View className="h-32" />
       </ScrollView>
-      <BottomTabBar navigation={navigation} activeRoute="InventoryDashboard" />
     </SafeAreaView>
   );
 };

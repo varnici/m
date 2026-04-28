@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 from app.infrastructure.database import db_session
 from app.models.inventory import Store, StockLevel, Product, InventorySnapshot, StockMovement
 from app.models.inventory_metrics import InventoryMetrics
-from app.models.sales import Sale
 from app.models.user import User
 
 

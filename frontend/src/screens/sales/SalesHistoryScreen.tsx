@@ -101,6 +101,12 @@ const SalesHistoryScreen = ({
                       
                       <View className="flex-row items-center gap-2">
                         <TouchableOpacity 
+                          onPress={() => navigation.navigate('Receipt', { saleId: item.sale_id || item.id })}
+                          className="w-12 h-12 bg-emerald-50 rounded-2xl items-center justify-center border border-emerald-100"
+                        >
+                           <Download size={18} color={colors.ventureroot.green} />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
                           onPress={() => navigation.navigate('RecordSale', { saleId: item.sale_id || item.id })}
                           className="w-12 h-12 bg-gray-50 rounded-2xl items-center justify-center border border-gray-100"
                         >

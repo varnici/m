@@ -3,7 +3,6 @@ import { View, Text, ScrollView, StatusBar, TouchableOpacity, Image } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronRight, Settings, Bell, Shield, Share2, Award, CheckCircle2 } from 'lucide-react-native';
-import BottomTabBar from '@/components/ui/BottomTabBar';
 import { colors } from '@/theme/colors';
 
 const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
@@ -20,7 +19,10 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
       <StatusBar barStyle="light-content" />
       
       {/* Header Area */}
-      <View className="bg-ventureroot-green pt-12 pb-10 px-6 rounded-b-[40px] items-center">
+      <TouchableOpacity 
+        className="bg-ventureroot-green pt-12 pb-10 px-6 rounded-b-[40px] items-center"
+        onPress={() => navigation.navigate('Profile')}
+      >
          <View className="w-20 h-20 rounded-full border-4 border-white/20 bg-gray-200 overflow-hidden mb-4">
             <Image 
               source={{ uri: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Chidi' }} 
@@ -34,7 +36,7 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
             <Award size={14} color="#F97316" />
             <Text className="text-orange-100 text-[10px] font-bold ml-1 uppercase tracking-wider">Gold — 1,240 pts</Text>
          </View>
-      </View>
+      </TouchableOpacity>
 
       <ScrollView className="flex-1 px-4 pt-6" showsVerticalScrollIndicator={false}>
         {/* Trust Score Card */}
@@ -99,15 +101,16 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
 
         {/* Menu Items */}
         <View className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-10">
-           {[
-             { label: 'Notifications', icon: Bell, color: '#3B82F6' },
-             { label: 'Security & PIN', icon: Shield, color: '#10B981' },
-             { label: 'Settings', icon: Settings, color: '#6B7280' },
-           ].map((item, idx) => (
-              <TouchableOpacity 
-                key={idx} 
-                className={`flex-row items-center p-4 ${idx < 2 ? 'border-b border-gray-50' : ''}`}
-              >
+            {[
+              { label: 'Notifications', icon: Bell, color: '#3B82F6', route: 'Settings' },
+              { label: 'Security & PIN', icon: Shield, color: '#10B981', route: 'SecuritySettings' },
+              { label: 'Settings', icon: Settings, color: '#6B7280', route: 'Settings' },
+            ].map((item, idx) => (
+               <TouchableOpacity 
+                 key={idx} 
+                 className={`flex-row items-center p-4 ${idx < 2 ? 'border-b border-gray-50' : ''}`}
+                 onPress={() => navigation.navigate(item.route as any)}
+               >
                  <item.icon size={20} color={item.color} opacity={0.8} />
                  <Text className="flex-1 ml-4 text-gray-700 font-medium">{item.label}</Text>
                  <ChevronRight size={20} color="#D1D5DB" />
@@ -124,7 +127,6 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
         </TouchableOpacity>
       </ScrollView>
 
-      <BottomTabBar navigation={navigation} activeRoute="More" />
     </SafeAreaView>
   );
 };

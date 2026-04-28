@@ -18,6 +18,19 @@ export interface RetailCategory {
   subcategories: SubCategory[];
 }
 
+export const getCategoryInfo = (categoryId?: string) => {
+  if (!categoryId) return null;
+  const cat = retailCategoriesData.find(c => c.id === categoryId);
+  if (cat) return cat;
+  for (const c of retailCategoriesData) {
+    if (c.subcategories) {
+      const sub = c.subcategories.find(s => s.id === categoryId);
+      if (sub) return c;
+    }
+  }
+  return null;
+};
+
 export const retailCategoriesData: RetailCategory[] = [
   {
     id: "cat_food",

@@ -5,7 +5,21 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, Numeric, Enum
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    Numeric,
+    Enum,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship, backref
 
 from app.infrastructure.database import Base
@@ -60,6 +74,9 @@ class Category(Base):
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = (
+        Index("ix_products_owner_active", "owner_id", "is_active"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
     owner_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -83,10 +100,10 @@ class Product(Base):
     nafdac_number: Mapped[str | None] = mapped_column(String, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    rating: Mapped[float] = mapped_column(Float, default=5.0)
+    review_count: Mapped[int] = mapped_column(Integer, default=0)
 
     # Bulk/Packaging handling
-    # If this product is a "Bunch/Carton", parent_id is null and conversion_factor is 1.
-    # If this is a child unit, parent_id points to the Carton and conversion_factor is how many units per carton.
     parent_id: Mapped[str | None] = mapped_column(String, ForeignKey("products.id", ondelete="SET NULL"), nullable=True)
     conversion_factor: Mapped[int] = mapped_column(Integer, default=1) 
 
@@ -130,6 +147,11 @@ class Supplier(Base):
 
 class StockLevel(Base):
     __tablename__ = "stock_levels"
+    __table_args__ = (
+        CheckConstraint("quantity_on_hand >= 0", name="ck_stock_levels_quantity_on_hand_non_negative"),
+        CheckConstraint("quantity_reserved >= 0", name="ck_stock_levels_quantity_reserved_non_negative"),
+        Index("ix_stock_levels_product_store", "product_id", "store_id"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
     product_id: Mapped[str] = mapped_column(String, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -152,6 +174,9 @@ class StockLevel(Base):
 
 class StockMovement(Base):
     __tablename__ = "stock_movements"
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_stock_movements_quantity_positive"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
     product_id: Mapped[str] = mapped_column(String, ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
@@ -173,6 +198,9 @@ class StockMovement(Base):
 
 class PurchaseOrder(Base):
     __tablename__ = "purchase_orders"
+    __table_args__ = (
+        CheckConstraint("total_amount_kobo >= 0", name="ck_purchase_orders_total_amount_non_negative"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
     owner_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -194,6 +222,12 @@ class PurchaseOrder(Base):
 
 class PurchaseOrderItem(Base):
     __tablename__ = "purchase_order_items"
+    __table_args__ = (
+        CheckConstraint("quantity_ordered > 0", name="ck_purchase_order_items_quantity_ordered_positive"),
+        CheckConstraint("quantity_received >= 0", name="ck_purchase_order_items_quantity_received_non_negative"),
+        CheckConstraint("unit_price_kobo >= 0", name="ck_purchase_order_items_unit_price_non_negative"),
+        CheckConstraint("line_total_kobo >= 0", name="ck_purchase_order_items_line_total_non_negative"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
     purchase_order_id: Mapped[str] = mapped_column(String, ForeignKey("purchase_orders.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -211,6 +245,11 @@ class PurchaseOrderItem(Base):
 
 class SalesTransaction(Base):
     __tablename__ = "sales_transactions"
+    __table_args__ = (
+        CheckConstraint("total_amount_kobo >= 0", name="ck_sales_transactions_total_amount_non_negative"),
+        CheckConstraint("discount_amount_kobo >= 0", name="ck_sales_transactions_discount_non_negative"),
+        CheckConstraint("shipping_fee_kobo >= 0", name="ck_sales_transactions_shipping_fee_non_negative"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
     owner_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -224,6 +263,15 @@ class SalesTransaction(Base):
     total_amount_kobo: Mapped[int] = mapped_column(BigInteger, nullable=False)
     discount_amount_kobo: Mapped[int] = mapped_column(BigInteger, default=0)
     payment_method: Mapped[str | None] = mapped_column(String, nullable=True)
+    
+    # Marketplace/Order Fields
+    status: Mapped[str] = mapped_column(String, default="completed") # completed, pending, processing, shipped, delivered, cancelled
+    order_type: Mapped[str] = mapped_column(String, default="pos") # pos, online
+    shipping_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    shipping_city: Mapped[str | None] = mapped_column(String, nullable=True)
+    shipping_state: Mapped[str | None] = mapped_column(String, nullable=True)
+    shipping_fee_kobo: Mapped[int] = mapped_column(BigInteger, default=0)
+    
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     
     transaction_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -234,6 +282,11 @@ class SalesTransaction(Base):
 
 class SalesTransactionItem(Base):
     __tablename__ = "sales_transaction_items"
+    __table_args__ = (
+        CheckConstraint("quantity_sold > 0", name="ck_sales_transaction_items_quantity_sold_positive"),
+        CheckConstraint("unit_price_kobo >= 0", name="ck_sales_transaction_items_unit_price_non_negative"),
+        CheckConstraint("line_total_kobo >= 0", name="ck_sales_transaction_items_line_total_non_negative"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
     sale_id: Mapped[str] = mapped_column(String, ForeignKey("sales_transactions.id", ondelete="CASCADE"), nullable=False, index=True)

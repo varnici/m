@@ -4,15 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { ShieldAlert, Cpu, Database, Link, CheckCircle2, TriangleAlert, RefreshCw } from 'lucide-react-native';
 import { colors } from '../../../theme/colors';
-import { IndustrialText } from '../../../components/ui/IndustrialComponents';
+import { IndustrialPage, IndustrialText } from '../../../components/ui/IndustrialComponents';
 import { useOnboarding } from '../../../context/OnboardingContext';
 
 const STATUS_MESSAGES = [
-  { text: "INITIALIZING_NEURAL_PROTOCOL", icon: Cpu },
-  { text: "SYNCING_IDENTITY_NODES", icon: ShieldAlert },
-  { text: "MAPPING_AI_INVENTORY_MESH", icon: Database },
-  { text: "SECURING_LIQUIDITY_GATEWAYS", icon: Link },
-  { text: "VENTUREROOT_PROTOCOL_ACTIVE", icon: CheckCircle2 }
+  { text: "Setting up your account...", icon: Cpu },
+  { text: "Syncing business profile...", icon: ShieldAlert },
+  { text: "Mapping inventory data...", icon: Database },
+  { text: "Securing payment gateways...", icon: Link },
+  { text: "VentureRoot is ready!", icon: CheckCircle2 }
 ];
 
 const ActivationScreen = ({
@@ -76,13 +76,13 @@ const ActivationScreen = ({
         clearInterval(timer);
         visualProgress.stop();
         setStatus('error');
-        setErrorMessage(result.error || "UNKNOWN_SYNC_CONFLICT");
+        setErrorMessage(result.error || "Connection error during activation");
       }
     } catch (err: any) {
       clearInterval(timer);
       visualProgress.stop();
       setStatus('error');
-      setErrorMessage(err.message || "PROTOCOL_HARD_FAULT");
+      setErrorMessage(err.message || "Critical system fault");
     }
 
     return () => clearInterval(timer);
@@ -114,13 +114,13 @@ const ActivationScreen = ({
 
           <View className="mt-12 items-center">
             <IndustrialText variant="label" className={`${status === 'error' ? 'text-red-500' : 'text-ventureroot-industrial-primary'} tracking-[4px] mb-2`}>
-              {status === 'error' ? 'SYSTEM_FAILURE' : 'NEURAL_PROCESSING'}
+              {status === 'error' ? 'SETUP FAILED' : 'PROCESSING'}
             </IndustrialText>
             
             {status === 'error' ? (
               <View className="items-center">
                 <IndustrialText className="text-red-400 text-center text-[10px] uppercase font-mono mb-6">
-                  ERROR_CODE: {errorMessage}
+                  {errorMessage}
                 </IndustrialText>
                 
                 <TouchableOpacity 
@@ -129,7 +129,7 @@ const ActivationScreen = ({
                 >
                   <RefreshCw size={14} color="#ef4444" style={{ marginRight: 8 }} />
                   <IndustrialText className="text-red-500 text-xs font-black tracking-widest">
-                    RETRY_PROTOCOL
+                    RETRY SETUP
                   </IndustrialText>
                 </TouchableOpacity>
               </View>
@@ -155,11 +155,10 @@ const ActivationScreen = ({
           />
         </View>
 
-        {/* Bit-stream decoration */}
-        <View className="absolute bottom-20 left-12 right-12 opacity-5">
-           <IndustrialText className="text-xxs leading-3 font-mono">
-             PROTOCOL::771-X // ENCRYPTING_LAYER_7 // AUTH_SYNC_COMPLETE // NODE_MAP_ACTIVE // VENTURE_ROOT_OS_v2.4 // 
-             STREAMS::992-88 // KERNEL_BOOT // LIQUIDITY_VAL_SUCCESS // RAG_MODEL_LOADED //TALK_N_STOCK_V2 //
+        {/* System Info */}
+        <View className="absolute bottom-20 left-12 right-12 opacity-10">
+           <IndustrialText className="text-xxs leading-3 font-mono text-center">
+             VentureRoot Core v2.4 // All systems operational // Security sync active
            </IndustrialText>
         </View>
       </View>
@@ -167,13 +166,13 @@ const ActivationScreen = ({
       {/* Aesthetic Side Labels */}
       <View className="absolute left-[20] top-[50%] -rotate-90 origin-left">
         <IndustrialText className="text-[8px] text-ventureroot-industrial-onSurface opacity-20 font-black tracking-[4px]">
-          {status === 'error' ? 'CORE_DUMP_ANALYSIS' : 'TERMINAL_HANDSHAKE_ACTIVE'}
+          {status === 'error' ? 'DIAGNOSTIC ACTIVE' : 'ESTABLISHING SECURE SESSION'}
         </IndustrialText>
       </View>
       
       <View className="absolute right-[20] top-[50%] rotate-90 origin-right">
         <IndustrialText className="text-[8px] text-ventureroot-industrial-onSurface opacity-20 font-black tracking-[4px]">
-          NODE_ID: {nodeId}
+          SESSION_ID: {nodeId}
         </IndustrialText>
       </View>
     </SafeAreaView>
@@ -181,4 +180,3 @@ const ActivationScreen = ({
 };
 
 export default ActivationScreen;
-

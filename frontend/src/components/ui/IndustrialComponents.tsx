@@ -1,6 +1,23 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
+import { View, Text, TouchableOpacity, ViewStyle, TextStyle, useColorScheme, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, borderRadius } from '../../theme/colors';
+
+export const useIndustrialTheme = () => {
+  const isDark = useColorScheme() === 'dark';
+  return isDark ? colors.ventureroot.industrial.dark : colors.ventureroot.industrial.light;
+};
+
+export const IndustrialPage = ({ children, style }: { children: React.ReactNode, style?: ViewStyle }) => {
+  const theme = useIndustrialTheme();
+  const isDark = useColorScheme() === 'dark';
+  
+  return (
+    <SafeAreaView style={[{ flex: 1, backgroundColor: theme.background }, style]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      {children}
+    </SafeAreaView>
+  );
+};
 
 interface IndustrialCardProps {
   children: React.ReactNode;
@@ -9,11 +26,13 @@ interface IndustrialCardProps {
 }
 
 export const IndustrialCard: React.FC<IndustrialCardProps> = ({ children, variant = 'low', style }) => {
+  const theme = useIndustrialTheme();
+  
   const getBackgroundColor = () => {
     switch (variant) {
-      case 'high': return colors.ventureroot.industrial.surfaceHigh;
-      case 'highest': return colors.ventureroot.industrial.surfaceHighest;
-      default: return colors.ventureroot.industrial.surfaceLow;
+      case 'high': return theme.surfaceHigh;
+      case 'highest': return theme.surfaceHighest;
+      default: return theme.surfaceLow;
     }
   };
 
@@ -25,6 +44,8 @@ export const IndustrialCard: React.FC<IndustrialCardProps> = ({ children, varian
           padding: spacing.base,
           borderRadius: borderRadius.lg,
           marginBottom: spacing.md,
+          borderWidth: 1,
+          borderColor: theme.outline,
         },
         style,
       ]}
@@ -51,6 +72,7 @@ export const IndustrialButton: React.FC<IndustrialButtonProps> = ({
 }) => {
   const isPrimary = variant === 'primary';
   const isOutline = variant === 'outline';
+  const theme = useIndustrialTheme();
 
   return (
     <TouchableOpacity
@@ -74,7 +96,7 @@ export const IndustrialButton: React.FC<IndustrialButtonProps> = ({
     >
       <Text
         style={{
-          color: isPrimary ? colors.ventureroot.industrial.background : colors.ventureroot.industrial.primary,
+          color: isPrimary ? '#FFFFFF' : colors.ventureroot.industrial.primary,
           fontSize: 16,
           fontWeight: '700',
         }}
@@ -96,13 +118,15 @@ export const IndustrialText = ({
   style?: TextStyle,
   className?: string,
 }) => {
+  const theme = useIndustrialTheme();
+  
   const getStyles = (): TextStyle => {
     switch (variant) {
-      case 'h1': return { fontSize: 32, fontWeight: '800', color: colors.ventureroot.industrial.onSurface };
-      case 'h2': return { fontSize: 24, fontWeight: '700', color: colors.ventureroot.industrial.onSurface };
-      case 'h3': return { fontSize: 20, fontWeight: '600', color: colors.ventureroot.industrial.onSurface };
+      case 'h1': return { fontSize: 32, fontWeight: '800', color: theme.onSurface };
+      case 'h2': return { fontSize: 24, fontWeight: '700', color: theme.onSurface };
+      case 'h3': return { fontSize: 20, fontWeight: '600', color: theme.onSurface };
       case 'label': return { fontSize: 12, fontWeight: '500', color: colors.ventureroot.industrial.primary, letterSpacing: 1 };
-      default: return { fontSize: 16, color: colors.ventureroot.industrial.onSurface, opacity: 0.8 };
+      default: return { fontSize: 16, color: theme.onSurface, opacity: 0.8 };
     }
   };
 

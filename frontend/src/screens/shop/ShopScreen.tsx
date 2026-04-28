@@ -234,6 +234,7 @@ const ShopScreen = ({ navigation }: RootStackScreenProps<'Shop'>) => {
   const { data: serverCategories = [] } = useQuery({
     queryKey: ['shop_categories'],
     queryFn: () => inventoryService.getCategories(),
+    staleTime: 600000, // 10 minutes (categories don't change often)
   });
 
   const categories = [
@@ -247,22 +248,25 @@ const ShopScreen = ({ navigation }: RootStackScreenProps<'Shop'>) => {
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['shop_products', activeCategory, searchQuery],
     queryFn: () =>
-      inventoryService.getProducts(
+      inventoryService.getMarketplaceProducts(
         0,
         100,
         activeCategory !== 'all' ? activeCategory : undefined,
         searchQuery,
       ),
+    staleTime: 60000, // Cache for 1 minute
+    gcTime: 300000, // Keep in garbage collection for 5 minutes
   });
 
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = React.useCallback((product: any) => {
     addItem(product);
-  };
+  }, [addItem]);
 
-  const renderProduct = ({ item, index }: { item: any; index: number }) => {
+  const renderProduct = React.useCallback(({ item, index }: { item: any; index: number }) => {
     const category = getCategoryInfo(item.category_id);
     const placeholderColor = category?.backgroundColor || '#F0FDF4';
-    const { rating, reviews } = getMockRating(item.id);
+    const rating = item.rating || 5.0;
+    const reviews = item.review_count || 0;
     const badge = getProductBadge(index);
     const hasDiscount = badge?.label?.startsWith('-');
     const originalPrice = hasDiscount
@@ -333,7 +337,22 @@ const ShopScreen = ({ navigation }: RootStackScreenProps<'Shop'>) => {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [navigation, handleAddToCart]);
+
+  const ProductSkeleton = React.useMemo(() => () => (
+    <View style={[styles.productCard, { width: CARD_WIDTH, marginBottom: 16 }]}>
+      <View style={[styles.imageContainer, { backgroundColor: '#F3F4F6' }]} />
+      <View style={styles.productInfo}>
+        <View style={{ width: '40%', height: 10, backgroundColor: '#F3F4F6', marginBottom: 6, borderRadius: 4 }} />
+        <View style={{ width: '90%', height: 14, backgroundColor: '#F3F4F6', marginBottom: 6, borderRadius: 4 }} />
+        <View style={{ width: '70%', height: 14, backgroundColor: '#F3F4F6', marginBottom: 10, borderRadius: 4 }} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ width: '50%', height: 18, backgroundColor: '#F3F4F6', borderRadius: 4 }} />
+          <View style={{ width: 32, height: 32, backgroundColor: '#F3F4F6', borderRadius: 16 }} />
+        </View>
+      </View>
+    </View>
+  ), []);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -374,13 +393,13 @@ const ShopScreen = ({ navigation }: RootStackScreenProps<'Shop'>) => {
       </View>
 
       <FlashList
-        data={products}
+        data={isLoading ? [1, 2, 3, 4, 5, 6] : products}
         numColumns={2}
         estimatedItemSize={300}
-        keyExtractor={(item: any) => item.id}
+        keyExtractor={(item: any, index) => isLoading ? `skeleton-${index}` : item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        renderItem={renderProduct}
+        renderItem={isLoading ? () => <ProductSkeleton /> : renderProduct}
         ListHeaderComponent={
           <>
             {/* ── Search ── */}

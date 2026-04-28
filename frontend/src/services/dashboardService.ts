@@ -46,6 +46,17 @@ export interface DashboardData {
     headline: string;
     subtitle: string;
   }>;
+  sales_streak?: {
+    streak_days: number;
+    total_days: number;
+    points_earned: number;
+    next_reward_tier: string;
+  };
+  community_stats?: {
+    total_members: number;
+    active_discussions: number;
+    new_opportunities: number;
+  };
 }
 
 export class DashboardService extends BaseService {
