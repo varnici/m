@@ -3,10 +3,8 @@ import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { 
-  ChevronLeft, 
   Box, 
   AlertTriangle, 
-  List, 
   Mic, 
   Camera, 
   TrendingDown, 
@@ -15,20 +13,19 @@ import {
   Zap,
   LayoutGrid,
   History as HistoryIcon,
-  Search
 } from 'lucide-react-native';
 import { FlashList } from '@shopify/flash-list';
+import { useNavigation } from '@react-navigation/native';
 
-import type { RootStackScreenProps } from '@/navigation/types';
-import { colors } from '@/theme/colors';
+import type { RootStackNavigationProp } from '@/navigation/types';
 import ScreenHeader from '@/components/ui/ScreenHeader';
 import { useInventoryDashboard, useLowStockAlerts } from '@/hooks/useInventory';
 
-const InventoryDashboardScreen = ({
-  navigation,
-}: RootStackScreenProps<'InventoryDashboard'>) => {
-  const { data: dashboardData, isLoading: isDashboardLoading } = useInventoryDashboard();
-  const { data: lowStockData, isLoading: isLowStockLoading } = useLowStockAlerts();
+const InventoryDashboardScreen = () => {
+  const navigation = useNavigation<RootStackNavigationProp<'InventoryDashboard'>>();
+
+  const { data: dashboardData } = useInventoryDashboard();
+  const { data: lowStockData } = useLowStockAlerts();
 
   const inventoryValue = dashboardData?.total_value_kobo || 0;
   const turnoverText = dashboardData?.turnover_description || 'Loading turnover data...';
@@ -82,6 +79,7 @@ const InventoryDashboardScreen = ({
         title="Inventory"
         subtitle="Storage & Stock"
         navigation={navigation}
+        showBack={false}
       />
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -150,7 +148,7 @@ const InventoryDashboardScreen = ({
                 <View className="flex-1">
                    <Text className="text-red-900 font-black text-base">{criticalCount} Critical Alerts</Text>
                    <Text className="text-red-800 text-[10px] font-medium" numberOfLines={1}>
-                     {criticalItems.map(i => i.name).join(', ')}...
+                     {criticalItems.map((i: any) => i.name).join(', ')}...
                    </Text>
                 </View>
                 <ChevronRight size={20} color="#EF4444" opacity={0.5} />
