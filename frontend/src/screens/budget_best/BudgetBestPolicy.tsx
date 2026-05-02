@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,18 +10,32 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, CheckCircle2, Shield, Zap } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { acceptPolicy, getPolicy } from '@/services/budgetBestApi';
 
 const BudgetBestPolicy = ({ navigation }: any) => {
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [policyId, setPolicyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const policy = await getPolicy('1.0');
+        setPolicyId(policy.id);
+        setAccepted(policy.accepted);
+      } catch {
+        // Keep UI usable even if policy fetch fails.
+      }
+    })();
+  }, []);
 
   const handleAccept = async () => {
     try {
       setLoading(true);
-      // In real app: call API endpoint to record consent
-      // await acceptPolicy(policyId)
-      
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!policyId) {
+        throw new Error('Policy record unavailable');
+      }
+      await acceptPolicy(policyId);
       navigation.goBack();
     } finally {
       setLoading(false);

@@ -113,6 +113,12 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
+  async deleteProduct(productId: string): Promise<void> {
+    await this.fetchWithAuth(`/v1/inventory/products/${productId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async getInventoryLedger(skip: number = 0, limit: number = 100): Promise<any[]> {
     const params = new URLSearchParams({
       skip: skip.toString(),
@@ -139,15 +145,18 @@ export class InventoryService extends BaseService {
   // ========================================================================
 
   async getStockLevels(storeId: string, status?: string): Promise<StockLevel[]> {
-    const params = status ? `?status=${status}` : '';
+    const params = new URLSearchParams({
+      store_id: storeId,
+      ...(status && { status }),
+    });
     const response = await this.fetchWithAuth(
-      `/v1/inventory/stock/${storeId}${params}`
+      `/v1/inventory/stock?${params}`
     );
     return response.json();
   }
 
   async recordStockMovement(data: Partial<StockMovement>): Promise<StockMovement> {
-    const response = await this.fetchWithAuth('/v1/inventory/stock/adjust', {
+    const response = await this.fetchWithAuth('/v1/inventory/stock/movements', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -499,6 +508,14 @@ export class InventoryService extends BaseService {
 
   async getStores(): Promise<Store[]> {
     const response = await this.fetchWithAuth('/v1/inventory/stores');
+    return response.json();
+  }
+
+  async createStore(data: Partial<Store>): Promise<Store> {
+    const response = await this.fetchWithAuth('/v1/inventory/stores', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
     return response.json();
   }
 

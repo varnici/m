@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Button, Text, StyleSheet, Alert } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
-interface BarcodeScanner Props {
+interface BarcodeScannerProps {
   onBarcodeScanned: (barcode: string) => void;
 }
 

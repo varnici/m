@@ -10,13 +10,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Clock, Bell, Zap, Toggle2 } from 'lucide-react-native';
-import * as Notifications from 'expo-notifications';
-
-interface Goal {
-  id: string;
-  goal_name: string;
-}
+import { X, Clock, Bell, Zap } from 'lucide-react-native';
+import { createReminder } from '@/services/budgetBestApi';
+import { useBudgetBestGoals } from '@/hooks/useBudgetBest';
 
 interface ReminderSetting {
   goalId: string;
@@ -26,28 +22,36 @@ interface ReminderSetting {
 }
 
 const BudgetBestSettings = ({ navigation }: any) => {
-  const [goals, setGoals] = useState<Goal[]>([
-    { id: '1', goal_name: 'Shop Rent' },
-    { id: '2', goal_name: 'House Rent' },
-  ]);
+  const notificationsSupported = false;
+  const { goals, loading: goalsLoading } = useBudgetBestGoals(true);
 
   const [reminders, setReminders] = useState<ReminderSetting[]>([
-    { goalId: '1', reminderTime: '08:00', enabled: true, frequency: 'daily' },
-    { goalId: '2', reminderTime: '18:00', enabled: true, frequency: 'daily' },
+    { goalId: '', reminderTime: '08:00', enabled: true, frequency: 'daily' },
   ]);
-
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Request notification permissions
     requestNotificationPermission();
   }, []);
 
+  useEffect(() => {
+    if (!goals.length) return;
+    setReminders((prev) => {
+      const existing = new Map(prev.filter((r) => r.goalId).map((r) => [r.goalId, r]));
+      return goals.map((goal) => existing.get(goal.id) || {
+        goalId: goal.id,
+        reminderTime: '08:00',
+        enabled: false,
+        frequency: 'daily',
+      });
+    });
+  }, [goals]);
+
   const requestNotificationPermission = async () => {
     try {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') {
-        console.log('Notification permission not granted');
+      if (!notificationsSupported) {
+        console.log('expo-notifications not installed; using in-app reminders only');
+        return;
       }
     } catch (err) {
       console.error('Error requesting notification permission:', err);
@@ -67,10 +71,15 @@ const BudgetBestSettings = ({ navigation }: any) => {
         const reminder = reminders.find((r) => r.goalId === goalId);
         if (reminder) {
           await scheduleReminder(goalId, reminder.reminderTime);
+          await createReminder({
+            goal_id: goalId,
+            reminder_time: `${reminder.reminderTime}:00`,
+            reminder_frequency: reminder.frequency,
+            reminder_enabled: true,
+          });
         }
       } else {
-        // Cancel notification
-        await Notifications.cancelAllScheduledNotificationsAsync();
+        console.log('Reminder disabled for goal:', goalId);
       }
     } catch (err) {
       console.error('Error toggling reminder:', err);
@@ -99,15 +108,9 @@ const BudgetBestSettings = ({ navigation }: any) => {
 
       const trigger = reminderDate;
       const goal = goals.find((g) => g.id === goalId);
-
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "It's time to secure your future",
-          body: `Deposit your savings for ${goal?.goal_name} now!`,
-          data: { goalId },
-          sound: 'default',
-          badge: 1,
-        },
+      console.log('Reminder scheduled locally:', {
+        goalId,
+        goalName: goal?.goal_name,
         trigger,
       });
     } catch (err) {
@@ -142,7 +145,9 @@ const BudgetBestSettings = ({ navigation }: any) => {
           </Text>
 
           {/* Reminder List */}
-          {reminders.map((reminder) => {
+          {goalsLoading ? (
+            <ActivityIndicator color="#10B981" />
+          ) : reminders.map((reminder) => {
             const goal = goals.find((g) => g.id === reminder.goalId);
             return (
               <View
@@ -307,13 +312,9 @@ const BudgetBestSettings = ({ navigation }: any) => {
         {/* Save Changes Button */}
         <View className="mb-6">
           <TouchableOpacity className="bg-emerald-500 rounded-lg py-4">
-            {loading ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Text className="text-white text-center font-bold text-lg">
-                Save Changes
-              </Text>
-            )}
+            <Text className="text-white text-center font-bold text-lg">
+              Save Changes
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

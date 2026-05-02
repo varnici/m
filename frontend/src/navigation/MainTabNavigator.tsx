@@ -4,13 +4,13 @@ import { MainTabParamList } from './types';
 import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LayoutGrid, TrendingUp, Wallet, MoreHorizontal, Box } from 'lucide-react-native';
+import { LayoutGrid, TrendingUp, PiggyBank, MoreHorizontal, Box } from 'lucide-react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import DashboardScreen from '@/screens/DashboardScreen';
 import InventoryDashboardScreen from '@/screens/inventory/InventoryDashboardScreen';
 import SalesDashboardScreen from '@/screens/sales/SalesDashboardScreen';
-import WalletScreen from '@/screens/wallet/WalletScreen';
+import BudgetBestDashboard from '@/screens/budget_best/BudgetBestDashboard';
 import MoreScreen from '@/screens/more/MoreScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -61,7 +61,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
           let Icon = LayoutGrid;
           if (route.name === 'InventoryDashboard') Icon = Box;
           if (route.name === 'SalesDashboard') Icon = TrendingUp;
-          if (route.name === 'Wallet') Icon = Wallet;
+          if (route.name === 'BudgetBest') Icon = PiggyBank;
           if (route.name === 'More') Icon = MoreHorizontal;
 
           return (
@@ -121,7 +121,7 @@ const MainTabNavigator = () => {
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarLabel: 'Home' }} />
       <Tab.Screen name="InventoryDashboard" component={InventoryDashboardScreen} options={{ tabBarLabel: 'Stock' }} />
       <Tab.Screen name="SalesDashboard" component={SalesDashboardScreen} options={{ tabBarLabel: 'Sales' }} />
-      <Tab.Screen name="Wallet" component={WalletScreen} />
+      <Tab.Screen name="BudgetBest" component={BudgetBestDashboard} options={{ tabBarLabel: 'Budget' }} />
       <Tab.Screen name="More" component={MoreScreen} />
     </Tab.Navigator>
   );

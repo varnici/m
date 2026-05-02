@@ -1,23 +1,17 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StatusBar, TouchableOpacity, ActivityIndicator, ScrollView, Alert, Dimensions, FlatList } from 'react-native';
+import {
+  View, Text, StatusBar, TouchableOpacity, ActivityIndicator,
+  ScrollView, Alert, Dimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-// FIXED: Using relative paths to match your folder structure
-import { 
-  Mic, 
-  X, 
-  CheckCircle2, 
-  History,
-  Info,
-  Waves,
-  Zap,
-  RotateCcw,
-  AlertCircle,
-  RefreshCw,
-  TrendingUp,
-  Package
+import {
+  Mic, X, CheckCircle2, Waves, Zap, AlertCircle, RefreshCw, Package,
 } from 'lucide-react-native';
 import { Audio } from 'expo-av';
-import { listInventory, uploadVoice, getSummary } from '../../services/inventoryApi';
+import {
+  createInventory, listInventory, syncPendingInventory,
+  uploadVoiceAndParse, getSummary,
+} from '../../services/inventoryApi';
 import { InventoryRecord, InventorySummary, VoiceTranscribeResponse } from '../../types/voice-inventory';
 
 interface HistoryItem {
@@ -25,7 +19,7 @@ interface HistoryItem {
   text: string;
   time: string;
   status: 'success' | 'error';
-  transcription?: string;
+  source?: 'claude' | 'offline';
 }
 
 interface TableData {
@@ -34,76 +28,51 @@ interface TableData {
 }
 
 const VoiceStockScreen = ({ navigation }: any) => {
-  const [isListening, setIsListening] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isListening, setIsListening]     = useState(false);
+  const [isProcessing, setIsProcessing]   = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [showTable, setShowTable] = useState(false);
-  const [tableData, setTableData] = useState<TableData>({
-    inventory: [],
-    summary: null,
-  });
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const windowHeight = Dimensions.get('window').height;
+  const [transcript, setTranscript]       = useState('');
+  const [parsedPreview, setParsedPreview] = useState<string | null>(null);
+  const [error, setError]                 = useState<string | null>(null);
+  const [showTable, setShowTable]         = useState(false);
+  const [tableData, setTableData]         = useState<TableData>({ inventory: [], summary: null });
+  const [history, setHistory]             = useState<HistoryItem[]>([]);
 
-  // Load inventory data on mount
+  const recordingRef = useRef<Audio.Recording | null>(null);
+
   useEffect(() => {
+    syncPendingInventory().catch(() => undefined);
     loadInventoryData();
-    return () => {
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync();
-      }
-    };
+    return () => { recordingRef.current?.stopAndUnloadAsync(); };
   }, []);
 
   const loadInventoryData = async () => {
     try {
       setIsLoadingData(true);
-      const [inventory, summary] = await Promise.all([
-        listInventory(),
-        getSummary(),
-      ]);
-      setTableData({
-        inventory: inventory || [],
-        summary: summary || null,
-      });
+      const [inventory, summary] = await Promise.all([listInventory(), getSummary()]);
+      setTableData({ inventory: inventory || [], summary: summary || null });
       setError(null);
     } catch (err: any) {
-      console.error('Failed to load inventory:', err);
       setError(`Failed to load inventory: ${err.message}`);
     } finally {
       setIsLoadingData(false);
     }
   };
 
-  const convertRecordingToBlob = async (uri: string): Promise<Blob> => {
-    const response = await fetch(uri);
-    return await response.blob();
-  };
-
   const startRecording = async () => {
     try {
       setError(null);
+      setParsedPreview(null);
       const permission = await Audio.requestPermissionsAsync();
-      if (permission.status !== 'granted') {
-        throw new Error('Permission to access microphone was denied');
-      }
+      if (permission.status !== 'granted') throw new Error('Microphone permission denied');
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
-      
       recordingRef.current = recording;
       setIsListening(true);
-      setTranscript('Listening...');
+      setTranscript('Listening… speak naturally');
     } catch (err: any) {
       setError(err.message);
       setIsListening(false);
@@ -112,97 +81,92 @@ const VoiceStockScreen = ({ navigation }: any) => {
 
   const stopRecording = async () => {
     if (!recordingRef.current) return;
-
     try {
       setIsListening(false);
       setIsProcessing(true);
-      setTranscript('Processing audio...');
+      setTranscript('Processing with AI…');
 
       await recordingRef.current.stopAndUnloadAsync();
       const uri = recordingRef.current.getURI();
-      
-      if (!uri) {
-        throw new Error('Failed to get recording URI');
-      }
+      if (!uri) throw new Error('Failed to get recording URI');
 
-      // Convert recording to blob and upload
-      const audioBlob = await convertRecordingToBlob(uri);
-      
-      if (audioBlob.size === 0) {
-        throw new Error('Recording is empty');
-      }
+      const response = await fetch(uri);
+      const audioBlob = await response.blob();
+      if (audioBlob.size === 0) throw new Error('Recording is empty');
 
-      // Upload to backend
-      const response: VoiceTranscribeResponse = await uploadVoice(audioBlob);
-      
-      const resultText = response.text || 'Unknown command';
-      setTranscript(`Heard: "${resultText}"`);
-      
-      // Add to history
-      const timestamp = new Date();
-      const timeStr = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      
+      // Detect actual file extension from URI for proper MIME matching
+      const ext = uri.split('.').pop()?.toLowerCase() || 'm4a';
+      const fileName = `voice-input.${ext}`;
+
+      // One call → transcription + AI field extraction
+      const result: VoiceTranscribeResponse = await uploadVoiceAndParse(audioBlob, fileName);
+
+      const { text, inventory, _source } = result;
+      setTranscript(`"${text}"`);
+
+      // Show what AI extracted before saving
+      const preview = [
+        `📦 ${inventory.product_name}`,
+        `📊 Qty: ${inventory.quantity}`,
+        `💰 Cost: ${inventory.product_cost} → Price: ${inventory.price}`,
+        `👤 ${inventory.customer_id}`,
+        `🤖 via ${_source === 'claude' ? 'Claude AI' : 'Offline AI'}`,
+      ].join('\n');
+      setParsedPreview(preview);
+
+      // Save to inventory (offline-safe)
+      await createInventory(inventory);
+      await syncPendingInventory();
+      await loadInventoryData();
+
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setHistory(prev => [{
         id: Date.now().toString(),
-        text: resultText,
+        text: `${inventory.product_name} — qty ${inventory.quantity}`,
         time: timeStr,
         status: 'success',
-        transcription: response.text
+        source: _source,
       }, ...prev]);
 
-      // Reload inventory data to show updates
-      await loadInventoryData();
       setError(null);
-      setIsProcessing(false);
-
     } catch (err: any) {
-      console.error('Recording error:', err);
-      const errorMsg = err.message || 'Failed to process voice input';
-      setError(errorMsg);
+      const msg = err.message || 'Failed to process voice input';
+      setError(msg);
       setTranscript('');
-      setIsProcessing(false);
-      
-      // Add error to history
-      const timestamp = new Date();
-      const timeStr = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setHistory(prev => [{
         id: Date.now().toString(),
-        text: `Error: ${errorMsg}`,
+        text: `Error: ${msg}`,
         time: timeStr,
         status: 'error',
       }, ...prev]);
     } finally {
       recordingRef.current = null;
+      setIsProcessing(false);
     }
   };
 
   return (
     <SafeAreaView className="flex-1 bg-slate-950">
       <StatusBar barStyle="light-content" />
-      
+
       {/* Header */}
       <View className="pt-6 pb-6 px-6 flex-row items-center justify-between">
-         <TouchableOpacity onPress={() => navigation.goBack()} className="p-3 bg-white/10 rounded-2xl">
-            <X color="white" size={24} />
-         </TouchableOpacity>
-         <View className="items-center">
-            <Text className="text-white text-lg font-bold">Voice AI</Text>
-         </View>
-         <TouchableOpacity 
-           onPress={() => setShowTable(!showTable)}
-           className="p-3 bg-white/10 rounded-2xl"
-         >
-            <View className="flex-row items-center gap-2">
-              {showTable ? <Mic color="white" size={20} /> : <Package color="white" size={20} />}
-            </View>
-         </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()} className="p-3 bg-white/10 rounded-2xl">
+          <X color="white" size={24} />
+        </TouchableOpacity>
+        <View className="items-center">
+          <Text className="text-white text-lg font-bold">Voice AI</Text>
+          <Text className="text-white/40 text-[10px]">Speak naturally — AI understands</Text>
+        </View>
+        <TouchableOpacity onPress={() => setShowTable(!showTable)} className="p-3 bg-white/10 rounded-2xl">
+          {showTable ? <Mic color="white" size={20} /> : <Package color="white" size={20} />}
+        </TouchableOpacity>
       </View>
 
-      {/* Main Content */}
       {showTable ? (
-        // TABLE VIEW
+        // ── TABLE VIEW ──────────────────────────────────────────────────────
         <ScrollView className="flex-1 px-6 py-4" showsVerticalScrollIndicator={false}>
-          {/* Summary Cards */}
           {tableData.summary && (
             <View className="mb-6">
               <View className="flex-row gap-3 mb-4">
@@ -232,19 +196,11 @@ const VoiceStockScreen = ({ navigation }: any) => {
             </View>
           )}
 
-          {/* Inventory Table */}
           <View className="mb-6">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-white font-bold text-lg">Inventory</Text>
-              <TouchableOpacity 
-                onPress={loadInventoryData}
-                disabled={isLoadingData}
-              >
-                <RefreshCw 
-                  color={isLoadingData ? '#888' : 'white'} 
-                  size={20} 
-                  style={{ opacity: isLoadingData ? 0.5 : 1 }}
-                />
+              <TouchableOpacity onPress={loadInventoryData} disabled={isLoadingData}>
+                <RefreshCw color={isLoadingData ? '#888' : 'white'} size={20} />
               </TouchableOpacity>
             </View>
 
@@ -254,42 +210,30 @@ const VoiceStockScreen = ({ navigation }: any) => {
               </View>
             ) : tableData.inventory.length === 0 ? (
               <View className="bg-white/5 border border-white/10 rounded-2xl p-4 items-center">
-                <Text className="text-white/60">No inventory items</Text>
+                <Text className="text-white/60">No inventory items yet</Text>
               </View>
             ) : (
               <View className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-                {/* Table Header */}
                 <View className="bg-white/10 p-3 flex-row border-b border-white/10">
                   <Text className="text-white/60 font-bold text-[11px] flex-1">Product</Text>
                   <Text className="text-white/60 font-bold text-[11px] w-16">Qty</Text>
                   <Text className="text-white/60 font-bold text-[11px] w-16">Price</Text>
                   <Text className="text-white/60 font-bold text-[11px] w-16">Profit</Text>
                 </View>
-
-                {/* Table Rows */}
                 {tableData.inventory.slice(0, 10).map((item, idx) => (
-                  <View 
+                  <View
                     key={item.id}
                     className={`flex-row p-3 border-b ${idx === tableData.inventory.length - 1 ? 'border-white/0' : 'border-white/5'}`}
                   >
-                    <Text className="text-white text-[12px] flex-1 flex-wrap" numberOfLines={2}>
-                      {item.product_name}
-                    </Text>
+                    <Text className="text-white text-[12px] flex-1" numberOfLines={2}>{item.product_name}</Text>
                     <Text className="text-white/80 text-[12px] w-16 text-center">{item.quantity}</Text>
-                    <Text className="text-white/80 text-[12px] w-16 text-center">
-                      ${parseFloat(item.price.toString()).toFixed(2)}
-                    </Text>
-                    <Text className="text-emerald-400 text-[12px] w-16 text-center font-semibold">
-                      ${parseFloat(item.profit.toString()).toFixed(2)}
-                    </Text>
+                    <Text className="text-white/80 text-[12px] w-16 text-center">${parseFloat(item.price.toString()).toFixed(2)}</Text>
+                    <Text className="text-emerald-400 text-[12px] w-16 text-center font-semibold">${parseFloat(item.profit.toString()).toFixed(2)}</Text>
                   </View>
                 ))}
-
                 {tableData.inventory.length > 10 && (
                   <View className="p-3 items-center border-t border-white/10">
-                    <Text className="text-white/60 text-[12px]">
-                      +{tableData.inventory.length - 10} more items
-                    </Text>
+                    <Text className="text-white/60 text-[12px]">+{tableData.inventory.length - 10} more items</Text>
                   </View>
                 )}
               </View>
@@ -297,8 +241,20 @@ const VoiceStockScreen = ({ navigation }: any) => {
           </View>
         </ScrollView>
       ) : (
-        // VOICE VIEW
+        // ── VOICE VIEW ──────────────────────────────────────────────────────
         <View className="flex-1 px-6 justify-center">
+
+          {/* Example hint */}
+          {!isListening && !isProcessing && !transcript && (
+            <View className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6">
+              <Text className="text-white/40 text-[11px] text-center">
+                Say something like:{'\n'}
+                <Text className="text-white/60 italic">"50 bags of rice, cost 500, selling at 700 for Emeka"</Text>
+              </Text>
+            </View>
+          )}
+
+          {/* Error */}
           {error && (
             <View className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-4">
               <View className="flex-row gap-2">
@@ -308,72 +264,84 @@ const VoiceStockScreen = ({ navigation }: any) => {
             </View>
           )}
 
-          {/* Visualizer */}
-          <View className="items-center justify-center mb-16 h-40">
-             {isListening ? (
-               <View className="flex-row items-center gap-1.5">
-                  {[1, 4, 2, 5, 8, 3, 2, 6, 4].map((h, i) => (
-                     <View key={i} className="w-1.5 rounded-full bg-emerald-400" style={{ height: h * 10 }} />
-                  ))}
-               </View>
-             ) : isProcessing ? (
-               <ActivityIndicator size="large" color="#10B981" />
-             ) : (
-               <Waves size={80} color="rgba(255,255,255,0.1)" />
-             )}
+          {/* Waveform / spinner */}
+          <View className="items-center justify-center mb-10 h-32">
+            {isListening ? (
+              <View className="flex-row items-center gap-1.5">
+                {[1, 4, 2, 5, 8, 3, 2, 6, 4].map((h, i) => (
+                  <View key={i} className="w-1.5 rounded-full bg-emerald-400" style={{ height: h * 10 }} />
+                ))}
+              </View>
+            ) : isProcessing ? (
+              <ActivityIndicator size="large" color="#10B981" />
+            ) : (
+              <Waves size={72} color="rgba(255,255,255,0.08)" />
+            )}
           </View>
 
           {/* Transcript */}
-          <View className="items-center mb-10">
-             <Text className="text-white text-xl font-medium text-center">
-                {transcript || (isListening ? 'Listening...' : 'Tap the mic to start')}
-             </Text>
-          </View>
+          {transcript ? (
+            <View className="items-center mb-4">
+              <Text className="text-white/60 text-[11px] uppercase mb-1">Heard</Text>
+              <Text className="text-white text-base font-medium text-center">{transcript}</Text>
+            </View>
+          ) : null}
 
-          {/* Control */}
-          <View className="items-center">
-             <TouchableOpacity 
-               onPress={isListening ? stopRecording : startRecording}
-               disabled={isProcessing}
-               className={`w-28 h-28 rounded-full items-center justify-center ${isListening ? 'bg-emerald-500' : 'bg-white/10'}`}
-             >
-                {isListening ? <Zap size={40} color="white" /> : <Mic size={40} color="white" />}
-             </TouchableOpacity>
+          {/* AI parsed preview */}
+          {parsedPreview && !isProcessing ? (
+            <View className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 mb-6">
+              <Text className="text-emerald-400 text-[10px] font-bold uppercase mb-2">AI Extracted</Text>
+              <Text className="text-white/80 text-[12px]">{parsedPreview}</Text>
+            </View>
+          ) : null}
+
+          {/* Mic button */}
+          <View className="items-center mt-4">
+            <TouchableOpacity
+              onPress={isListening ? stopRecording : startRecording}
+              disabled={isProcessing}
+              className={`w-28 h-28 rounded-full items-center justify-center ${
+                isListening ? 'bg-emerald-500' : 'bg-white/10'
+              }`}
+            >
+              {isListening ? <Zap size={40} color="white" /> : <Mic size={40} color="white" />}
+            </TouchableOpacity>
+            <Text className="text-white/30 text-[10px] mt-3">
+              {isListening ? 'Tap to stop' : isProcessing ? 'AI processing…' : 'Tap to record'}
+            </Text>
           </View>
         </View>
       )}
 
       {/* History */}
-      <View className="bg-white/5 border-t border-white/10 p-6 rounded-t-[40px] max-h-40">
-         <Text className="text-white/60 mb-4 font-bold uppercase text-[10px]">Recent Activity</Text>
-         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {history.length === 0 ? (
-              <Text className="text-white/40 text-[12px]">No activity yet</Text>
-            ) : (
-              history.map((item) => (
-                <View 
-                  key={item.id} 
-                  className={`p-4 rounded-2xl w-56 mr-4 border flex-row gap-2 ${
-                    item.status === 'success' 
-                      ? 'bg-emerald-500/10 border-emerald-500/30' 
-                      : 'bg-red-500/10 border-red-500/30'
-                  }`}
-                >
-                  {item.status === 'success' ? (
-                    <CheckCircle2 color="#10B981" size={16} />
-                  ) : (
-                    <AlertCircle color="#f87171" size={16} />
-                  )}
-                  <View className="flex-1">
-                    <Text className="text-white font-medium text-[12px]" numberOfLines={2}>
-                      {item.text}
-                    </Text>
-                    <Text className="text-white/40 text-[10px] mt-1">{item.time}</Text>
-                  </View>
+      <View className="bg-white/5 border-t border-white/10 p-6 rounded-t-[40px] max-h-44">
+        <Text className="text-white/60 mb-4 font-bold uppercase text-[10px]">Recent Activity</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {history.length === 0 ? (
+            <Text className="text-white/40 text-[12px]">No activity yet</Text>
+          ) : (
+            history.map(item => (
+              <View
+                key={item.id}
+                className={`p-4 rounded-2xl w-56 mr-4 border flex-row gap-2 ${
+                  item.status === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/30'
+                    : 'bg-red-500/10 border-red-500/30'
+                }`}
+              >
+                {item.status === 'success'
+                  ? <CheckCircle2 color="#10B981" size={16} />
+                  : <AlertCircle color="#f87171" size={16} />}
+                <View className="flex-1">
+                  <Text className="text-white font-medium text-[12px]" numberOfLines={2}>{item.text}</Text>
+                  <Text className="text-white/40 text-[10px] mt-1">
+                    {item.time}{item.source ? ` · ${item.source === 'claude' ? '🤖 Claude' : '📡 Offline'}` : ''}
+                  </Text>
                 </View>
-              ))
-            )}
-         </ScrollView>
+              </View>
+            ))
+          )}
+        </ScrollView>
       </View>
     </SafeAreaView>
   );

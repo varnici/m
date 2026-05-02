@@ -35,7 +35,7 @@ export type MainTabParamList = {
   Dashboard: undefined;
   InventoryDashboard: undefined;
   SalesDashboard: undefined;
-  Wallet: undefined;
+  BudgetBest: undefined;
   More: undefined;
 };
 
@@ -66,8 +66,14 @@ export type RootStackParamList = {
   AIInsights: undefined;
   RecordSale: { saleId?: string };
   Receipt: { saleId: string };
-  InsuranceSummary: undefined;
-  FileClaim: undefined;
+  InsuranceSummary: undefined; // Backward-compatible route alias
+  FileClaim: undefined; // Backward-compatible route alias
+  BudgetBestDashboard: undefined;
+  BudgetBestDeposit: { goalId?: string };
+  BudgetBestGoals: undefined;
+  BudgetBestGoalDetail: { goalId: string };
+  BudgetBestSettings: undefined;
+  BudgetBestPolicy: undefined;
   Repayment: undefined;
   Withdrawal: undefined;
   SavingsGoals: undefined;

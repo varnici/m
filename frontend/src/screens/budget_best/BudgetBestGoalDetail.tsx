@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
-  Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -18,77 +18,11 @@ import {
   ArrowUpRight,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
-interface Goal {
-  id: string;
-  goal_name: string;
-  goal_type: string;
-  target_amount: number;
-  current_savings: number;
-  monthly_goal: number;
-  daily_target: number;
-  deadline: string;
-  is_active: boolean;
-}
-
-interface Transaction {
-  id: string;
-  amount: number;
-  type: 'deposit' | 'withdrawal' | 'interest';
-  date: string;
-  reference: string;
-  status: 'completed' | 'pending' | 'failed';
-}
+import { useBudgetBestGoalDetail } from '@/hooks/useBudgetBest';
 
 const BudgetBestGoalDetail = ({ navigation, route }: any) => {
   const { goalId } = route.params;
-  const [goal, setGoal] = useState<Goal | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Dummy goal data
-  useEffect(() => {
-    setGoal({
-      id: goalId,
-      goal_name: 'Shop Rent',
-      goal_type: 'shop_rent',
-      target_amount: 50000,
-      current_savings: 18500,
-      monthly_goal: 50000,
-      daily_target: 1666.67,
-      deadline: '2024-05-31',
-      is_active: true,
-    });
-
-    setTransactions([
-      {
-        id: '1',
-        amount: 5000,
-        type: 'deposit',
-        date: '2024-04-28',
-        reference: 'SAV-20240428120000',
-        status: 'completed',
-      },
-      {
-        id: '2',
-        amount: 3500,
-        type: 'deposit',
-        date: '2024-04-27',
-        reference: 'SAV-20240427080000',
-        status: 'completed',
-      },
-      {
-        id: '3',
-        amount: 10000,
-        type: 'deposit',
-        date: '2024-04-26',
-        reference: 'SAV-20240426150000',
-        status: 'completed',
-      },
-    ]);
-
-    setLoading(false);
-  }, [goalId]);
+  const { goal, transactions, loading, recordTransaction } = useBudgetBestGoalDetail(goalId);
 
   if (loading || !goal) {
     return (
@@ -103,7 +37,7 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
     (new Date(goal.deadline).getTime() - new Date().getTime()) /
       (1000 * 60 * 60 * 24)
   );
-  const remaining = goal.target_amount - goal.current_savings;
+  const remaining = Math.max(goal.target_amount - goal.current_savings, 0);
   const dailyNeeded = remaining / Math.max(daysLeft, 1);
 
   return (
@@ -200,14 +134,26 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
 
         {/* Quick Actions */}
         <View className="gap-2 mb-6">
-          <TouchableOpacity className="bg-emerald-500 rounded-2xl py-4 flex-row items-center justify-center gap-2">
+          <TouchableOpacity
+            onPress={() => navigation.navigate('BudgetBestDeposit', { goalId: goal.id })}
+            className="bg-emerald-500 rounded-2xl py-4 flex-row items-center justify-center gap-2"
+          >
             <ArrowUpRight color="white" size={20} />
             <Text className="text-white font-bold">Make a Deposit</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity className="bg-blue-500/20 border border-blue-500/30 rounded-2xl py-4 flex-row items-center justify-center gap-2">
+          <TouchableOpacity
+            onPress={async () => {
+              try {
+                await recordTransaction(1000, 'withdrawal');
+              } catch (err: any) {
+                Alert.alert('Withdrawal failed', err?.message || 'Please try again');
+              }
+            }}
+            className="bg-blue-500/20 border border-blue-500/30 rounded-2xl py-4 flex-row items-center justify-center gap-2"
+          >
             <Download color="#60A5FA" size={20} />
-            <Text className="text-blue-400 font-bold">Withdraw Funds</Text>
+            <Text className="text-blue-400 font-bold">Quick Withdraw (₦1,000)</Text>
           </TouchableOpacity>
         </View>
 
@@ -234,7 +180,7 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
           </View>
 
           {transactions.map((txn) => {
-            const isDeposit = txn.type === 'deposit';
+            const isDeposit = txn.transaction_type === 'deposit';
             return (
               <View
                 key={txn.id}
@@ -260,13 +206,13 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
                   </View>
                   <View className="flex-1">
                     <Text className="text-white font-semibold text-sm">
-                      {txn.type === 'deposit'
+                      {txn.transaction_type === 'deposit'
                         ? 'Deposit'
-                        : txn.type === 'withdrawal'
+                        : txn.transaction_type === 'withdrawal'
                         ? 'Withdrawal'
                         : 'Interest'}
                     </Text>
-                    <Text className="text-white/60 text-xs">{txn.date}</Text>
+                    <Text className="text-white/60 text-xs">{new Date(txn.created_at).toLocaleDateString()}</Text>
                   </View>
                 </View>
                 <Text
@@ -274,7 +220,7 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
                     isDeposit ? 'text-emerald-400' : 'text-red-400'
                   }`}
                 >
-                  {isDeposit ? '+' : '-'}₦{txn.amount.toLocaleString()}
+                  {isDeposit ? '+' : '-'}₦{Number(txn.amount).toLocaleString()}
                 </Text>
               </View>
             );

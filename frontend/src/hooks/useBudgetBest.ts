@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import * as budgetBestApi from './budgetBestApi';
+import * as budgetBestApi from '../services/budgetBestApi';
 import {
   SavingsDashboard,
   SavingsGoalResponse,

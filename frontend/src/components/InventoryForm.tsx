@@ -10,8 +10,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
-import { InventoryCreate } from '../types/inventory';
-import { createInventory, uploadVoice } from '../services/inventoryApi';
+import { InventoryCreate } from '../types/voice-inventory';
+import { createInventory, syncPendingInventory, uploadVoice } from '../services/inventoryApi';
 import AudioRecorder from './AudioRecorder';
 
 interface FieldConfig {
@@ -32,7 +32,7 @@ const FORM_FIELDS: FieldConfig[] = [
 ];
 
 export default function InventoryForm() {
-  const { control, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<InventoryCreate>({
+  const { control, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<InventoryCreate>({
     defaultValues: {
       product_name: '',
       customer_id: '',
@@ -45,11 +45,13 @@ export default function InventoryForm() {
   });
   const [voiceLoading, setVoiceLoading] = useState(false);
   const [voiceField, setVoiceField] = useState<keyof InventoryCreate | null>(null);
+  const watchedValues = watch();
 
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const onSubmit = useCallback(async (data: InventoryCreate) => {
     try {
+      await syncPendingInventory();
       if (data.sold > data.quantity) {
         Alert.alert('Validation Error', 'Sold cannot exceed quantity');
         return;
@@ -57,9 +59,13 @@ export default function InventoryForm() {
       await createInventory(data);
       setSubmitSuccess(true);
       Alert.alert('Success', 'Inventory item created successfully');
-      Object.keys(data).forEach(key => {
-        setValue(key as keyof InventoryCreate, 0 as any);
-      });
+      setValue('product_name', '');
+      setValue('customer_id', '');
+      setValue('quantity', 0);
+      setValue('pack_quantity', 0);
+      setValue('product_cost', 0);
+      setValue('price', 0);
+      setValue('sold', 0);
       setTimeout(() => setSubmitSuccess(false), 2000);
     } catch (e) {
       Alert.alert('Error', (e as Error).message);
@@ -73,7 +79,7 @@ export default function InventoryForm() {
   const handleRecordingFinished = useCallback(async (audioUri: string, audioBlob: Blob) => {
     setVoiceLoading(true);
     try {
-      const result = await uploadVoice(audioBlob);
+      const result = await uploadVoice(audioBlob, 'voice-input.wav');
       if (!voiceField) return;
 
       const numericFields = ['quantity', 'pack_quantity', 'sold', 'product_cost', 'price'];
@@ -95,9 +101,13 @@ export default function InventoryForm() {
   }, [voiceField, setValue]);
 
   const isFormValid = useMemo(() => {
-    const values = getValues();
-    return values.product_name && values.customer_id && values.quantity > 0 && values.price > 0;
-  }, [getValues]);
+    return (
+      !!watchedValues.product_name &&
+      !!watchedValues.customer_id &&
+      watchedValues.quantity > 0 &&
+      watchedValues.price > 0
+    );
+  }, [watchedValues]);
 
   return (
     <ScrollView style={styles.container}>
@@ -115,17 +125,21 @@ export default function InventoryForm() {
               control={control}
               name={field.name}
               rules={field.required ? { required: true } : {}}
-              render={({ field: { onChange, value } }) => (
+              render={({ field: formField }: { field: { onChange: (next: string | number) => void; value: string | number } }) => (
                 <TextInput
                   style={[styles.input, errors[field.name] && styles.inputError]}
-                  value={String(value)}
-                  onChangeText={(v) =>
-                    onChange(
-                      field.keyboardType === 'numeric'
-                        ? parseInt(v) || 0
-                        : parseFloat(v) || 0
-                    )
-                  }
+                  value={String(formField.value)}
+                  onChangeText={(v) => {
+                    if (field.keyboardType === 'numeric') {
+                      formField.onChange(parseInt(v, 10) || 0);
+                      return;
+                    }
+                    if (field.keyboardType === 'decimal-pad') {
+                      formField.onChange(parseFloat(v) || 0);
+                      return;
+                    }
+                    formField.onChange(v);
+                  }}
                   keyboardType={field.keyboardType || 'default'}
                   placeholder={`Enter ${field.label.toLowerCase()}`}
                   editable={voiceField !== field.name}

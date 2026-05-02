@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,19 +8,13 @@ import {
   ScrollView,
   StatusBar,
   Platform,
-  Keyboard,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
-interface Goal {
-  id: string;
-  goal_name: string;
-  current_savings: number;
-  daily_target: number;
-}
+import { useBudgetBestGoals } from '@/hooks/useBudgetBest';
+import { createReminder } from '@/services/budgetBestApi';
 
 const PRESET_AMOUNTS = [200, 500, 3000, 4000, 5000];
 
@@ -34,27 +28,13 @@ const BudgetBestDeposit = ({ navigation, route }: any) => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Dummy goals - in real app, fetch from API
-  const [goals] = useState<Goal[]>([
-    {
-      id: '1',
-      goal_name: 'Shop Rent',
-      current_savings: 18500,
-      daily_target: 1666.67,
-    },
-    {
-      id: '2',
-      goal_name: 'House Rent',
-      current_savings: 42000,
-      daily_target: 2666.67,
-    },
-    {
-      id: '3',
-      goal_name: 'Staff Salaries',
-      current_savings: 0,
-      daily_target: 5000,
-    },
-  ]);
+  const { goals, loading: goalsLoading } = useBudgetBestGoals(true);
+
+  useEffect(() => {
+    if (route?.params?.goalId) {
+      setSelectedGoal(route.params.goalId);
+    }
+  }, [route?.params?.goalId]);
 
   const getAmount = (): number => {
     if (customAmount) {
@@ -63,7 +43,7 @@ const BudgetBestDeposit = ({ navigation, route }: any) => {
     return selectedAmount || 0;
   };
 
-  const amount = getAmount();
+  const amount = useMemo(() => getAmount(), [selectedAmount, customAmount]);
 
   const handleDeposit = async () => {
     if (amount <= 0) {
@@ -80,11 +60,21 @@ const BudgetBestDeposit = ({ navigation, route }: any) => {
       setLoading(true);
       setError(null);
 
-      // In real app: call API endpoint
-      // await depositToGoal(selectedGoal, amount)
+      const { recordTransaction } = await import('@/services/budgetBestApi');
+      await recordTransaction({
+        goal_id: selectedGoal,
+        amount,
+        transaction_type: 'deposit',
+      });
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (showReminder && reminderTime) {
+        await createReminder({
+          goal_id: selectedGoal,
+          reminder_time: `${reminderTime}:00`,
+          reminder_frequency: 'daily',
+          reminder_enabled: true,
+        });
+      }
 
       setSuccess(true);
       setTimeout(() => {
@@ -122,7 +112,11 @@ const BudgetBestDeposit = ({ navigation, route }: any) => {
             <Text className="text-white font-bold text-sm mb-3 uppercase">
               Select Goal
             </Text>
-            {goals.map((goal) => (
+            {goalsLoading ? (
+              <View className="py-4">
+                <ActivityIndicator color="#10B981" />
+              </View>
+            ) : goals.map((goal) => (
               <TouchableOpacity
                 key={goal.id}
                 onPress={() => setSelectedGoal(goal.id)}

@@ -35,8 +35,13 @@ import RecordSaleScreen from '@/screens/sales/RecordSaleScreen';
 import ReceiptScreen from '@/screens/sales/ReceiptScreen';
 import InventoryReconciliationScreen from '@/screens/inventory/InventoryReconciliationScreen';
 import LowStockAlertsScreen from '@/screens/inventory/LowStockAlertsScreen';
-import InsuranceSummaryScreen from '@/screens/budget_best/InsuranceSummaryScreen';
 import FileClaimScreen from '@/screens/budget_best/FileClaimScreen';
+import BudgetBestDashboard from '@/screens/budget_best/BudgetBestDashboard';
+import BudgetBestDeposit from '@/screens/budget_best/BudgetBestDeposit';
+import BudgetBestGoals from '@/screens/budget_best/BudgetBestGoals';
+import BudgetBestGoalDetail from '@/screens/budget_best/BudgetBestGoalDetail';
+import BudgetBestSettings from '@/screens/budget_best/BudgetBestSettings';
+import BudgetBestPolicy from '@/screens/budget_best/BudgetBestPolicy';
 import RepaymentScreen from '@/screens/wallet/RepaymentScreen';
 import WithdrawalScreen from '@/screens/wallet/WithdrawalScreen';
 import SavingsGoalsScreen from '@/screens/wallet/SavingsGoalsScreen';
@@ -134,8 +139,14 @@ const RootNavigator = () => {
           <Stack.Screen name="AIInsights" component={AIInsightsScreen} />
           <Stack.Screen name="RecordSale" component={RecordSaleScreen} />
           <Stack.Screen name="Receipt" component={ReceiptScreen} />
-          <Stack.Screen name="InsuranceSummary" component={InsuranceSummaryScreen} />
+          <Stack.Screen name="InsuranceSummary" component={BudgetBestDashboard} />
           <Stack.Screen name="FileClaim" component={FileClaimScreen} />
+          <Stack.Screen name="BudgetBestDashboard" component={BudgetBestDashboard} />
+          <Stack.Screen name="BudgetBestDeposit" component={BudgetBestDeposit} />
+          <Stack.Screen name="BudgetBestGoals" component={BudgetBestGoals} />
+          <Stack.Screen name="BudgetBestGoalDetail" component={BudgetBestGoalDetail} />
+          <Stack.Screen name="BudgetBestSettings" component={BudgetBestSettings} />
+          <Stack.Screen name="BudgetBestPolicy" component={BudgetBestPolicy} />
           <Stack.Screen name="Repayment" component={RepaymentScreen} />
           <Stack.Screen name="Withdrawal" component={WithdrawalScreen} />
           <Stack.Screen name="SavingsGoals" component={SavingsGoalsScreen} />

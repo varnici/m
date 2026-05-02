@@ -31,6 +31,7 @@ export interface InventorySummary {
 
 export interface VoiceTranscribeResponse {
   text: string;
-  extracted_number: string | null;
-  field_type: 'text' | 'number';
+  inventory: InventoryCreate;
+  _source?: string;
+  language?: string;
 }

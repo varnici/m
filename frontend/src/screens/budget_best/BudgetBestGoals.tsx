@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,27 +9,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   X,
   Plus,
   Trash2,
-  TrendingUp,
   Calendar,
-  Target,
 } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-
-interface Goal {
-  id: string;
-  goal_name: string;
-  goal_type: string;
-  target_amount: number;
-  current_savings: number;
-  monthly_goal: number;
-  deadline: string;
-}
+import { useBudgetBestGoals } from '@/hooks/useBudgetBest';
 
 interface Bucket {
   id: string;
@@ -49,17 +38,7 @@ const GOAL_TYPES = [
 ];
 
 const BudgetBestGoals = ({ navigation }: any) => {
-  const [goals, setGoals] = useState<Goal[]>([
-    {
-      id: '1',
-      goal_name: 'Shop Rent',
-      goal_type: 'shop_rent',
-      target_amount: 50000,
-      current_savings: 18500,
-      monthly_goal: 50000,
-      deadline: '2024-05-31',
-    },
-  ]);
+  const { goals, loading, createGoal, deleteGoal, refresh } = useBudgetBestGoals(true);
 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -70,12 +49,13 @@ const BudgetBestGoals = ({ navigation }: any) => {
     deadline: new Date().toISOString().split('T')[0],
   });
 
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Visual Bucket Breakdown - calculated from goals
   const getBuckets = (): Bucket[] => {
     const total = goals.reduce((sum, g) => sum + g.target_amount, 0);
-    return goals.map((goal, idx) => {
+    if (total <= 0) return [];
+    return goals.map((goal) => {
       const percentage = (goal.target_amount / total) * 100;
       const color = GOAL_TYPES.find((t) => t.value === goal.goal_type)?.color || '#10B981';
       return {
@@ -91,25 +71,19 @@ const BudgetBestGoals = ({ navigation }: any) => {
 
   const handleCreateGoal = async () => {
     if (!formData.goalName || !formData.targetAmount || !formData.monthlyGoal) {
+      Alert.alert('Missing fields', 'Please fill in goal name, target amount, and monthly goal.');
       return;
     }
 
     try {
-      setLoading(true);
-      // In real app: call API endpoint
-      // await createGoal(formData)
-
-      const newGoal: Goal = {
-        id: Math.random().toString(),
-        goal_name: formData.goalName,
+      setSubmitting(true);
+      await createGoal({
+        goal_name: formData.goalName.trim(),
         goal_type: formData.goalType,
-        target_amount: parseInt(formData.targetAmount, 10),
-        current_savings: 0,
-        monthly_goal: parseInt(formData.monthlyGoal, 10),
+        target_amount: Number(formData.targetAmount),
+        monthly_goal: Number(formData.monthlyGoal),
         deadline: formData.deadline,
-      };
-
-      setGoals([...goals, newGoal]);
+      });
       setFormData({
         goalName: '',
         goalType: 'shop_rent',
@@ -118,16 +92,32 @@ const BudgetBestGoals = ({ navigation }: any) => {
         deadline: new Date().toISOString().split('T')[0],
       });
       setShowForm(false);
+      await refresh();
+    } catch (err: any) {
+      Alert.alert('Could not create goal', err?.message || 'Please try again.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   const handleDeleteGoal = (goalId: string) => {
-    setGoals(goals.filter((g) => g.id !== goalId));
+    Alert.alert('Delete goal', 'This goal will be archived from active list.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteGoal(goalId);
+          } catch (err: any) {
+            Alert.alert('Could not delete goal', err?.message || 'Please try again.');
+          }
+        },
+      },
+    ]);
   };
 
-  const buckets = getBuckets();
+  const buckets = useMemo(() => getBuckets(), [goals]);
   const totalAmount = goals.reduce((sum, g) => sum + g.target_amount, 0);
 
   return (
@@ -223,7 +213,11 @@ const BudgetBestGoals = ({ navigation }: any) => {
               </Text>
             </View>
 
-            {goals.map((goal) => {
+            {loading ? (
+              <View className="py-6 items-center">
+                <ActivityIndicator color="#10B981" />
+              </View>
+            ) : goals.map((goal) => {
               const goalType = GOAL_TYPES.find((t) => t.value === goal.goal_type);
               const progress =
                 (goal.current_savings / goal.target_amount) * 100;
@@ -415,10 +409,10 @@ const BudgetBestGoals = ({ navigation }: any) => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleCreateGoal}
-                  disabled={loading}
+                  disabled={submitting}
                   className="flex-1 bg-emerald-500 rounded-lg py-3"
                 >
-                  {loading ? (
+                  {submitting ? (
                     <ActivityIndicator size="small" color="white" />
                   ) : (
                     <Text className="text-white text-center font-semibold">

@@ -1,98 +1,126 @@
-import { SavingsGoalResponse, SavingsDashboard } from '../types/budget-best';
+import {
+  SavingsGoalResponse,
+  SavingsDashboard,
+  SavingsTransactionResponse,
+  SavingsStreakResponse,
+  ReminderSettingsResponse,
+  PolicyConsentResponse,
+} from '../types/budget-best';
+import { supabase } from '../lib/supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+
+async function buildAuthHeaders(): Promise<HeadersInit> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    throw new Error('Unauthorized: Please log in again');
+  }
+
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${session.access_token}`,
+    'X-User-Id': session.user.id,
+  };
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = await buildAuthHeaders();
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: {
+      ...headers,
+      ...(init.headers || {}),
+    },
+  });
+
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const err = await res.json();
+      message = err?.detail || err?.message || message;
+    } catch {
+      // Keep fallback message.
+    }
+    throw new Error(message);
+  }
+
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
+  return res.json() as Promise<T>;
+}
 
 // ===================== SAVINGS GOALS =====================
 
 export async function createGoal(goalData: any): Promise<SavingsGoalResponse> {
-  const res = await fetch(`${API_URL}/budget-best/goals`, {
+  return request<SavingsGoalResponse>('/budget-best/goals', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(goalData),
   });
-  if (!res.ok) throw new Error('Failed to create goal');
-  return res.json();
 }
 
 export async function listGoals(onlyActive: boolean = true): Promise<SavingsGoalResponse[]> {
-  const res = await fetch(
-    `${API_URL}/budget-best/goals?only_active=${onlyActive}`
+  return request<SavingsGoalResponse[]>(
+    `/budget-best/goals?only_active=${onlyActive}`
   );
-  if (!res.ok) throw new Error('Failed to fetch goals');
-  return res.json();
 }
 
 export async function getGoal(goalId: string): Promise<SavingsGoalResponse> {
-  const res = await fetch(`${API_URL}/budget-best/goals/${goalId}`);
-  if (!res.ok) throw new Error('Goal not found');
-  return res.json();
+  return request<SavingsGoalResponse>(`/budget-best/goals/${goalId}`);
 }
 
 export async function updateGoal(goalId: string, data: any): Promise<SavingsGoalResponse> {
-  const res = await fetch(`${API_URL}/budget-best/goals/${goalId}`, {
+  return request<SavingsGoalResponse>(`/budget-best/goals/${goalId}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Failed to update goal');
-  return res.json();
 }
 
 export async function deleteGoal(goalId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/budget-best/goals/${goalId}`, {
+  await request<void>(`/budget-best/goals/${goalId}`, {
     method: 'DELETE',
   });
-  if (!res.ok) throw new Error('Failed to delete goal');
 }
 
 // ===================== TRANSACTIONS =====================
 
 export async function recordTransaction(transactionData: any) {
-  const res = await fetch(`${API_URL}/budget-best/transactions`, {
+  return request<SavingsTransactionResponse>('/budget-best/transactions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(transactionData),
   });
-  if (!res.ok) throw new Error('Failed to record transaction');
-  return res.json();
 }
 
 export async function getGoalTransactions(goalId: string, limit: number = 50, offset: number = 0) {
-  const res = await fetch(
-    `${API_URL}/budget-best/transactions/goal/${goalId}?limit=${limit}&offset=${offset}`
+  return request<SavingsTransactionResponse[]>(
+    `/budget-best/transactions/goal/${goalId}?limit=${limit}&offset=${offset}`
   );
-  if (!res.ok) throw new Error('Failed to fetch transactions');
-  return res.json();
 }
 
 // ===================== REMINDERS =====================
 
 export async function createReminder(reminderData: any) {
-  const res = await fetch(`${API_URL}/budget-best/reminders`, {
+  return request<ReminderSettingsResponse>('/budget-best/reminders', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(reminderData),
   });
-  if (!res.ok) throw new Error('Failed to create reminder');
-  return res.json();
 }
 
 export async function updateReminder(reminderId: string, data: any) {
-  const res = await fetch(`${API_URL}/budget-best/reminders/${reminderId}`, {
+  return request<ReminderSettingsResponse>(`/budget-best/reminders/${reminderId}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Failed to update reminder');
-  return res.json();
 }
 
 // ===================== STREAKS =====================
 
 export async function getStreak() {
-  const res = await fetch(`${API_URL}/budget-best/streak`);
-  if (!res.ok) throw new Error('Failed to fetch streak');
-  return res.json();
+  return request<SavingsStreakResponse>('/budget-best/streak');
 }
 
 // ===================== AUTO-SWEEP =====================
@@ -134,23 +162,37 @@ export async function listBuckets() {
 // ===================== DASHBOARD =====================
 
 export async function getDashboard(): Promise<SavingsDashboard> {
-  const res = await fetch(`${API_URL}/budget-best/dashboard`);
-  if (!res.ok) throw new Error('Failed to fetch dashboard');
-  return res.json();
+  return request<SavingsDashboard>('/budget-best/dashboard');
 }
 
 // ===================== POLICY =====================
 
 export async function getPolicy(version: string = '1.0') {
-  const res = await fetch(`${API_URL}/budget-best/policy?version=${version}`);
-  if (!res.ok) throw new Error('Failed to fetch policy');
-  return res.json();
+  return request<PolicyConsentResponse>(`/budget-best/policy?version=${version}`);
 }
 
 export async function acceptPolicy(policyId: string) {
-  const res = await fetch(`${API_URL}/budget-best/policy/${policyId}/accept`, {
+  return request<PolicyConsentResponse>(`/budget-best/policy/${policyId}/accept`, {
     method: 'POST',
   });
-  if (!res.ok) throw new Error('Failed to accept policy');
-  return res.json();
 }
+
+export const budgetBestApi = {
+  createGoal,
+  listGoals,
+  getGoal,
+  updateGoal,
+  deleteGoal,
+  recordTransaction,
+  getGoalTransactions,
+  createReminder,
+  updateReminder,
+  getStreak,
+  createAutoSweep,
+  getAutoSweep,
+  createBucket,
+  listBuckets,
+  getDashboard,
+  getPolicy,
+  acceptPolicy,
+};
