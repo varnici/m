@@ -61,7 +61,7 @@ import ShopProductDetailScreen from '@/screens/shop/ShopProductDetailScreen';
 import SettingsScreen from '@/screens/more/SettingsScreen';
 import ProfileScreen from '@/screens/more/ProfileScreen';
 import SecuritySettingsScreen from '@/screens/more/SecuritySettingsScreen';
-import { VentureRouteScreen } from '@/screens/VentureRouteScreen';
+import VentureRouteScreen from '@/screens/VentureRouteScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
