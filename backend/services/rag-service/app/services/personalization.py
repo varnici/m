@@ -6,7 +6,9 @@ from app.core.config import settings
 
 # Initialize clients
 genai.configure(api_key=settings.google_api_key)
-supabase: Client = create_client(settings.supabase_url, settings.supabase_key)
+supabase: Optional[Client] = None
+if settings.supabase_url.startswith(("http://", "https://")):
+    supabase = create_client(settings.supabase_url, settings.supabase_key)
 
 class InventoryItem(BaseModel):
     name: str

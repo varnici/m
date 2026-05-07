@@ -25,6 +25,7 @@ import {
   Newspaper,
   TrendingUp as StocksIcon,
   Sprout,
+  Truck,
 } from 'lucide-react-native';
 
 import VRWalletCard from '@/components/ui/VRWalletCard';
@@ -49,11 +50,11 @@ const QUICK_ACCESS_ITEMS = [
   { icon: Banknote, label: 'Loans', bgColor: '#D1FAE5', iconColor: '#004D2C' },
   { icon: BarChart3, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB' },
   { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706' },
+  { icon: Truck, label: 'Logistics', bgColor: '#E0F2FE', iconColor: '#0369A1' },
   { icon: Users, label: 'Group Buy', bgColor: '#FCE7F3', iconColor: '#DB2777' },
   { icon: Shield, label: 'Insurance', bgColor: '#FEE2E2', iconColor: '#EF4444' },
   { icon: Bot, label: 'AI Assist', bgColor: '#D1FAE5', iconColor: '#059669' },
   { icon: Store, label: 'Shop', bgColor: '#E0E7FF', iconColor: '#4F46E5' },
-  { icon: Mic, label: 'Voice Stock', bgColor: '#F3E8FF', iconColor: '#9333EA' },
 ];
 
 const INTELLIGENCE_TABS = ['For You', 'News', 'Stocks', 'Trade'];
@@ -253,6 +254,7 @@ const DashboardScreen = ({
                     if (item.label === 'Loans') navigation.navigate('LoanDashboard');
                     if (item.label === 'Sales') navigation.navigate('SalesDashboard');
                     if (item.label === 'Inventory') navigation.navigate('InventoryDashboard');
+                    if (item.label === 'Logistics') navigation.navigate('VentureRoute');
                     if (item.label === 'Insurance') navigation.navigate('InsuranceSummary');
                     if (item.label === 'Group Buy') navigation.navigate('PoolList');
                     if (item.label === 'Shop') navigation.navigate('Shop');

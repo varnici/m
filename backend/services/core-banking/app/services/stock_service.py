@@ -121,7 +121,8 @@ class StockService:
             "adjustment": self._handle_adjustment,
         }
         
-        handler = handlers.get(payload.movement_type)
+        movement_type = payload.movement_type.value if hasattr(payload.movement_type, "value") else str(payload.movement_type)
+        handler = handlers.get(movement_type)
         if handler:
             handler(payload)
         

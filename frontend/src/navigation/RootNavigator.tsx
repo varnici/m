@@ -61,6 +61,7 @@ import ShopProductDetailScreen from '@/screens/shop/ShopProductDetailScreen';
 import SettingsScreen from '@/screens/more/SettingsScreen';
 import ProfileScreen from '@/screens/more/ProfileScreen';
 import SecuritySettingsScreen from '@/screens/more/SecuritySettingsScreen';
+import { VentureRouteScreen } from '@/screens/VentureRouteScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -168,6 +169,7 @@ const RootNavigator = () => {
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
+          <Stack.Screen name="VentureRoute" component={VentureRouteScreen} />
           <Stack.Screen name="PINSetup" component={PINSetupScreen} />
           <Stack.Screen name="PatternSetup" component={PatternSetupScreen} />
           <Stack.Screen name="BiometricSetup" component={BiometricSetupScreen} />

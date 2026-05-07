@@ -95,6 +95,7 @@ export type RootStackParamList = {
   Profile: undefined;
   SecuritySettings: undefined;
   SecurityLock: undefined;
+  VentureRoute: undefined;
 };
 
 export type RootStackNavigation = NavigationProp<RootStackParamList>;
