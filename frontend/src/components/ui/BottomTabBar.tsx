@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LayoutGrid, TrendingUp, Wallet, MoreHorizontal, Box } from 'lucide-react-native';
+import { LayoutGrid, TrendingUp, Wallet, MoreHorizontal, Banknote } from 'lucide-react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -14,7 +14,7 @@ import { colors } from '@/theme/colors';
 
 const TABS = [
   { label: 'Home', screen: 'Dashboard', icon: LayoutGrid },
-  { label: 'Stock', screen: 'InventoryDashboard', icon: Box },
+  { label: 'Loans', screen: 'LoanDashboard', icon: Banknote },
   { label: 'Sales', screen: 'SalesDashboard', icon: TrendingUp },
   { label: 'Wallet', screen: 'Wallet', icon: Wallet },
   { label: 'More', screen: 'More', icon: MoreHorizontal },

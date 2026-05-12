@@ -1,8 +1,7 @@
-"""
-LogisticsQuickAccess.tsx
-Dashboard quick access widget for VentureRoute logistics
-Shows active routes and allows quick actions
-"""
+/*
+ * Dashboard quick access widget for VentureRoute logistics.
+ * Shows active routes and allows quick actions.
+ */
 
 import React, { useState, useEffect } from 'react';
 import {

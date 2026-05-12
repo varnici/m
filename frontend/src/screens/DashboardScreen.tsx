@@ -46,23 +46,29 @@ import { dashboardService } from '@/services/dashboardService';
 
 // ─── Quick Access Grid Config ───────────────────────────────
 
-const QUICK_ACCESS_ITEMS = [
-  { icon: Banknote, label: 'Loans', bgColor: '#D1FAE5', iconColor: '#004D2C' },
-  { icon: BarChart3, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB' },
-  { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706' },
-  { icon: Truck, label: 'Logistics', bgColor: '#E0F2FE', iconColor: '#0369A1' },
-  { icon: Users, label: 'Group Buy', bgColor: '#FCE7F3', iconColor: '#DB2777' },
-  { icon: Shield, label: 'Insurance', bgColor: '#FEE2E2', iconColor: '#EF4444' },
-  { icon: Bot, label: 'AI Assist', bgColor: '#D1FAE5', iconColor: '#059669' },
-  { icon: Store, label: 'Shop', bgColor: '#E0E7FF', iconColor: '#4F46E5' },
-];
-
-const INTELLIGENCE_TABS = ['For You', 'News', 'Stocks', 'Trade'];
-
 import type {
   RootStackParamList,
   RootStackScreenProps,
 } from '@/navigation/types';
+
+const QUICK_ACCESS_ITEMS: Array<{
+  icon: typeof Banknote;
+  label: string;
+  bgColor: string;
+  iconColor: string;
+  route: keyof RootStackParamList;
+}> = [
+  { icon: Banknote, label: 'Loans', bgColor: '#D1FAE5', iconColor: '#004D2C', route: 'LoanDashboard' },
+  { icon: BarChart3, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB', route: 'SalesDashboard' },
+  { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706', route: 'InventoryDashboard' },
+  { icon: Truck, label: 'Logistics', bgColor: '#E0F2FE', iconColor: '#0369A1', route: 'VentureRoute' },
+  { icon: Users, label: 'Group Buy', bgColor: '#FCE7F3', iconColor: '#DB2777', route: 'PoolList' },
+  { icon: Shield, label: 'Insurance', bgColor: '#FEE2E2', iconColor: '#EF4444', route: 'InsuranceSummary' },
+  { icon: Bot, label: 'AI Assist', bgColor: '#D1FAE5', iconColor: '#059669', route: 'AIInsights' },
+  { icon: Store, label: 'Shop', bgColor: '#E0E7FF', iconColor: '#4F46E5', route: 'Shop' },
+];
+
+const INTELLIGENCE_TABS = ['For You', 'News', 'Stocks', 'Trade'];
 
 const FOOTER_TABS: Array<{
   icon: typeof Home;
@@ -250,15 +256,7 @@ const DashboardScreen = ({
                   label={item.label}
                   bgColor={item.bgColor}
                   iconColor={item.iconColor}
-                  onPress={() => {
-                    if (item.label === 'Loans') navigation.navigate('LoanDashboard');
-                    if (item.label === 'Sales') navigation.navigate('SalesDashboard');
-                    if (item.label === 'Inventory') navigation.navigate('InventoryDashboard');
-                    if (item.label === 'Logistics') navigation.navigate('VentureRoute');
-                    if (item.label === 'Insurance') navigation.navigate('InsuranceSummary');
-                    if (item.label === 'Group Buy') navigation.navigate('PoolList');
-                    if (item.label === 'Shop') navigation.navigate('Shop');
-                  }}
+                  onPress={() => navigation.navigate(item.route as any)}
                 />
               </View>
             ))}

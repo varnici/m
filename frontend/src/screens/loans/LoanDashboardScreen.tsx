@@ -16,6 +16,8 @@ const LoanDashboardScreen = ({
       <ScreenHeader
         title="Loan Centre"
         subtitle="Your Loans"
+        navigation={navigation}
+        showBack={false}
       />
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>

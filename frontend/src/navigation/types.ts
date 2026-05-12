@@ -33,9 +33,9 @@ export type OnboardingStackParamList = {
 
 export type MainTabParamList = {
   Dashboard: undefined;
-  InventoryDashboard: undefined;
+  LoanDashboard: undefined;
   SalesDashboard: undefined;
-  BudgetBest: undefined;
+  Wallet: undefined;
   More: undefined;
 };
 
@@ -43,6 +43,35 @@ export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Onboarding: NavigatorScreenParams<OnboardingStackParamList>;
   Main: NavigatorScreenParams<MainTabParamList>;
+
+  // Nested navigator screen names are listed here because many screens use the
+  // root navigation prop for cross-stack shortcuts.
+  Welcome: undefined;
+  Login: undefined;
+  Register: undefined;
+  RoleSelection: undefined;
+  BVNVerification: undefined;
+  PINSetup: undefined;
+  PatternSetup: undefined;
+  BiometricSetup: undefined;
+  OnboardingAccountType: undefined;
+  OnboardingPhone: undefined;
+  OnboardingBasicInfo: undefined;
+  OnboardingShopInfo: undefined;
+  OnboardingCategory: undefined;
+  OnboardingLocation: undefined;
+  OnboardingKYC: undefined;
+  OnboardingFaceVerification: undefined;
+  OnboardingBankLink: undefined;
+  OnboardingInventory: undefined;
+  OnboardingSalesEstimation: undefined;
+  OnboardingTaxCompliance: undefined;
+  OnboardingTerms: undefined;
+  OnboardingActivation: undefined;
+  OnboardingReview: undefined;
+  Dashboard: undefined;
+  SalesDashboard: undefined;
+  More: undefined;
   
   // App Stack Screens (Accessible after onboarding)
   InventoryDashboard: undefined;
@@ -77,6 +106,8 @@ export type RootStackParamList = {
   Repayment: undefined;
   Withdrawal: undefined;
   SavingsGoals: undefined;
+  Wallet: undefined;
+  LoanDashboard: undefined;
   ApplyLoan: undefined;
   ContractViewer: undefined;
   SalesHistory: undefined;

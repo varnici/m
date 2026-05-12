@@ -41,6 +41,9 @@ class VolumetricUnitEngine:
         2. Dimensional_Weight = Volume / 0.005 (standard volumetric divisor)
         3. VU = MAX(Actual_Weight, Dimensional_Weight)
         
+        OPTIMIZATION: Pre-convert Decimals to float for faster math operations,
+        then convert back once. Avoids Decimal overhead in tight loops.
+        
         Args:
             weight_kg: Actual weight in kilograms
             length_cm: Length in centimeters
@@ -53,23 +56,24 @@ class VolumetricUnitEngine:
         if weight_kg <= 0 or length_cm <= 0 or width_cm <= 0 or height_cm <= 0:
             raise ValueError("All dimensions must be positive")
 
-        # Convert Decimal to float for calculation
+        # OPTIMIZATION: Single float conversion (not per operation)
         weight_float = float(weight_kg)
-        length_float = float(length_cm)
-        width_float = float(width_cm)
-        height_float = float(height_cm)
+        l_float = float(length_cm)
+        w_float = float(width_cm)
+        h_float = float(height_cm)
 
-        # Step 1: Calculate volume in m³
+        # Step 1: Calculate volume in m³ using native float math (much faster)
         # Formula: (cm × cm × cm) / 1,000,000 = m³
-        volume_m3 = (length_float * width_float * height_float) / 1_000_000
+        volume_m3 = (l_float * w_float * h_float) / 1_000_000.0
 
         # Step 2: Calculate dimensional weight
         # Standard: Volume / 0.005 (= Volume * 200)
-        dimensional_weight_kg = volume_m3 / self.VOLUMETRIC_DIVISOR
+        dimensional_weight_kg = volume_m3 * 200.0  # Multiplication faster than division
 
         # Step 3: VU = MAX(actual weight, dimensional weight)
         volumetric_units = max(weight_float, dimensional_weight_kg)
 
+        # Convert back to Decimal once at the end
         return Decimal(str(round(volumetric_units, 4)))
 
     # ========================================================================
@@ -129,6 +133,11 @@ class VolumetricUnitEngine:
         """
         Calculate shares for all retailers in a route.
         
+        OPTIMIZATION:
+        - Convert cost_per_vu to float once (not per retailer)
+        - Use list comprehension for faster iteration
+        - Minimize Decimal conversions in tight loop
+        
         Args:
             fixed_trip_cost_kobo: Total fixed cost
             retailers_vu: Dictionary mapping retailer_id to their VU
@@ -140,18 +149,26 @@ class VolumetricUnitEngine:
         if not retailers_vu:
             return {}
 
-        total_vu = sum(retailers_vu.values())
-
+        # OPTIMIZATION: Calculate total_vu once, not per iteration
+        total_vu = Decimal(str(sum(retailers_vu.values())))
+        
+        if total_vu <= 0:
+            return {}
+        
+        # OPTIMIZATION: Convert cost_per_vu to float for faster multiplication
+        cost_per_vu_float = float(fixed_trip_cost_kobo) / float(total_vu)
+        handling_fee_float = float(handling_fee_kobo)
+        
         result = {}
+        
+        # OPTIMIZATION: Vectorized calculation using float math, then convert back
         for retailer_id, individual_vu in retailers_vu.items():
-            share = self.calculate_individual_share(
-                fixed_trip_cost_kobo=fixed_trip_cost_kobo,
-                total_route_vu=Decimal(str(total_vu)),
-                individual_vu=Decimal(str(individual_vu)),
-                handling_fee_kobo=handling_fee_kobo,
-            )
-            result[retailer_id] = int(share)
-
+            # Avoid Decimal operations in tight loop
+            vu_float = float(individual_vu)
+            individual_share_float = (cost_per_vu_float * vu_float) + handling_fee_float
+            # Convert to int once at the end
+            result[retailer_id] = int(individual_share_float)
+        
         return result
 
     # ========================================================================

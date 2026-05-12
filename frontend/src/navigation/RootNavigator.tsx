@@ -18,6 +18,9 @@ import MainTabNavigator from './MainTabNavigator';
 
 // Standalone Screens (Authenticated)
 import SecurityLockScreen from '@/screens/auth/SecurityLockScreen';
+import DashboardScreen from '@/screens/DashboardScreen';
+import MoreScreen from '@/screens/more/MoreScreen';
+import InventoryDashboardScreen from '@/screens/inventory/InventoryDashboardScreen';
 import StockLodgerScreen from '@/screens/inventory/StockLodgerScreen';
 import VoiceStockScreen from '@/screens/inventory/VoiceStockScreen';
 import ScanShelveScreen from '@/screens/inventory/ScanShelveScreen';
@@ -45,6 +48,8 @@ import BudgetBestPolicy from '@/screens/budget_best/BudgetBestPolicy';
 import RepaymentScreen from '@/screens/wallet/RepaymentScreen';
 import WithdrawalScreen from '@/screens/wallet/WithdrawalScreen';
 import SavingsGoalsScreen from '@/screens/wallet/SavingsGoalsScreen';
+import WalletScreen from '@/screens/wallet/WalletScreen';
+import LoanDashboardScreen from '@/screens/loans/LoanDashboardScreen';
 import ApplyLoanScreen from '@/screens/loans/ApplyLoanScreen';
 import ContractViewerScreen from '@/screens/loans/ContractViewerScreen';
 import SalesHistoryScreen from '@/screens/sales/SalesHistoryScreen';
@@ -125,6 +130,9 @@ const RootNavigator = () => {
           
           {/* Authenticated On-Top Screens */}
           <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
+          <Stack.Screen name="Dashboard" component={DashboardScreen} />
+          <Stack.Screen name="More" component={MoreScreen} />
+          <Stack.Screen name="InventoryDashboard" component={InventoryDashboardScreen} />
           <Stack.Screen name="StockLodger" component={StockLodgerScreen} />
           <Stack.Screen name="VoiceStock" component={VoiceStockScreen} />
           <Stack.Screen name="ScanShelve" component={ScanShelveScreen} />
@@ -151,6 +159,8 @@ const RootNavigator = () => {
           <Stack.Screen name="Repayment" component={RepaymentScreen} />
           <Stack.Screen name="Withdrawal" component={WithdrawalScreen} />
           <Stack.Screen name="SavingsGoals" component={SavingsGoalsScreen} />
+          <Stack.Screen name="Wallet" component={WalletScreen} />
+          <Stack.Screen name="LoanDashboard" component={LoanDashboardScreen} />
           <Stack.Screen name="ApplyLoan" component={ApplyLoanScreen} />
           <Stack.Screen name="ContractViewer" component={ContractViewerScreen} />
           <Stack.Screen name="SalesHistory" component={SalesHistoryScreen} />
