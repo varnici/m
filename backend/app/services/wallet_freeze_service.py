@@ -26,8 +26,8 @@ class WalletFreezeService:
     - Implement escrow for payment security
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, db: AsyncSession):
+        self.db = db
 
     # ========================================================================
     # CORE FREEZE OPERATIONS

@@ -12,7 +12,8 @@ import Animated, {
   useSharedValue, 
   withSpring, 
   withSequence,
-  withTiming 
+  withTiming,
+  SharedValue
 } from 'react-native-reanimated';
 import { useIndustrialTheme } from '../ui/IndustrialComponents';
 import { colors } from '../../theme/colors';
@@ -45,7 +46,7 @@ export const PatternGrid: React.FC<PatternGridProps> = ({ onComplete, error }) =
   const patternRef = useRef<number[]>([]);
   
   // Animations for dots
-  const dotScales = useRef<Animated.SharedValue<number>[]>(
+  const dotScales = useRef<SharedValue<number>[]>(
     Array(GRID_SIZE * GRID_SIZE).fill(0).map(() => useSharedValue(1))
   ).current;
 

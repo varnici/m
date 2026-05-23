@@ -33,12 +33,12 @@ const PurchaseOrderDetailScreen = ({ navigation, route }: RootStackScreenProps<'
   const { poId } = route.params;
   
   const { data: po, isLoading, isError, refetch } = usePurchaseOrderDetail(poId);
-  const receiveMutation = useReceivePurchaseOrder();
-  const confirmMutation = useConfirmPurchaseOrder();
+  const receiveMutation = useReceivePurchaseOrder(poId);
+  const confirmMutation = useConfirmPurchaseOrder(poId);
 
   const statusColors = useMemo(() => {
     if (!po) return { bg: '#F3F4F6', text: '#374151', icon: Clock };
-    switch (po.status) {
+    switch (po.status as string) {
       case 'received': return { bg: '#D1FAE5', text: '#065F46', icon: CheckCircle2 };
       case 'shipped': return { bg: '#DBEAFE', text: '#1E40AF', icon: Truck };
       case 'confirmed': return { bg: '#FEF3C7', text: '#92400E', icon: Package };
@@ -56,7 +56,7 @@ const PurchaseOrderDetailScreen = ({ navigation, route }: RootStackScreenProps<'
         { 
           text: "Confirm", 
           onPress: () => {
-            receiveMutation.mutate({ po_id: poId }, {
+            receiveMutation.mutate(undefined, {
               onSuccess: () => {
                 Toast.show({ type: 'success', text1: 'Order Received', text2: 'Stock has been updated' });
                 refetch();
@@ -72,7 +72,7 @@ const PurchaseOrderDetailScreen = ({ navigation, route }: RootStackScreenProps<'
   };
 
   const handleConfirm = () => {
-    confirmMutation.mutate(poId, {
+    confirmMutation.mutate(undefined, {
       onSuccess: () => {
         Toast.show({ type: 'success', text1: 'Order Confirmed', text2: 'Supplier notified' });
         refetch();
@@ -240,7 +240,7 @@ const PurchaseOrderDetailScreen = ({ navigation, route }: RootStackScreenProps<'
           >
             <Text className="text-white font-black text-base uppercase tracking-widest">Send to Supplier</Text>
           </TouchableOpacity>
-        ) : po.status === 'shipped' || po.status === 'confirmed' ? (
+        ) : (po.status as string) === 'shipped' || po.status === 'confirmed' ? (
           <TouchableOpacity 
             className="bg-emerald-600 py-4 rounded-2xl items-center shadow-lg shadow-emerald-200"
             onPress={handleReceive}

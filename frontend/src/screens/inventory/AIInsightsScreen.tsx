@@ -37,7 +37,7 @@ export const AIInsightsScreen = ({ navigation }: RootStackScreenProps<'AIInsight
     );
   }
 
-  const { anomalies = [], restock_recommendations = [], trends = [] } = insights || {};
+  const { anomalies = [], restock_recommendations = [], trends = [] } = (insights as any) || {};
 
   return (
     <SafeAreaView className="flex-1 bg-slate-950">

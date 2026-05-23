@@ -81,6 +81,7 @@ class IntelligenceItem(BaseModel):
     timeAgo: str
     headline: str
     subtitle: str
+    url: Optional[str] = None
 
 
 class SalesStreak(BaseModel):

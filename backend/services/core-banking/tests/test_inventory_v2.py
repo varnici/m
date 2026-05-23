@@ -19,32 +19,47 @@ from app.schemas.inventory_schemas import (
 def db_session():
     """Create in-memory SQLite test database with selected tables."""
     engine = create_engine("sqlite:///:memory:")
-    
+
+    from app.models.user import User
     from app.models import (
-        Store, Category, Product, Supplier, StockLevel, 
-        StockMovement, PurchaseOrder, PurchaseOrderItem, 
+        Store, Category, Product, Supplier, StockLevel,
+        StockMovement, PurchaseOrder, PurchaseOrderItem,
         SalesTransaction, SalesTransactionItem
     )
     from app.models.inventory_domain import (
-        InventoryLedgerEntryModel, InventoryIdempotencyKeyModel, 
+        InventoryLedgerEntryModel, InventoryIdempotencyKeyModel,
         DomainOutboxMessageModel, InventoryReservationModel
     )
-    
-    # Create tables individually to avoid geoalchemy2 issues with other models
+
+    # User MUST be created first — all inventory tables FK → users.id
     tables = [
-        Store.__table__, Category.__table__, Product.__table__, 
+        User.__table__,  # ← dependency anchor for all FK references
+        Store.__table__, Category.__table__, Product.__table__,
         Supplier.__table__, StockLevel.__table__, StockMovement.__table__,
         PurchaseOrder.__table__, PurchaseOrderItem.__table__,
         SalesTransaction.__table__, SalesTransactionItem.__table__,
         InventoryLedgerEntryModel.__table__, InventoryIdempotencyKeyModel.__table__,
-        DomainOutboxMessageModel.__table__, InventoryReservationModel.__table__
+        DomainOutboxMessageModel.__table__, InventoryReservationModel.__table__,
     ]
-    
+
     for table in tables:
         table.create(engine)
-        
+
     Session = sessionmaker(bind=engine)
     session = Session()
+
+    # Seed the test owner row so FK inserts succeed
+    session.execute(
+        User.__table__.insert().values(
+            id="test-owner",
+            phone="+2348000000000",
+            category="business_owner",
+            security_type="pin",
+            trust_level="bronze",
+        )
+    )
+    session.commit()
+
     yield session
     session.close()
 
@@ -56,28 +71,27 @@ def service(db_session, monkeypatch):
     return InventoryServiceV2(db_session, owner_id)
 
 @pytest.fixture(scope="function")
-async def store(service):
+def store(service):
     payload = StoreCreate(name="Test Store", type="retail", address="123 St", city="Lagos", state="Lagos")
-    return await service.create_store(payload)
+    return service.create_store(payload)
 
 @pytest.fixture(scope="function")
-async def product(service):
+def product(service):
     payload = ProductCreate(
         sku="SKU-123", name="Test Product", cost_price_kobo=1000, 
         selling_price_kobo=2000, minimum_stock_level=5, unit_of_measure="pcs"
     )
-    return await service.create_product(payload)
+    return service.create_product(payload)
 
 # ============================================================================
 # TESTS
 # ============================================================================
 
-@pytest.mark.asyncio
 class TestInventoryV2Flows:
     
-    async def test_create_sales_transaction_auto_reservation(self, service, store, product):
+    def test_create_sales_transaction_auto_reservation(self, service, store, product):
         # 1. Add initial stock
-        await service.record_stock_movement(StockMovementCreate(
+        service.record_stock_movement(StockMovementCreate(
             product_id=product.id, to_store_id=store.id, movement_type="purchase", quantity=100, input_method="api"
         ))
         
@@ -91,7 +105,7 @@ class TestInventoryV2Flows:
             ]
         )
         
-        sale = await service.create_sales_transaction(payload)
+        sale = service.create_sales_transaction(payload)
         assert sale.id is not None
         
         # 3. Verify stock levels
@@ -107,9 +121,9 @@ class TestInventoryV2Flows:
         assert sale_entry.reference_type == "reservation_commit"
         # reference_id for committed reservation is the reservation ID itself in current implementation
 
-    async def test_reconciliation_detects_drift(self, service, store, product):
+    def test_reconciliation_detects_drift(self, service, store, product):
         # 1. Setup matching state
-        await service.record_stock_movement(StockMovementCreate(
+        service.record_stock_movement(StockMovementCreate(
             product_id=product.id, to_store_id=store.id, movement_type="purchase", quantity=10, input_method="api"
         ))
         
@@ -120,16 +134,17 @@ class TestInventoryV2Flows:
         
         # 3. Run reconciliation
         report = service.reconcile_inventory(store.id, product.id)
-        assert report["drift_detected"] is True
-        assert len(report["drift_items"]) == 1
-        drift_item = report["drift_items"][0]
-        # Current logic: drift = current_on_hand - ledger_sum
-        # current_on_hand = 15, ledger_sum = 10 -> drift = 5
-        assert drift_item.drift == 5
+        assert len(report) == 1
+        drift_item = report[0]
+        # Since it returns dictionaries or models (depending on if FastAPI parses it, but here it's a direct service call):
+        drift = drift_item.get("drift") if isinstance(drift_item, dict) else getattr(drift_item, "drift")
+        assert drift == 5
+        status = drift_item.get("status") if isinstance(drift_item, dict) else getattr(drift_item, "status")
+        assert status == "mismatch"
 
-    async def test_reservation_cleanup(self, service, store, product):
+    def test_reservation_cleanup(self, service, store, product):
         # 1. Add stock
-        await service.record_stock_movement(StockMovementCreate(
+        service.record_stock_movement(StockMovementCreate(
             product_id=product.id, to_store_id=store.id, movement_type="purchase", quantity=10, input_method="api"
         ))
         
@@ -139,7 +154,7 @@ class TestInventoryV2Flows:
             store_id=store.id,
             quantity=5
         )
-        res = await service.reserve_stock(res_payload)
+        res = service.reserve_stock(res_payload)
         
         # Force expiration
         db_res = service.db.get(InventoryReservationModel, res.id)
@@ -147,10 +162,11 @@ class TestInventoryV2Flows:
         service.db.commit()
         
         # 3. Run cleanup
-        count = await service.cleanup_expired_reservations()
+        count = service.cleanup_expired_reservations()
         assert count == 1
         
         # 4. Verify stock returned
         stock = service.db.query(StockLevel).filter_by(product_id=product.id, store_id=store.id).first()
         assert stock.quantity_reserved == 0
         assert stock.quantity_on_hand == 10
+

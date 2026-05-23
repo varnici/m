@@ -276,6 +276,24 @@ class StockService:
         stock.last_movement_at = datetime.now(timezone.utc)
         self._update_stock_status(stock)
 
+        if settings.inventory_domain_enabled:
+            try:
+                movement_create = StockMovementCreate(
+                    product_id=reservation.product_id,
+                    from_store_id=reservation.store_id,
+                    movement_type="sale" if reservation.purpose == "sale" else "adjustment",
+                    quantity=quantity_to_commit,
+                    reference_id=reservation.id,
+                    reference_type="reservation_commit",
+                    notes=payload.notes or reservation.notes,
+                    input_method="api"
+                )
+                self._process_domain_inventory_command(movement_create)
+            except Exception:
+                if settings.inventory_domain_enforce:
+                    raise
+                logger.exception("Domain inventory command processing failed in reservation commit")
+
         movement = StockMovement(
             owner_id=self.owner_id,
             product_id=reservation.product_id,
@@ -458,3 +476,35 @@ class StockService:
             })
         
         return reconciliation_results
+
+    def cleanup_expired_reservations(self) -> int:
+        """Find and release all active expired reservations."""
+        now = datetime.now(timezone.utc)
+        query = self.db.query(InventoryReservationModel).filter(
+            InventoryReservationModel.status == "active",
+            InventoryReservationModel.expires_at < now
+        )
+        if self.owner_id:
+            query = query.filter(InventoryReservationModel.owner_id == self.owner_id)
+            
+        expired_reservations = query.all()
+        count = 0
+        for res in expired_reservations:
+            stock = self.db.query(StockLevel).filter(
+                StockLevel.product_id == res.product_id,
+                StockLevel.store_id == res.store_id
+            ).first()
+            if stock:
+                remaining = res.quantity_reserved - res.quantity_committed - res.quantity_released
+                if remaining > 0:
+                    stock.quantity_reserved -= remaining
+                    stock.updated_at = now
+            
+            res.status = "expired"
+            res.updated_at = now
+            self.db.add(res)
+            count += 1
+            
+        if count > 0:
+            self.db.commit()
+        return count

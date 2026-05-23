@@ -134,6 +134,14 @@ class SalesService:
             self.db.commit()
             self.db.refresh(transaction)
             
+            # Update Real-Time Sales Metrics for today's dashboard immediately
+            try:
+                from datetime import date
+                from app.tasks.daily_sales_rollup import calculate_daily_sales_rollup
+                calculate_daily_sales_rollup(date.today())
+            except Exception as e:
+                logger.error(f"Failed to update daily sales metrics in real-time: {e}")
+            
             # 5. Fetch Smart Savings Suggestion
             savings_service = SavingsService(self.db, self.owner_id)
             suggestion = savings_service.suggest_savings(transaction.total_amount_kobo)
@@ -277,8 +285,22 @@ def record_sale(
         line_total_kobo=quantity * unit_price_kobo
     )
     db.add(item)
+    
+    # Process sale proceeds to wallet
+    from app.services.wallet_service import process_sale_proceeds
+    process_sale_proceeds(db, user_id=user_id, amount_kobo=quantity * unit_price_kobo, sale_id=transaction.id)
+    
     db.commit()
+
     db.refresh(transaction)
+    
+    # Update Real-Time Sales Metrics for today's dashboard immediately
+    try:
+        from datetime import date
+        from app.tasks.daily_sales_rollup import calculate_daily_sales_rollup
+        calculate_daily_sales_rollup(date.today())
+    except Exception as e:
+        logger.error(f"Failed to update daily sales metrics in real-time: {e}")
     
     # Return in legacy format
     return {

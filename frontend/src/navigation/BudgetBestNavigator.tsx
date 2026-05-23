@@ -31,28 +31,14 @@ export function BudgetBestNavigator() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        animationEnabled: true,
-        cardStyle: { backgroundColor: '#0F172A' },
-        cardOverlayEnabled: true,
-        transitionSpec: {
-          open: {
-            animation: 'timing',
-            config: { duration: 300 },
-          },
-          close: {
-            animation: 'timing',
-            config: { duration: 300 },
-          },
-        },
+        animation: 'slide_from_right',
+        contentStyle: { backgroundColor: '#0F172A' },
       }}
     >
       {/* Main Dashboard */}
       <Stack.Screen
         name="BudgetBestDashboard"
         component={BudgetBestDashboard}
-        options={{
-          animationTypeForReplace: 'pop',
-        }}
       />
 
       {/* Deposit Flow */}
@@ -60,7 +46,6 @@ export function BudgetBestNavigator() {
         name="BudgetBestDeposit"
         component={BudgetBestDeposit}
         options={{
-          animationEnabled: true,
           gestureEnabled: true,
         }}
       />
@@ -69,9 +54,6 @@ export function BudgetBestNavigator() {
       <Stack.Screen
         name="BudgetBestGoals"
         component={BudgetBestGoals}
-        options={{
-          animationEnabled: true,
-        }}
       />
 
       {/* Goal Detail */}
@@ -79,7 +61,6 @@ export function BudgetBestNavigator() {
         name="BudgetBestGoalDetail"
         component={BudgetBestGoalDetail}
         options={{
-          animationEnabled: true,
           gestureEnabled: true,
         }}
       />
@@ -88,9 +69,6 @@ export function BudgetBestNavigator() {
       <Stack.Screen
         name="BudgetBestSettings"
         component={BudgetBestSettings}
-        options={{
-          animationEnabled: true,
-        }}
       />
 
       {/* Policy & Consent */}
@@ -98,7 +76,6 @@ export function BudgetBestNavigator() {
         name="BudgetBestPolicy"
         component={BudgetBestPolicy}
         options={{
-          animationEnabled: true,
           gestureEnabled: false,
         }}
       />

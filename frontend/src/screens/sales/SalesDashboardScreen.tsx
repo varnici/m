@@ -15,6 +15,7 @@ import {
   ShoppingBasket
 } from 'lucide-react-native';
 import { FlashList } from '@shopify/flash-list';
+const TypedFlashList = FlashList as any;
 
 import type { RootStackScreenProps } from '@/navigation/types';
 import { colors } from '@/theme/colors';
@@ -29,7 +30,7 @@ const SalesDashboardScreen = ({
 
   const metrics = {
     todaySales: dashboardData?.total_revenue_kobo || 0,
-    unitsSold: dashboardData?.recent_transactions?.reduce((acc, tx) => acc + tx.quantity, 0) || 0,
+    unitsSold: dashboardData?.recent_transactions?.reduce((acc: number, tx: any) => acc + tx.quantity, 0) || 0,
     netProfit: dashboardData?.total_profit_kobo || 0,
   };
 
@@ -90,7 +91,7 @@ const SalesDashboardScreen = ({
                 <Text className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">AI Strategic Insights</Text>
                 <Sparkles size={14} color="#4F46E5" />
              </View>
-             <FlashList
+             <TypedFlashList
                 data={recommendations}
                 renderItem={renderRecommendation}
                 horizontal
@@ -171,7 +172,7 @@ const SalesDashboardScreen = ({
           </View>
 
           <View className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
-             {dashboardData?.best_sellers?.slice(0, 3).map((item, idx) => (
+             {dashboardData?.best_sellers?.slice(0, 3).map((item: any, idx: number) => (
                 <View key={item.product_id} className={`flex-row items-center py-4 ${idx < 2 ? 'border-b border-gray-50' : ''}`}>
                    <View className="w-10 h-10 rounded-xl bg-gray-50 items-center justify-center mr-4">
                       <ShoppingBasket size={20} color="#10B981" />
@@ -219,7 +220,7 @@ const SalesDashboardScreen = ({
 
       <TouchableOpacity 
         className="absolute bottom-28 right-6 w-16 h-16 bg-ventureroot-green rounded-full items-center justify-center shadow-xl"
-        onPress={() => navigation.navigate('RecordSale')}
+        onPress={() => navigation.navigate('RecordSale' as any)}
       >
          <ShoppingBag color="white" size={28} />
       </TouchableOpacity>

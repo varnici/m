@@ -32,8 +32,8 @@ class ClusterService:
     - Implements Medallion Architecture (Bronze→Silver→Gold)
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, db: AsyncSession):
+        self.db = db
 
     # ========================================================================
     # CORE CLUSTERING

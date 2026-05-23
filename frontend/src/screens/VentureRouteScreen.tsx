@@ -1,10 +1,6 @@
 /**
  * VentureRouteScreen.tsx
  * Pixel-faithful React Native conversion of venture_route_design_v2.html
- *
- * Dependencies (add to package.json if not present):
- *   expo install react-native-svg
- *   expo install @expo/vector-icons          ← usually pre-installed with Expo
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -29,13 +25,16 @@ import Svg, {
   G,
 } from 'react-native-svg';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAuth } from '@/context/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { logisticsService } from '@/services/logisticsService';
 
 const { width: SW } = Dimensions.get('window');
 const MAP_H = 200;
 const MAP_W = SW; // map spans full width
 
 // ─────────────────────────────────────────────────────────────────────────────
-// COLOUR TOKENS  (taken directly from the HTML file)
+// COLOUR TOKENS
 // ─────────────────────────────────────────────────────────────────────────────
 const C = {
   // Backgrounds
@@ -60,12 +59,12 @@ const C = {
   // Blues
   blue50:     '#EFF6FF',
   blue200:    '#BFDBFE',
-  blue600:    '#3B82F6',   // route path / You pin / category selected
+  blue600:    '#3B82F6',   // route path / You pin
   blue800:    '#1D4ED8',   // ETA badge / Escrow badge
   // Amber
   amber100:   '#FEF3C7',
   amber200:   '#FDE68A',
-  amber600:   '#F59E0B',   // stop pins / stars
+  amber600:   '#F59E0B',   // stop pins
   amber800:   '#B45309',
   // Purple
   purple50:   '#F5F3FF',
@@ -96,13 +95,6 @@ const CATEGORIES = [
 
 type Category = typeof CATEGORIES[number];
 
-const MEMBERS = [
-  { id: 'm1', stop: 1, area: 'Lekki Phase 1',  vu: 12, share: 35000, status: 'confirmed' as const },
-  { id: 'm2', stop: 2, area: 'Victoria Island', vu: 8,  share: 25000, status: 'pending'   as const },
-  { id: 'm3', stop: 3, area: 'Ikoyi',           vu: 10, share: 30000, status: 'pending'   as const },
-  { id: 'm4', stop: 4, area: 'Ajah',            vu: 10, share: 30000, status: 'pending'   as const },
-];
-
 // Truck waypoints — same as the HTML pts[] array, normalised to [0-1]
 const WAYPOINTS = [
   { x: 55/365,  y: 100/200 },
@@ -127,17 +119,14 @@ const fmtKobo = (k: number) =>
 // SUBCOMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Uppercase grey section label */
 const SLabel: React.FC<{ t: string }> = ({ t }) => (
   <Text style={s.sLabel}>{t}</Text>
 );
 
-/** White rounded card */
 const Card: React.FC<{ children: React.ReactNode; style?: object }> = ({ children, style }) => (
   <View style={[s.card, style]}>{children}</View>
 );
 
-/** Row with icon + title inside a card */
 const CardTitle: React.FC<{ icon: string; label: string }> = ({ icon, label }) => (
   <View style={s.cardTitleRow}>
     <MaterialCommunityIcons name={icon as any} size={15} color={C.green800} />
@@ -145,7 +134,6 @@ const CardTitle: React.FC<{ icon: string; label: string }> = ({ icon, label }) =
   </View>
 );
 
-/** One of the 4 trust badges */
 const TrustBadge: React.FC<{
   icon: string; label: string; sub: string;
   bg: string; fg: string; border: string;
@@ -162,7 +150,7 @@ const TrustBadge: React.FC<{
 // ─────────────────────────────────────────────────────────────────────────────
 // LIVE MAP
 // ─────────────────────────────────────────────────────────────────────────────
-const LiveMap: React.FC<{ eta: number }> = ({ eta }) => {
+const LiveMap: React.FC<{ eta: number; status: string }> = ({ eta, status }) => {
   const truckX = useRef(new Animated.Value(WAYPOINTS[0].x * MAP_W)).current;
   const truckY = useRef(new Animated.Value(WAYPOINTS[0].y * MAP_H)).current;
   const wpIdx  = useRef(0);
@@ -178,7 +166,9 @@ const LiveMap: React.FC<{ eta: number }> = ({ eta }) => {
       ])
     ).start();
 
-    // Truck movement
+    if (status !== 'in_transit') return;
+
+    // Truck movement only when in transit
     const move = () => {
       wpIdx.current = (wpIdx.current + 1) % WAYPOINTS.length;
       const wp = WAYPOINTS[wpIdx.current];
@@ -187,13 +177,12 @@ const LiveMap: React.FC<{ eta: number }> = ({ eta }) => {
         Animated.timing(truckY, { toValue: wp.y * MAP_H, duration: 900, useNativeDriver: true }),
       ]).start();
     };
-    const id = setInterval(move, 1000);
+    const id = setInterval(move, 1200);
     return () => clearInterval(id);
-  }, []);
+  }, [status]);
 
   return (
     <View style={s.mapWrap}>
-      {/* SVG map background — roads + blocks identical to HTML */}
       <Svg width={MAP_W} height={MAP_H} style={StyleSheet.absoluteFill}>
         {/* Background */}
         <Rect width={MAP_W} height={MAP_H} fill={C.mapBg} />
@@ -207,7 +196,7 @@ const LiveMap: React.FC<{ eta: number }> = ({ eta }) => {
         <Rect x={198} y={0} width={6} height={MAP_H} fill={C.mapRoad} />
         <Rect x={308} y={0} width={6} height={MAP_H} fill={C.mapRoad} />
 
-        {/* City blocks — same coordinates as HTML SVG */}
+        {/* City blocks */}
         <Rect x={40}  y={20}  width={60} height={40} rx={4} fill={C.mapBlock} />
         <Rect x={120} y={15}  width={50} height={35} rx={4} fill={C.mapBlock} />
         <Rect x={200} y={25}  width={70} height={30} rx={4} fill={C.mapBlock} />
@@ -220,7 +209,7 @@ const LiveMap: React.FC<{ eta: number }> = ({ eta }) => {
         <Rect x={210} y={148} width={80} height={38} rx={4} fill={C.mapBlock} />
         <Rect x={310} y={152} width={45} height={32} rx={4} fill={C.mapBlock} />
 
-        {/* Dashed route path — blue, same curve as HTML */}
+        {/* Dashed route path */}
         <Path
           d="M 55 100 Q 100 75 150 75 Q 200 75 250 100 Q 300 120 340 100"
           stroke={C.blue600}
@@ -248,27 +237,27 @@ const LiveMap: React.FC<{ eta: number }> = ({ eta }) => {
         <SvgText x={340} y={120} textAnchor="middle" fontSize={9}  fill="#444">Ajah</SvgText>
       </Svg>
 
-      {/* Animated truck — rendered as RN Animated.View over the SVG */}
-      <Animated.View
-        style={[
-          s.truckPin,
-          { transform: [{ translateX: truckX }, { translateY: truckY }] },
-        ]}
-      >
-        <MaterialCommunityIcons name="truck-fast" size={13} color="#fff" />
-      </Animated.View>
+      {/* Animated truck */}
+      {status === 'in_transit' && (
+        <Animated.View
+          style={[
+            s.truckPin,
+            { transform: [{ translateX: truckX }, { translateY: truckY }] },
+          ]}
+        >
+          <MaterialCommunityIcons name="truck-fast" size={13} color="#fff" />
+        </Animated.View>
+      )}
 
       {/* ── TOP overlays ── */}
       <View style={s.mapTopRow}>
-        {/* Live badge */}
         <View style={s.liveBadge}>
           <Animated.View style={[s.liveDot, { opacity: pulse }]} />
-          <Text style={s.liveBadgeText}>Live tracking</Text>
+          <Text style={s.liveBadgeText}>{status === 'in_transit' ? 'Live routing active' : 'Waiting for dispatch'}</Text>
         </View>
-        {/* ETA badge */}
         <View style={s.etaBadge}>
           <Ionicons name="time-outline" size={12} color="#fff" />
-          <Text style={s.etaText}>ETA {eta} min</Text>
+          <Text style={s.etaText}>{status === 'in_transit' ? `ETA ${eta} min` : 'Not dispatched'}</Text>
         </View>
       </View>
 
@@ -284,7 +273,6 @@ const LiveMap: React.FC<{ eta: number }> = ({ eta }) => {
             <Text style={s.legendText}>{l.label}</Text>
           </View>
         ))}
-        {/* Insured chip */}
         <View style={[s.legendChip, { backgroundColor: C.green50, borderColor: C.green200, marginLeft: 'auto' }]}>
           <MaterialCommunityIcons name="shield-check" size={11} color={C.green800} />
           <Text style={[s.legendText, { color: C.green800 }]}>Insured</Text>
@@ -297,78 +285,128 @@ const LiveMap: React.FC<{ eta: number }> = ({ eta }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
-const VentureRouteScreen: React.FC = () => {
-  const [loading,          setLoading]          = useState(true);
-  const [refreshing,       setRefreshing]        = useState(false);
+const VentureRouteScreen = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
   const [providerOpen,     setProviderOpen]      = useState(false);
   const [selectedProvider, setSelectedProvider]  = useState<Provider>(PROVIDERS[0]);
   const [selectedCat,      setSelectedCat]       = useState<Category>(CATEGORIES[0]);
-  const [paymentLocked,    setPaymentLocked]      = useState(false);
   const [eta,              setEta]               = useState(14);
+  const [actionLoading,    setActionLoading]     = useState(false);
 
-  // Route data (mock)
-  const ROUTE = {
-    number:      'RT-20240507-ABC12345',
-    status:      'Route Grouped',
-    retailers:   4,
-    fillPct:     65,
-    totalKobo:   120000,
-  };
-  const confirmedCount = MEMBERS.filter((m) => m.status === 'confirmed').length;
-  const totalVU        = MEMBERS.reduce((a, m) => a + m.vu, 0);
-  const allLocked      = confirmedCount === MEMBERS.length;
-  const shareKobo      = ROUTE.totalKobo / ROUTE.retailers;
+  // TanStack query to fetch dynamic backend cluster state
+  const {
+    data: activeCluster,
+    isLoading,
+    isError,
+    refetch
+  } = useQuery({
+    queryKey: ['activeCluster', user?.id],
+    queryFn: () => logisticsService.getActiveCluster(),
+    enabled: !!user?.id,
+    staleTime: 1000 * 5, // 5 seconds
+  });
 
   useEffect(() => {
-    setTimeout(() => setLoading(false), 800); // simulate network
-    const t = setInterval(() => setEta((e) => (e > 1 ? e - 1 : 14)), 4000);
-    return () => clearInterval(t);
-  }, []);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setRefreshing(false);
-  };
-
-  const handleLockPayment = () =>
-    Alert.alert(
-      'Lock payment',
-      `Confirm escrow lock of ${fmtKobo(shareKobo)}?\n\nFunds are held until you scan the delivery QR code. The driver is never paid without your confirmation.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Confirm & Lock', onPress: () => {
-          setPaymentLocked(true);
-          Alert.alert('Payment locked ✅', 'Funds held in VentureRoot escrow until delivery QR scan.');
-        }},
-      ]
-    );
-
-  const handleDispatch = () => {
-    const pending = MEMBERS.filter((m) => m.status === 'pending').length;
-    if (pending > 0) {
-      Alert.alert('Payments pending', `${pending} member(s) haven't locked payment. All must confirm before dispatch.`);
-      return;
+    if (activeCluster?.status === 'in_transit') {
+      const t = setInterval(() => setEta((e) => (e > 1 ? e - 1 : 14)), 4000);
+      return () => clearInterval(t);
     }
-    Alert.alert('Dispatch route', 'All payments confirmed. Send route to driver?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Dispatch', onPress: () => Alert.alert('Dispatched 🚚', 'Driver has been notified. Track live on the map.') },
-    ]);
-  };
+  }, [activeCluster?.status]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={s.center}>
         <ActivityIndicator size="large" color={C.emerald} />
-        <Text style={[s.gray6, { marginTop: 10 }]}>Loading your route…</Text>
+        <Text style={[s.gray6, { marginTop: 10 }]}>Syncing route logs…</Text>
       </View>
     );
   }
 
+  // Derive dynamic stats from cluster details
+  const routeNumber = activeCluster ? `RT-${activeCluster.id.substring(0, 8).toUpperCase()}` : 'RT-PENDING';
+  
+  const ROUTE = {
+    number:      routeNumber,
+    status:      activeCluster?.status === 'forming' ? 'Route Grouped' : activeCluster?.status === 'in_transit' ? 'In Transit' : 'Route Completed',
+    retailers:   activeCluster?.participants_count ?? 4,
+    fillPct:     activeCluster ? Math.round((activeCluster.participants_count / activeCluster.target_participants) * 100) : 65,
+    totalKobo:   activeCluster ? activeCluster.participants.reduce((sum, p) => sum + p.share_kobo, 0) : 12000000,
+  };
+
+  const members = activeCluster?.participants ? activeCluster.participants.map((p, idx) => ({
+    id: p.id,
+    stop: idx + 1,
+    area: p.user_label,
+    vu: p.volume_units,
+    share: p.share_kobo,
+    status: p.status,
+    ref: p.order_reference,
+  })) : [];
+
+  const confirmedCount = members.filter((m) => m.status === 'confirmed').length;
+  const totalVU        = members.reduce((a, m) => a + m.vu, 0);
+  const allLocked      = members.every((m) => m.status === 'confirmed');
+
+  // Dynamically find active user status
+  const userParticipant = activeCluster?.participants.find((p) => p.user_label.includes('(You)'));
+  const paymentLocked   = userParticipant?.status === 'confirmed';
+  const shareKobo       = userParticipant?.share_kobo ?? 3500000;
+
+  const handleLockPayment = () => {
+    if (!activeCluster) return;
+    Alert.alert(
+      'Lock payment',
+      `Confirm escrow lock of ${fmtKobo(shareKobo)}?\n\nFunds are debited from your wallet and held in escrow until you scan the delivery QR code.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm & Lock',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              await logisticsService.lockPayment(activeCluster.id);
+              await queryClient.invalidateQueries({ queryKey: ['activeCluster', user?.id] });
+              await queryClient.invalidateQueries({ queryKey: ['dashboard', user?.id] });
+              Alert.alert('Payment locked ✅', 'Escrow funds successfully locked. Waiting for other cluster participants.');
+            } catch (err: any) {
+              Alert.alert('Transaction Failed', err?.message || 'Failed to lock payment escrow.');
+            } finally {
+              setActionLoading(false);
+            }
+          }
+        },
+      ]
+    );
+  };
+
+  const handleDispatch = () => {
+    if (!activeCluster) return;
+    Alert.alert('Dispatch route', 'All payments confirmed. Ready to notify driver and initiate transit?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Dispatch',
+        onPress: async () => {
+          setActionLoading(true);
+          try {
+            await logisticsService.dispatchCluster(activeCluster.id);
+            await queryClient.invalidateQueries({ queryKey: ['activeCluster', user?.id] });
+            Alert.alert('Dispatched 🚚', 'Driver has been locked and notified. Live GPS tracking has begun!');
+          } catch (err: any) {
+            Alert.alert('Dispatch failed', err?.message || 'Failed to dispatch route.');
+          } finally {
+            setActionLoading(false);
+          }
+        }
+      },
+    ]);
+  };
+
   return (
     <ScrollView
       style={s.root}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.emerald} />}
+      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={() => queryClient.invalidateQueries({ queryKey: ['activeCluster', user?.id] })} tintColor={C.emerald} />}
       showsVerticalScrollIndicator={false}
     >
       {/* ── HEADER ─────────────────────────────────────────────────────── */}
@@ -383,14 +421,13 @@ const VentureRouteScreen: React.FC = () => {
       </View>
 
       {/* ── LIVE MAP ────────────────────────────────────────────────────── */}
-      <LiveMap eta={eta} />
+      <LiveMap eta={eta} status={activeCluster?.status ?? 'forming'} />
 
       {/* ── LOGISTICS PARTNER ───────────────────────────────────────────── */}
       <SLabel t="LOGISTICS PARTNER" />
       <Card>
         <CardTitle icon="warehouse" label="Select delivery partner" />
 
-        {/* Selector row */}
         <TouchableOpacity
           style={s.providerSelector}
           onPress={() => setProviderOpen((o) => !o)}
@@ -409,7 +446,6 @@ const VentureRouteScreen: React.FC = () => {
           <Ionicons name={providerOpen ? 'chevron-up' : 'chevron-down'} size={17} color={C.gray600} />
         </TouchableOpacity>
 
-        {/* Dropdown */}
         {providerOpen && (
           <View style={s.dropdown}>
             {PROVIDERS.map((p, i) => (
@@ -439,7 +475,6 @@ const VentureRouteScreen: React.FC = () => {
           </View>
         )}
 
-        {/* Private list note */}
         <View style={s.lockNote}>
           <Ionicons name="lock-closed" size={11} color={C.gray400} />
           <Text style={s.lockNoteText}>Private partner list — vetted &amp; bonded by VentureRoot</Text>
@@ -475,7 +510,6 @@ const VentureRouteScreen: React.FC = () => {
           })}
         </View>
 
-        {/* Compatibility note */}
         <View style={[s.compatNote, { backgroundColor: selectedCat.bg }]}>
           <MaterialCommunityIcons name="information" size={14} color={selectedCat.fg} />
           <Text style={[s.compatNoteText, { color: selectedCat.fg }]}>
@@ -495,16 +529,24 @@ const VentureRouteScreen: React.FC = () => {
           <View style={[s.progressFill, { width: `${ROUTE.fillPct}%` as any, backgroundColor: C.blue600 }]} />
         </View>
         <Text style={s.progressCaption}>
-          {100 - ROUTE.fillPct}% space still available —{' '}
-          <Text style={{ color: C.emerald, fontWeight: '500' }}>
-            add 2 more members to drop cost by ₦150 each
-          </Text>
+          {ROUTE.fillPct >= 100 ? (
+             <Text style={{ color: C.emerald, fontWeight: '500' }}>
+               Cluster is completely full! Maximum freight discount of 40% active.
+             </Text>
+          ) : (
+             <Text>
+               {100 - ROUTE.fillPct}% space still available —{' '}
+               <Text style={{ color: C.emerald, fontWeight: '500' }}>
+                 add 1 more member to drop cost by ₦150 each
+               </Text>
+             </Text>
+          )}
         </Text>
         <View style={s.hintBox}>
           <Ionicons name="people-outline" size={15} color={C.blue800} style={{ marginTop: 1 }} />
           <Text style={s.hintText}>
             Share route code{' '}
-            <Text style={{ fontWeight: '700' }}>RT-ABC12345</Text>
+            <Text style={{ fontWeight: '700' }}>{routeNumber}</Text>
             {' '}— each new retailer that joins saves everyone money.
           </Text>
         </View>
@@ -513,18 +555,15 @@ const VentureRouteScreen: React.FC = () => {
       {/* ── TRUST & SECURITY ────────────────────────────────────────────── */}
       <SLabel t="TRUST & SECURITY" />
       <Card>
-        {/* Row 1 */}
         <View style={s.trustRow}>
           <TrustBadge icon="shield-check"      label="VR Insured" sub="₦500k cover"    bg={C.green50}  fg={C.green800}  border={C.green200}  />
           <TrustBadge icon="lock"              label="Escrow"     sub="QR-release only" bg={C.blue50}   fg={C.blue800}   border={C.blue200}   />
         </View>
-        {/* Row 2 */}
         <View style={[s.trustRow, { marginTop: 8 }]}>
           <TrustBadge icon="map-marker-radius" label="GPS Live"   sub="HyperTrack"     bg={C.purple50} fg={C.purple700} border={C.purple200} />
           <TrustBadge icon="bell-alert"        label="Area alerts" sub="10-min rule"   bg={C.amber100} fg={C.amber800}  border={C.amber200}  />
         </View>
 
-        {/* Driver card */}
         <View style={s.divider} />
         <View style={s.driverCard}>
           <View style={s.driverAvatar}>
@@ -549,7 +588,6 @@ const VentureRouteScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Security events */}
         <View style={s.divider} />
         <Text style={s.eventsTitle}>Security events</Text>
         {[
@@ -576,11 +614,11 @@ const VentureRouteScreen: React.FC = () => {
           <Text style={s.cardTitleText}>
             {ROUTE.retailers} members · {totalVU} VU total
           </Text>
-          <Text style={s.gray6}>{confirmedCount}/{MEMBERS.length} confirmed</Text>
+          <Text style={s.gray6}>{confirmedCount}/{members.length} confirmed</Text>
         </View>
 
-        {MEMBERS.map((m, i) => (
-          <View key={m.id} style={[s.memberRow, i === MEMBERS.length - 1 && { borderBottomWidth: 0 }]}>
+        {members.map((m, i) => (
+          <View key={m.id} style={[s.memberRow, i === members.length - 1 && { borderBottomWidth: 0 }]}>
             <View style={s.stopNum}>
               <Text style={s.stopNumText}>{m.stop}</Text>
             </View>
@@ -617,28 +655,47 @@ const VentureRouteScreen: React.FC = () => {
           </Text>
         </View>
 
-        {!paymentLocked && (
-          <TouchableOpacity style={s.btnLock} onPress={handleLockPayment} activeOpacity={0.85}>
-            <Ionicons name="lock-closed" size={16} color="#fff" />
-            <Text style={s.btnLockText}>Lock payment — {fmtKobo(shareKobo)}</Text>
-          </TouchableOpacity>
-        )}
-
-        {paymentLocked && !allLocked && (
-          <View style={[s.btnLock, { backgroundColor: C.emerald }]}>
-            <Ionicons name="checkmark-circle" size={16} color="#fff" />
-            <Text style={s.btnLockText}>Your payment locked</Text>
+        {actionLoading ? (
+          <View style={s.btnLock}>
+            <ActivityIndicator size="small" color="#fff" />
           </View>
+        ) : (
+          <>
+            {activeCluster?.status === 'forming' && !paymentLocked && (
+              <TouchableOpacity style={s.btnLock} onPress={handleLockPayment} activeOpacity={0.85}>
+                <Ionicons name="lock-closed" size={16} color="#fff" />
+                <Text style={s.btnLockText}>Lock payment — {fmtKobo(shareKobo)}</Text>
+              </TouchableOpacity>
+            )}
+
+            {activeCluster?.status === 'forming' && paymentLocked && !allLocked && (
+              <View style={[s.btnLock, { backgroundColor: C.emerald }]}>
+                <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                <Text style={s.btnLockText}>Your payment locked</Text>
+              </View>
+            )}
+
+            {activeCluster?.status === 'forming' && allLocked && (
+              <TouchableOpacity style={[s.btnLock, { backgroundColor: C.purple700 }]} onPress={handleDispatch} activeOpacity={0.85}>
+                <MaterialCommunityIcons name="truck-fast" size={16} color="#fff" />
+                <Text style={s.btnLockText}>Dispatch route to driver</Text>
+              </TouchableOpacity>
+            )}
+
+            {activeCluster?.status === 'in_transit' && (
+              <View style={[s.btnLock, { backgroundColor: C.emerald }]}>
+                <MaterialCommunityIcons name="truck-delivery" size={16} color="#fff" />
+                <Text style={s.btnLockText}>Route Dispatched &amp; In Transit</Text>
+              </View>
+            )}
+          </>
         )}
 
-        {paymentLocked && allLocked && (
-          <TouchableOpacity style={[s.btnLock, { backgroundColor: C.purple700 }]} onPress={handleDispatch} activeOpacity={0.85}>
-            <MaterialCommunityIcons name="truck-fast" size={16} color="#fff" />
-            <Text style={s.btnLockText}>Dispatch route to driver</Text>
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity style={s.btnRefresh} onPress={onRefresh} activeOpacity={0.8}>
+        <TouchableOpacity 
+          style={s.btnRefresh} 
+          onPress={() => queryClient.invalidateQueries({ queryKey: ['activeCluster', user?.id] })} 
+          activeOpacity={0.8}
+        >
           <Ionicons name="refresh" size={14} color={C.green800} />
           <Text style={s.btnRefreshText}>Refresh route</Text>
         </TouchableOpacity>

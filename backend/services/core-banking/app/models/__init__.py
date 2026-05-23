@@ -28,6 +28,7 @@ from app.models.notification import Notification
 from app.models.message import Message
 from app.models.support_ticket import SupportTicket
 from app.models.cluster import ClusterDelivery, ClusterParticipant
+from app.models.transaction import Transaction
 
 __all__ = [
     "User", "Wallet", "Loan", "Repayment", "Product", "Listing",
@@ -39,5 +40,6 @@ __all__ = [
     "TransportBooking", "BookingTrackingPoint", "CreditScore", "SalesMetrics",
     "InventoryMetrics", "LoanMetrics", "LoanApplication", "LoanRepaymentSchedule",
     "LoanTransaction", "Notification", "Message", "SupportTicket",
-    "ClusterDelivery", "ClusterParticipant"
+    "ClusterDelivery", "ClusterParticipant", "Transaction"
 ]
+

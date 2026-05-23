@@ -119,14 +119,14 @@ const SettingsScreen = ({ navigation }: RootStackScreenProps<'Settings'>) => {
             label="Business Profile" 
             subtitle="Store details, trading name"
             color="#10B981"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('AccountDetails')}
           />
           <SettingItem 
             icon={CreditCard} 
             label="Payment Methods" 
             subtitle="Connected banks, cards"
             color="#F59E0B"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('AccountDetails')}
           />
         </Section>
 
@@ -179,7 +179,7 @@ const SettingsScreen = ({ navigation }: RootStackScreenProps<'Settings'>) => {
             icon={HelpCircle} 
             label="Help Center" 
             color="#4B5563"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('Support')}
           />
         </Section>
 

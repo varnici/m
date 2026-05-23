@@ -41,6 +41,9 @@ class ClusterParticipant(Base):
     order_reference: Mapped[str] = mapped_column(String, nullable=False)
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    share_kobo: Mapped[int] = mapped_column(Integer, nullable=False, default=3000000)
+    volume_units: Mapped[float] = mapped_column(Float, nullable=False, default=10.0)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
     cluster = relationship("ClusterDelivery", back_populates="participants")

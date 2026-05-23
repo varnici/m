@@ -6,7 +6,7 @@ import {
   deleteInventory,
   uploadVoice,
 } from '../src/services/inventoryApi';
-import { InventoryCreate } from '../src/types/inventory';
+import { InventoryCreate } from '../src/types/voice-inventory';
 
 // Mock fetch
 global.fetch = jest.fn();

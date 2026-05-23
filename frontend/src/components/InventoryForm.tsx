@@ -125,7 +125,7 @@ export default function InventoryForm() {
               control={control}
               name={field.name}
               rules={field.required ? { required: true } : {}}
-              render={({ field: formField }: { field: { onChange: (next: string | number) => void; value: string | number } }) => (
+              render={({ field: formField }) => (
                 <TextInput
                   style={[styles.input, errors[field.name] && styles.inputError]}
                   value={String(formField.value)}

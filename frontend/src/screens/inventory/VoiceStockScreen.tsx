@@ -125,7 +125,7 @@ const VoiceStockScreen = ({ navigation }: any) => {
         text: `${inventory.product_name} — qty ${inventory.quantity}`,
         time: timeStr,
         status: 'success',
-        source: _source,
+        source: _source as 'claude' | 'offline',
       }, ...prev]);
 
       setError(null);

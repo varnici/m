@@ -6,6 +6,7 @@ from sqlalchemy import select
 
 from app.infrastructure.database import db_session
 from app.models.wallet import Wallet
+from app.services.wallet_service import process_transaction
 
 router = APIRouter()
 
@@ -14,8 +15,9 @@ class WalletOut(BaseModel):
     user_id: str
     balance_kobo: int
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class WalletTopUp(BaseModel):
@@ -34,10 +36,21 @@ def get_wallet(user_id: str):
 @router.post("/{user_id}/topup", response_model=WalletOut)
 def topup_wallet(user_id: str, payload: WalletTopUp):
     with db_session() as db:
-        wallet = db.execute(select(Wallet).where(Wallet.user_id == user_id)).scalar_one_or_none()
-        if not wallet:
-            raise HTTPException(status_code=404, detail="Wallet not found")
-        wallet.balance_kobo += payload.amount_kobo
-        db.flush()
-        return wallet
+        try:
+            process_transaction(
+                db,
+                user_id=user_id,
+                type="topup",
+                amount_kobo=payload.amount_kobo,
+                description="Wallet top-up",
+            )
+            db.commit()
+            
+            # Fetch and return the updated wallet
+            wallet = db.execute(select(Wallet).where(Wallet.user_id == user_id)).scalar_one_or_none()
+            return wallet
+        except ValueError as exc:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 

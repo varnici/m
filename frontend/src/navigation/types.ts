@@ -97,8 +97,9 @@ export type RootStackParamList = {
   Receipt: { saleId: string };
   InsuranceSummary: undefined; // Backward-compatible route alias
   FileClaim: undefined; // Backward-compatible route alias
+  ClaimHistory: undefined; // Backward-compatible route alias
   BudgetBestDashboard: undefined;
-  BudgetBestDeposit: { goalId?: string };
+  BudgetBestDeposit: { goalId?: string; amount?: number };
   BudgetBestGoals: undefined;
   BudgetBestGoalDetail: { goalId: string };
   BudgetBestSettings: undefined;
@@ -109,7 +110,7 @@ export type RootStackParamList = {
   Wallet: undefined;
   LoanDashboard: undefined;
   ApplyLoan: undefined;
-  ContractViewer: undefined;
+  ContractViewer: { amount: number; purpose: string };
   SalesHistory: undefined;
   SalesVelocity: undefined;
   CreditDashboard: undefined;
@@ -126,6 +127,10 @@ export type RootStackParamList = {
   SecuritySettings: undefined;
   SecurityLock: undefined;
   VentureRoute: undefined;
+  Support: undefined;
+  Notifications: undefined;
+  AccountDetails: undefined;
+  TransactionHistory: undefined;
 };
 
 export type RootStackNavigation = NavigationProp<RootStackParamList>;

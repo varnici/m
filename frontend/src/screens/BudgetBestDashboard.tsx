@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import SavingsBucket from '../components/SavingsBucket';
 import { getDashboard } from '../services/budgetBestApi';
-import { SavingsDashboard } from '../types/budget-best';
+import { SavingsDashboard, SavingsProgress } from '../types/budget-best';
 import { colors } from '../theme/colors';
 
 type BucketView = {
@@ -38,7 +38,7 @@ export default function BudgetBestDashboardScreen() {
 
   const buckets = useMemo<BucketView[]>(() => {
     if (!dashboard) return [];
-    return dashboard.goals_progress.map((goal) => ({
+    return (dashboard.goals_progress || []).map((goal: SavingsProgress) => ({
       name: goal.goal_name,
       current: goal.current_savings,
       target: goal.target_amount,

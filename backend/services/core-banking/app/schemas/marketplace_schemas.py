@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class ProductCreate(BaseModel):
@@ -31,6 +31,31 @@ class ProductOut(BaseModel):
     longitude: float | None
     is_active: bool
     created_at: datetime
+
+    @model_validator(mode="before")
+    @classmethod
+    def map_db_fields(cls, data):
+        if not isinstance(data, dict):
+            category_name = None
+            if hasattr(data, "category") and data.category:
+                category_name = data.category.name
+            
+            return {
+                "id": getattr(data, "id", None),
+                "owner_id": getattr(data, "owner_id", None),
+                "name": getattr(data, "name", None),
+                "description": getattr(data, "description", None),
+                "sku": getattr(data, "sku", None),
+                "category": category_name,
+                "unit_price_kobo": getattr(data, "selling_price_kobo", 0),
+                "estate": getattr(data, "estate", None),
+                "city": getattr(data, "city", None),
+                "latitude": getattr(data, "latitude", None),
+                "longitude": getattr(data, "longitude", None),
+                "is_active": getattr(data, "is_active", True),
+                "created_at": getattr(data, "created_at", None),
+            }
+        return data
 
     class Config:
         from_attributes = True

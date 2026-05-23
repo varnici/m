@@ -95,7 +95,7 @@ const InventoryReconciliationScreen = ({
                   <Text className="text-orange-400 font-bold uppercase text-xs tracking-tighter">Detected Discrepancies</Text>
                 </View>
                 
-                {discrepancies.map((item, index) => (
+                {discrepancies.map((item: any, index: number) => (
                   <TouchableOpacity 
                     key={index}
                     onPress={() => navigation.navigate('ProductDetail', { productId: item.product_id })}
@@ -169,7 +169,7 @@ const InventoryReconciliationScreen = ({
                 </View>
                 
                 <View className="bg-white/5 rounded-3xl overflow-hidden border border-white/5">
-                  {matches.map((item, index) => (
+                  {matches.map((item: any, index: number) => (
                     <View 
                       key={index}
                       className={`flex-row items-center justify-between p-4 ${index !== matches.length - 1 ? 'border-b border-white/5' : ''}`}

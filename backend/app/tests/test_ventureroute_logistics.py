@@ -19,7 +19,7 @@ class TestVolumetricUnitEngine:
 
     # ========================================================================
     # VOLUMETRIC UNIT CALCULATION TESTS
-    -- ========================================================================
+    # ========================================================================
 
     def test_calculate_vu_weight_based(self):
         """Test VU calculation when actual weight > dimensional weight"""
@@ -96,7 +96,7 @@ class TestVolumetricUnitEngine:
 
     # ========================================================================
     # COST SHARING ALGORITHM TESTS
-    -- ========================================================================
+    # ========================================================================
 
     def test_individual_share_single_retailer(self):
         """Test cost calculation for single retailer"""
@@ -175,7 +175,7 @@ class TestVolumetricUnitEngine:
 
     # ========================================================================
     # COST VERIFICATION TESTS
-    -- ========================================================================
+    # ========================================================================
 
     def test_verify_cost_distribution_valid(self):
         """Test verification of valid cost distribution"""
@@ -227,7 +227,7 @@ class TestVolumetricUnitEngine:
 
     # ========================================================================
     # FILL PERCENTAGE & CAPACITY TESTS
-    -- ========================================================================
+    # ========================================================================
 
     def test_calculate_fill_percentage_empty(self):
         """Test fill percentage when truck is empty"""
@@ -298,7 +298,7 @@ class TestVolumetricUnitEngine:
 
     # ========================================================================
     # COST ESTIMATION TESTS
-    -- ========================================================================
+    # ========================================================================
 
     def test_estimate_cost(self):
         """Test cost estimation for a package"""
@@ -320,7 +320,7 @@ class TestVolumetricUnitEngine:
 
     # ========================================================================
     # EDGE CASE TESTS
-    -- ========================================================================
+    # ========================================================================
 
     def test_calculate_vu_zero_dimension(self):
         """Test that zero dimensions raise error"""
@@ -366,7 +366,7 @@ class TestVolumetricUnitEngine:
 
     # ========================================================================
     # DECIMAL PRECISION TESTS
-    -- ========================================================================
+    # ========================================================================
 
     def test_decimal_precision_vu(self):
         """Test that VU calculations maintain precision"""
@@ -397,7 +397,7 @@ class TestVolumetricUnitEngine:
 
     # ========================================================================
     # REAL-WORLD SCENARIO TESTS
-    -- ========================================================================
+    # ========================================================================
 
     def test_real_scenario_small_retailers(self):
         """
@@ -478,9 +478,9 @@ class TestVolumetricUnitEngine:
             assert float(fill) == expected_fill
 
 
-# ========================================================================
-# INTEGRATION TEST SUITE
--- ========================================================================
+    # ========================================================================
+    # INTEGRATION TEST SUITE
+    # ========================================================================
 
 class TestVentureRouteIntegration:
     """Integration tests for complete VentureRoute workflow"""

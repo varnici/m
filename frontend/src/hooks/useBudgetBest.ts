@@ -343,11 +343,19 @@ export function useAsync<T>(
   };
 }
 
+export interface GoalFormValues {
+  goalName: string;
+  goalType: string;
+  targetAmount: number;
+  monthlyGoal: number;
+  deadline: Date;
+}
+
 /**
  * Hook to handle form state for goal creation
  */
-export function useGoalForm(initialValues?: any) {
-  const [values, setValues] = useState({
+export function useGoalForm(initialValues?: Partial<GoalFormValues>) {
+  const [values, setValues] = useState<GoalFormValues>({
     goalName: '',
     goalType: 'custom',
     targetAmount: 0,

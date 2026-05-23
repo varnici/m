@@ -44,7 +44,7 @@ const SavingsBucket: React.FC<SavingsBucketProps> = ({
     return `${currency}${finalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const barColors = color ? [color, color] : ['#004D2C', '#009D5C'];
+  const barColors = (color ? [color, color] : ['#004D2C', '#009D5C']) as [string, string, ...string[]];
 
   return (
     <View style={styles.container}>

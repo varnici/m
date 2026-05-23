@@ -5,13 +5,14 @@ import type { RootStackScreenProps } from '@/navigation/types';
 import { TrendingUp, BarChart3, Target, Zap } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { colors, spacing } from '../../../theme/colors';
-import { IndustrialCard, IndustrialButton, IndustrialText } from '../../../components/ui/IndustrialComponents';
+import { IndustrialCard, IndustrialButton, IndustrialText, useIndustrialTheme } from '../../../components/ui/IndustrialComponents';
 
 const SalesEstimationScreen = ({
   navigation,
 }: RootStackScreenProps<'OnboardingSalesEstimation'>) => {
   const { data, updateData } = useOnboarding();
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
+  const theme = useIndustrialTheme();
 
   const tiers = [
     { id: 'TIER_1', title: 'Standard Growth', range: '₦50k - ₦250k', desc: 'Baseline commercial velocity' },
@@ -74,7 +75,7 @@ const SalesEstimationScreen = ({
 
           {/* AI Intelligence Alert */}
           <View style={{ 
-            backgroundColor: colors.ventureroot.industrial.surfaceLow, 
+            backgroundColor: theme.surfaceLow, 
             padding: 20, 
             flexDirection: 'row', 
             alignItems: 'center',

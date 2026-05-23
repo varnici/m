@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { getSummary } from '../services/inventoryApi';
-import { InventorySummary } from '../types/inventory';
+import { InventorySummary } from '../types/voice-inventory';
 
 export default function InventorySummaryComponent() {
   const [summary, setSummary] = useState<InventorySummary | null>(null);

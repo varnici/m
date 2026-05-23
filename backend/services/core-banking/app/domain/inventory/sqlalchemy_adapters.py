@@ -66,6 +66,19 @@ class SQLAlchemyInventoryLedgerRepository(InventoryLedgerRepository):
         )
         return int(quantity or 0)
 
+    def get_balance(self, owner_id: str, product_id: str, store_id: str) -> int:
+        balance = (
+            self.db.query(func.coalesce(func.sum(InventoryLedgerEntryModel.quantity_delta), 0))
+            .filter(
+                InventoryLedgerEntryModel.owner_id == owner_id,
+                InventoryLedgerEntryModel.product_id == product_id,
+                InventoryLedgerEntryModel.store_id == store_id
+            )
+            .scalar()
+        )
+        return int(balance or 0)
+
+
 
 class SQLAlchemyInventoryIdempotencyStore(InventoryIdempotencyStore):
     def __init__(self, db: Session):

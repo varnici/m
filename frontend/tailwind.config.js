@@ -12,7 +12,7 @@ module.exports = {
           white: '#FFFFFF',
           dark: '#1A1A1A',
           industrial: {
-            primary: '#88d982',
+            primary: '#059669',
             background: '#131313',
             surface: '#131313',
             surfaceLow: '#1C1B1B',

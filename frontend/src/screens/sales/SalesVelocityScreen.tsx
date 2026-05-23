@@ -80,7 +80,7 @@ const SalesVelocityScreen = ({
            </View>
            
            <View className="gap-8">
-              {healthScores?.map((item, i) => (
+               {healthScores?.map((item, i) => (
                 <View key={item.id}>
                   <View className="flex-row justify-between mb-3 items-center">
                      <View>
@@ -88,16 +88,16 @@ const SalesVelocityScreen = ({
                         <Text className="text-white/40 text-[8px] uppercase tracking-tighter">{item.sku}</Text>
                      </View>
                      <View className="items-end">
-                        <Text className={`${item.turnover_30d > 5 ? 'text-emerald-400' : 'text-blue-400'} text-[11px] font-black`}>
-                           {item.turnover_30d} days / restock
+                        <Text className={`${(item.turnover_30d ?? 0) > 5 ? 'text-emerald-400' : 'text-blue-400'} text-[11px] font-black`}>
+                           {item.turnover_30d ?? 0} days / restock
                         </Text>
                         <Text className="text-white/20 text-[8px] uppercase">30D Avg</Text>
                      </View>
                   </View>
                   <View className="h-2 bg-white/5 rounded-full overflow-hidden">
                      <View 
-                        className={`h-full ${item.turnover_30d < 7 ? 'bg-emerald-500 shadow-emerald-500' : 'bg-blue-500'} rounded-full`} 
-                        style={{ width: `${Math.min(100, (14 / item.turnover_30d) * 100)}%` }} 
+                        className={`h-full ${(item.turnover_30d ?? 0) < 7 ? 'bg-emerald-500 shadow-emerald-500' : 'bg-blue-500'} rounded-full`} 
+                        style={{ width: `${Math.min(100, (14 / (item.turnover_30d ?? 1)) * 100)}%` }} 
                      />
                   </View>
                 </View>
@@ -110,7 +110,7 @@ const SalesVelocityScreen = ({
         </View>
 
         {/* AI Strategic Insight */}
-        {dashboardData?.global_recommendations?.find(r => r.type === 'restock') && (
+        {dashboardData?.global_recommendations?.find((r: any) => r.type === 'restock') && (
           <BlurView intensity={30} tint="light" className="mx-4 p-5 rounded-3xl border border-gray-200 flex-row items-start mb-10 overflow-hidden">
              <View className="w-10 h-10 bg-indigo-500 rounded-xl items-center justify-center mr-4">
                 <TrendingUp size={20} color="white" />
@@ -118,7 +118,7 @@ const SalesVelocityScreen = ({
              <View className="flex-1">
                 <Text className="text-indigo-900 font-black text-sm mb-2">AI Restock Strategy</Text>
                 <Text className="text-indigo-800 text-[11px] leading-5 font-medium">
-                  {dashboardData.global_recommendations.find(r => r.type === 'restock')?.description}
+                  {dashboardData.global_recommendations.find((r: any) => r.type === 'restock')?.description}
                 </Text>
              </View>
           </BlurView>

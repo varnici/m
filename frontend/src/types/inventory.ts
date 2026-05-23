@@ -51,6 +51,11 @@ export interface Product {
   cost_price_kobo: number;
   selling_price_kobo: number;
   minimum_stock_level: number;
+  maximum_stock_level?: number;
+  reorder_quantity?: number;
+  supplier_lead_time_days?: number;
+  quantity_on_hand?: number;
+  store_id?: string;
   is_active: boolean;
   total_quantity_on_hand: number;
   total_reserved_quantity: number;
@@ -62,6 +67,7 @@ export interface Product {
   children?: Product[];
   demand_forecast?: DemandForecastPoint[];
   ai_intelligence?: ProductIntelligence[];
+  turnover_30d?: number;
   created_at: string;
 }
 
@@ -95,6 +101,8 @@ export interface Supplier {
   email?: string;
   phone?: string;
   address?: string;
+  city?: string;
+  state?: string;
   status: 'active' | 'inactive';
 }
 
@@ -113,6 +121,10 @@ export interface PurchaseOrder {
   status: 'draft' | 'pending' | 'confirmed' | 'received' | 'cancelled';
   total_amount_kobo: number;
   items: PurchaseOrderItem[];
+  po_number?: string;
+  expected_delivery_date?: string;
+  supplier?: Supplier;
+  store?: Store;
   created_at: string;
 }
 
@@ -126,6 +138,40 @@ export interface InventoryDashboardMetrics {
   out_of_stock_count: number;
   dead_stock_count: number;
   sales_velocity_30d: number;
+  total_profit_kobo?: number;
+  total_revenue_kobo?: number;
+  recent_transactions?: Array<{
+    id: string;
+    quantity: number;
+    [key: string]: any;
+  }>;
+  revenue_trend?: Array<{
+    day: string;
+    revenue: number;
+    [key: string]: any;
+  }>;
+  best_sellers?: Array<{
+    id?: string;
+    product_id?: string;
+    name: string;
+    sku: string;
+    quantity_sold?: number;
+    total_sold?: number;
+    revenue_kobo?: number;
+    profit_kobo?: number;
+  }>;
+  turnover_ratio?: number;
+  global_recommendations?: Array<{
+    id: string;
+    type: string;
+    title: string;
+    description: string;
+    impact: string;
+    priority?: number;
+    action_text?: string;
+    action_route?: string;
+    metadata?: any;
+  }>;
 }
 
 export interface AIInsight {

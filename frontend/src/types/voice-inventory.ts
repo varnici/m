@@ -7,7 +7,7 @@ export interface InventoryCreate {
   product_name: string;
   customer_id: string;
   quantity: number;
-  pack_quantity: number;
+  pack_quantity?: number;
   product_cost: number;
   price: number;
   sold: number;

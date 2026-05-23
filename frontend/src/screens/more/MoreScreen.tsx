@@ -30,7 +30,10 @@ import {
 import { useAuth } from '@/context/AuthContext';
 
 const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
+  const userName = user?.email
+    ? user.email.split('@')[0].split(/[._-]/).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    : 'Chidi Okonkwo';
 
   const navigationSections: Array<{
     title: string;
@@ -89,6 +92,7 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
     {
       title: 'Account',
       items: [
+        { label: 'Account Details', caption: 'KYC limits, trust score levels', icon: Award, color: '#F59E0B', route: 'AccountDetails' },
         { label: 'Profile', caption: 'Business and owner details', icon: Store, color: '#475569', route: 'Profile' },
         { label: 'Security & PIN', caption: 'PIN, pattern, biometric lock', icon: Shield, color: '#10B981', route: 'SecuritySettings' },
         { label: 'Settings', caption: 'Preferences and notifications', icon: Settings, color: '#6B7280', route: 'Settings' },
@@ -127,7 +131,7 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
               className="w-full h-full"
             />
          </View>
-         <Text className="text-white text-2xl font-bold mb-1">Chidi Okonkwo</Text>
+         <Text className="text-white text-2xl font-bold mb-1">{userName}</Text>
          <Text className="text-white/60 text-xs mb-4">+234 *** *** 4821 · Member since Jan 2024</Text>
          
          <View className="bg-orange-500/20 px-4 py-1.5 rounded-full flex-row items-center border border-orange-500/30">

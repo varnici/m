@@ -22,7 +22,7 @@ const BudgetBestPolicy = ({ navigation }: any) => {
       try {
         const policy = await getPolicy('1.0');
         setPolicyId(policy.id);
-        setAccepted(policy.accepted);
+        setAccepted(policy.accepted ?? false);
       } catch {
         // Keep UI usable even if policy fetch fails.
       }

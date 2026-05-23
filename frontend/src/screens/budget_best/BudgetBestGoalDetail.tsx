@@ -32,13 +32,17 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
     );
   }
 
-  const progress = (goal.current_savings / goal.target_amount) * 100;
-  const daysLeft = Math.ceil(
-    (new Date(goal.deadline).getTime() - new Date().getTime()) /
+  const currentSavings = goal.current_total_kobo / 100;
+  const targetAmount = goal.target_amount_kobo / 100;
+  const progress = goal.progress_percentage ?? ((currentSavings / (targetAmount || 1)) * 100);
+  const deadlineDate = goal.target_date || new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+  const daysLeft = Math.max(1, Math.ceil(
+    (new Date(deadlineDate).getTime() - new Date().getTime()) /
       (1000 * 60 * 60 * 24)
-  );
-  const remaining = Math.max(goal.target_amount - goal.current_savings, 0);
-  const dailyNeeded = remaining / Math.max(daysLeft, 1);
+  ));
+  const remaining = Math.max(targetAmount - currentSavings, 0);
+  const dailyNeeded = remaining / daysLeft;
+  const dailyTarget = (goal.auto_save_amount_kobo || 0) / 100;
 
   return (
     <SafeAreaView className="flex-1 bg-slate-950">
@@ -49,7 +53,7 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <X color="white" size={24} />
         </TouchableOpacity>
-        <Text className="text-white text-xl font-bold">{goal.goal_name}</Text>
+        <Text className="text-white text-xl font-bold">{goal.title}</Text>
         <View className="w-6" />
       </View>
 
@@ -65,7 +69,7 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
             TOTAL SAVED
           </Text>
           <Text className="text-white text-3xl font-bold mb-4">
-            ₦{goal.current_savings.toLocaleString()}
+            ₦{currentSavings.toLocaleString()}
           </Text>
 
           {/* Progress Bar */}
@@ -78,7 +82,7 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
 
           <View className="flex-row items-center justify-between">
             <Text className="text-white/90 text-sm">
-              {progress.toFixed(0)}% of ₦{goal.target_amount.toLocaleString()}
+              {progress.toFixed(0)}% of ₦{targetAmount.toLocaleString()}
             </Text>
             <Text className="text-white/90 text-sm">
               ₦{remaining.toLocaleString()} left
@@ -93,7 +97,7 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
               Daily Target
             </Text>
             <Text className="text-white text-lg font-bold">
-              ₦{goal.daily_target.toLocaleString()}
+              ₦{dailyTarget.toLocaleString()}
             </Text>
             <Text className="text-white/40 text-xs mt-1">Original</Text>
           </View>
@@ -102,7 +106,7 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
             <Text className="text-white/60 text-xs uppercase font-bold mb-2">
               Daily Needed
             </Text>
-            <Text className={`text-lg font-bold ${dailyNeeded > goal.daily_target ? 'text-orange-400' : 'text-emerald-400'}`}>
+            <Text className={`text-lg font-bold ${dailyNeeded > dailyTarget ? 'text-orange-400' : 'text-emerald-400'}`}>
               ₦{dailyNeeded.toLocaleString()}
             </Text>
             <Text className="text-white/40 text-xs mt-1">To stay on track</Text>
@@ -126,7 +130,7 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
               Deadline
             </Text>
             <Text className="text-white text-lg font-bold">
-              {new Date(goal.deadline).toLocaleDateString()}
+              {new Date(deadlineDate).toLocaleDateString()}
             </Text>
             <Text className="text-white/40 text-xs mt-1">Target date</Text>
           </View>
@@ -220,7 +224,7 @@ const BudgetBestGoalDetail = ({ navigation, route }: any) => {
                     isDeposit ? 'text-emerald-400' : 'text-red-400'
                   }`}
                 >
-                  {isDeposit ? '+' : '-'}₦{Number(txn.amount).toLocaleString()}
+                  {isDeposit ? '+' : '-'}₦{Number(txn.amount_kobo / 100).toLocaleString()}
                 </Text>
               </View>
             );

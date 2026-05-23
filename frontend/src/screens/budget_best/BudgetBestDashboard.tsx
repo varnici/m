@@ -24,11 +24,11 @@ import {
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getDashboard } from '../../services/budgetBestApi';
-import { SavingsDashboardResponse, SavingsGoalResponse } from '../../types/budget-best';
+import { SavingsDashboard, SavingsGoalResponse } from '../../types/budget-best';
 import SavingsBucket from '../../components/SavingsBucket';
 
 const BudgetBestDashboard = ({ navigation }: any) => {
-  const [data, setData] = useState<SavingsDashboardResponse | null>(null);
+  const [data, setData] = useState<SavingsDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -213,7 +213,7 @@ const BudgetBestDashboard = ({ navigation }: any) => {
             </View>
           </View>
 
-          {data?.goals.map((goal) => (
+          {data?.goals.map((goal: SavingsGoalResponse) => (
             <View key={goal.id} className="mb-4">
               <SavingsBucket
                 title={goal.title}

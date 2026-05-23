@@ -24,8 +24,79 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.trust_score import TrustScore
+from app.services.trust_score import TrustScore
 from app.models.inventory import SalesTransaction
+from app.models.loan import Loan
+from app.models.repayment import Repayment
+from app.models.wallet import Wallet
+from app.schemas.trust_score_schemas import (
+    TrustScoreResponse,
+    TrustScoreBreakdown,
+    TrustScoreComponentDetail,
+    TrustScoreSnapshot,
+    TrustScoreRefreshResponse,
+)
+
+# ── Tier thresholds ────────────────────────────────────────────────────────────
+TIERS = [
+    (0,  "Emerging"),
+    (40, "Trusted"),
+    (65, "Established"),
+    (85, "Elite"),
+]
+
+# How long a cached score stays valid before recomputation is triggered
+CACHE_TTL_MINUTES = 60
+
+# ── Component weights (must sum to 1.0) ────────────────────────────────────────
+WEIGHTS = {
+    "sales_velocity":    0.35,
+    "repayment_history": 0.30,
+    "savings_behavior":  0.20,
+    "pool_participation": 0.15,
+}
+
+
+def _tier_for_score(score: float) -> str:
+    tier = TIERS[0][1]
+    for threshold, label in TIERS:
+        if score >= threshold:
+            tier = label
+    return tier
+
+
+def _next_tier(current_tier: str) -> Optional[str]:
+    names = [t[1] for t in TIERS]
+    idx = names.index(current_tier)
+    return names[idx + 1] if idx + 1 < len(names) else None
+
+
+def _points_to_next(score: float, current_tier: str) -> Optional[float]:
+    for threshold, label in TIERS:
+        if label == current_tier:
+            # Find the next threshold
+            idx = TIERS.index((threshold, label))
+            if idx + 1 < len(TIERS):
+                return round(TIERS[idx + 1][0] - score, 1)
+    return None
+
+
+def _component_label(score: float) -> str:
+    if score >= 85:
+        return "Excellent"
+    if score >= 65:
+        return "Strong"
+    if score >= 40:
+        return "Growing"
+    return "Needs work"
+
+
+def _build_component(raw_score: float, weight: float) -> TrustScoreComponentDetail:
+    clamped = max(0.0, min(100.0, raw_score))
+    return TrustScoreComponentDetail(
+        score=round(clamped, 1),
+        weight=weight,
+        weighted_contribution=round(clamped * weight, 2),
 from app.models.loan import Loan
 from app.models.repayment import Repayment
 from app.models.wallet import Wallet
@@ -131,89 +202,6 @@ async def _score_sales_velocity(user_id: UUID, db: AsyncSession) -> tuple[float,
             SalesTransaction.transaction_date >= seven_days_ago,
         )
     )
-    active_days: int = result7.scalar() or 0
-    streak_bonus = (active_days / 7) * 10  # up to 10 bonus points
-
-    return min(100.0, volume_score + streak_bonus), total_sales
-
-
-async def _score_repayment_history(user_id: UUID, db: AsyncSession) -> tuple[float, int]:
-    """
-    Score based on:
-      - On-time repayments vs total due repayments
-      - Penalty for missed repayments
-    """
-    result = await db.execute(
-        select(Repayment).where(Repayment.user_id == user_id)
-    )
-    repayments = result.scalars().all()
-
-    if not repayments:
-        # New user — neutral score, not penalised
-        return 50.0, 0
-
-    total = len(repayments)
-    on_time = sum(1 for r in repayments if getattr(r, "status", None) == "paid" and not getattr(r, "is_late", False))
-    missed = sum(1 for r in repayments if getattr(r, "status", None) == "missed")
-
-    on_time_ratio = (on_time / total) if total else 0
-    base_score = on_time_ratio * 100
-
-    # Each missed repayment subtracts 15 points, floor at 0
-    penalty = missed * 15
-    score = max(0.0, base_score - penalty)
-
-    return min(100.0, score), on_time
-
-
-async def _score_savings_behavior(user_id: UUID, db: AsyncSession) -> tuple[float, int]:
-    """
-    Score based on:
-      - Number of active savings goals in the wallet
-      - Average progress toward goals
-    """
-    result = await db.execute(
-        select(Wallet).where(Wallet.user_id == user_id)
-    )
-    wallet = result.scalar_one_or_none()
-
-    if not wallet:
-        return 0.0, 0
-
-    # Pull savings goals if stored as a JSON column or related table
-    # Using wallet.savings_goals_count and wallet.savings_progress_pct as example fields
-    goals_count: int = getattr(wallet, "savings_goals_count", 0) or 0
-    avg_progress: float = getattr(wallet, "savings_avg_progress", 0.0) or 0.0
-
-    # Score: 20 pts per active goal (cap at 3 goals = 60), plus progress ratio
-    goal_score = min(60.0, goals_count * 20)
-    progress_score = avg_progress * 40  # progress ratio × 40 pts
-
-    return min(100.0, goal_score + progress_score), goals_count
-
-
-async def _score_pool_participation(user_id: UUID, db: AsyncSession) -> tuple[float, int]:
-    """
-    Score based on:
-      - Number of pool contributions made
-      - Whether any pool contribution was missed
-    """
-    result = await db.execute(
-        select(func.count(Repayment.id)).where(
-            Repayment.user_id == user_id,
-            Repayment.repayment_type == "pool",  # distinguish pool vs loan repayments
-        )
-    )
-    pool_contributions: int = result.scalar() or 0
-
-    # 10 pts per contribution, caps at 100 after 10 contributions
-    score = min(100.0, pool_contributions * 10)
-    return score, pool_contributions
-
-
-# ── Insight generator ─────────────────────────────────────────────────────────
-
-def _generate_insight(
     total_score: float,
     sales_score: float,
     repayment_score: float,

@@ -3,9 +3,14 @@ VentureRoute Logistics API Endpoints
 FastAPI routers for clustering, routing, QR codes, and wallet management
 """
 
-from fastapi import APIRouter, HTTPException, status, Request
-from uuid import UUID
+from fastapi import APIRouter, HTTPException, status, Request, Depends
+from uuid import UUID, uuid4
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from decimal import Decimal
+from typing import Optional
 
+from app.database import get_db_session
 from app.models.logistics import (
     LogisticsRequestCreate,
     LogisticsRequestResponse,
@@ -15,19 +20,20 @@ from app.models.logistics import (
     PaymentLockResponse,
     QRHandshakeType,
     QRHandshakeCreate,
+    RouteWithMembersResponse,
 )
 from app.services.cluster_service import ClusterService
 from app.services.volumetric_engine import VolumetricUnitEngine
 from app.services.wallet_freeze_service import WalletFreezeService
 from app.services.qr_handshake_service import QRHandshakeService
-from app.middleware.security import limiter
+from app.middleware.security import limiter, get_current_user
 
 router = APIRouter(prefix="/api/v1/logistics", tags=["logistics"])
 
 
 # ============================================================================
 # LOGISTICS REQUEST ENDPOINTS (BRONZE LAYER)
--- ============================================================================
+# ============================================================================
 
 @router.post(
     "/requests",
@@ -39,6 +45,8 @@ router = APIRouter(prefix="/api/v1/logistics", tags=["logistics"])
 async def create_logistics_request(
     request: Request,
     payload: LogisticsRequestCreate,
+    db: AsyncSession = Depends(get_db_session),
+    user_id: UUID = Depends(get_current_user),
 ):
     """
     Create a new logistics request.
@@ -72,18 +80,55 @@ async def create_logistics_request(
         # Estimate cost (rough estimate - will be exact after clustering)
         estimated_cost = int(volumetric_units) * 1000 + int(payload.base_handling_fee_kobo)
         
-        # TODO: Insert into database
-        # For now, return mock response
+        req_id = uuid4()
+        user_uuid = UUID(str(user_id))
+        manufacturer_uuid = UUID(str(payload.manufacturer_id))
+        pickup_uuid = UUID(str(payload.pickup_location_id)) if payload.pickup_location_id else None
+        delivery_uuid = UUID(str(payload.delivery_location_id)) if payload.delivery_location_id else None
         
-        return {
-            "id": "req-123",
-            "retailer_id": "retailer-456",
-            "manufacturer_id": payload.manufacturer_id,
-            "volumetric_units": volumetric_units,
-            "estimated_total_fee_kobo": estimated_cost,
-            "status": "pending_grouping",
-            "created_at": "2024-01-01T00:00:00Z",
-        }
+        insert_query = text("""
+            INSERT INTO logistics_requests (
+                id, retailer_id, manufacturer_id, pickup_location_id, delivery_location_id,
+                package_weight_kg, package_length_cm, package_width_cm, package_height_cm,
+                volumetric_units, base_handling_fee_kobo, estimated_total_fee_kobo,
+                status, priority, requested_at, created_at, updated_at
+            ) VALUES (
+                :id, :retailer_id, :manufacturer_id, :pickup_location_id, :delivery_location_id,
+                :package_weight_kg, :package_length_cm, :package_width_cm, :package_height_cm,
+                :volumetric_units, :base_handling_fee_kobo, :estimated_cost,
+                'pending_grouping', :priority, NOW(), NOW(), NOW()
+            )
+            RETURNING *
+        """)
+        
+        result = await db.execute(
+            insert_query,
+            {
+                "id": req_id,
+                "retailer_id": user_uuid,
+                "manufacturer_id": manufacturer_uuid,
+                "pickup_location_id": pickup_uuid,
+                "delivery_location_id": delivery_uuid,
+                "package_weight_kg": float(payload.package_weight_kg),
+                "package_length_cm": float(payload.package_length_cm),
+                "package_width_cm": float(payload.package_width_cm),
+                "package_height_cm": float(payload.package_height_cm),
+                "volumetric_units": float(volumetric_units),
+                "base_handling_fee_kobo": payload.base_handling_fee_kobo,
+                "estimated_cost": estimated_cost,
+                "priority": payload.priority,
+            }
+        )
+        await db.commit()
+        row = result.first()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create logistics request"
+            )
+            
+        data = dict(row._mapping)
+        return data
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -93,16 +138,17 @@ async def create_logistics_request(
 
 # ============================================================================
 # CLUSTERING ENDPOINTS (SILVER LAYER)
--- ============================================================================
+# ============================================================================
 
 @router.post(
     "/routes/cluster",
     response_model=ClusteringResult,
     summary="Cluster logistics requests into route",
+)
 @limiter.limit("30/minute")
 async def cluster_requests(
     request: Request,
-    payload: ClusteringRequestPayload
+    payload: ClusteringRequestPayload,
     db: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -137,7 +183,7 @@ async def cluster_requests(
         
         result = await cluster_service.cluster_requests_into_route(
             manufacturer_id=payload.manufacturer_id,
-            radius_km=payload.radius_km or 2.0,
+            radius_km=payload.radius_km or Decimal("2.0"),
             max_retailers_per_route=payload.max_retailers_per_route or 50,
             truck_capacity_vu=payload.truck_capacity_vu,
             fixed_trip_cost_kobo=payload.fixed_trip_cost_kobo,
@@ -155,11 +201,13 @@ async def cluster_requests(
 
 @router.get(
     "/routes/{route_id}",
+    response_model=RouteWithMembersResponse,
     summary="Get route details with members and analytics",
+)
 @limiter.limit("120/minute")
 async def get_route_details(
     request: Request,
-    route_id: str
+    route_id: str,
     db: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -170,23 +218,56 @@ async def get_route_details(
     - Analytics (Gold layer)
     - Fill percentage
     """
-    # TODO: Fetch from database
-    pass
+    try:
+        route_uuid = UUID(route_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid route ID format"
+        )
+        
+    route_query = text("SELECT * FROM logistics_routes WHERE id = :route_id")
+    result = await db.execute(route_query, {"route_id": route_uuid})
+    route_row = result.first()
+    if not route_row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Route {route_id} not found"
+        )
+        
+    route_data = dict(route_row._mapping)
+    
+    members_query = text("SELECT * FROM route_members WHERE route_id = :route_id ORDER BY stop_sequence ASC")
+    result = await db.execute(members_query, {"route_id": route_uuid})
+    member_rows = result.fetchall()
+    members_data = [dict(row._mapping) for row in member_rows]
+    
+    analytics_query = text("SELECT * FROM logistics_analytics WHERE route_id = :route_id LIMIT 1")
+    result = await db.execute(analytics_query, {"route_id": route_uuid})
+    analytics_row = result.first()
+    analytics_data = dict(analytics_row._mapping) if analytics_row else None
+    
+    return {
+        **route_data,
+        "members": members_data,
+        "analytics": analytics_data,
+    }
 
 
 # ============================================================================
 # PAYMENT LOCKING ENDPOINTS (WALLET FREEZE)
--- ============================================================================
+# ============================================================================
 
 @router.post(
     "/payments/freeze",
     response_model=PaymentLockResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Lock payment for route participation",
+)
 @limiter.limit("60/minute")
 async def lock_payment(
     request: Request,
-    payload: PaymentLockRequest
+    payload: PaymentLockRequest,
     db: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -210,13 +291,34 @@ async def lock_payment(
     - status: "active"
     """
     try:
-        # Get route member details to find the cost
-        # TODO: Fetch route member
+        try:
+            route_uuid = UUID(payload.route_id)
+            retailer_uuid = UUID(payload.retailer_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid ID format"
+            )
+            
+        member_query = text("""
+            SELECT total_cost_kobo FROM route_members
+            WHERE route_id = :route_id AND retailer_id = :retailer_id
+            LIMIT 1
+        """)
+        result = await db.execute(
+            member_query,
+            {"route_id": route_uuid, "retailer_id": retailer_uuid}
+        )
+        row = result.first()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Retailer {payload.retailer_id} is not a member of route {payload.route_id}"
+            )
+            
+        member_cost_kobo = int(row[0])
         
         wallet_service = WalletFreezeService(db)
-        
-        # Mock: Get the member's total cost
-        member_cost_kobo = 15000  # TODO: Fetch actual
         
         freeze_response = await wallet_service.freeze_payment(
             user_id=payload.retailer_id,
@@ -242,10 +344,10 @@ async def lock_payment(
 
 @router.post(
     "/payments/dispatch-check",
+)
 @limiter.limit("60/minute")
 async def check_dispatch_ready(
     request: Request,
-    route_id: str
     route_id: str,
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -282,16 +384,16 @@ async def check_dispatch_ready(
 
 # ============================================================================
 # QR CODE ENDPOINTS
--- ============================================================================
+# ============================================================================
 
 @router.post(
     "/qr/generate",
+)
 @limiter.limit("120/minute")
 async def generate_qr_code(
     request: Request,
     handshake_type: QRHandshakeType,
     entity_type: str,
-    entity_id: str
     entity_id: str,
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -341,9 +443,11 @@ async def generate_qr_code(
     "/qr/scan",
     summary="Process QR code scan",
 )
+@limiter.limit("60/minute")
 async def process_qr_scan(
+    request: Request,
     payload: QRHandshakeCreate,
-    user_id: str,  # From auth token
+    user_id: UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -372,11 +476,11 @@ async def process_qr_scan(
         qr_service = QRHandshakeService(db)
         
         handshake = await qr_service.process_handshake(
-            qr_code_value=payload.qr_code_value,
+            qr_code_value=payload.qr_code_id,
             handshake_type=payload.handshake_type,
-            scanned_by=user_id,
-            scan_latitude=payload.scan_latitude,
-            scan_longitude=payload.scan_longitude,
+            scanned_by=str(user_id),
+            scan_latitude=float(payload.scan_latitude) if payload.scan_latitude else None,
+            scan_longitude=float(payload.scan_longitude) if payload.scan_longitude else None,
             otp_code=payload.otp_code,
         )
         
@@ -400,7 +504,9 @@ async def process_qr_scan(
     "/routes/{route_id}/compliance",
     summary="Get QR compliance rate for route",
 )
+@limiter.limit("120/minute")
 async def get_compliance_rate(
+    request: Request,
     route_id: str,
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -428,13 +534,15 @@ async def get_compliance_rate(
 
 # ============================================================================
 # COST ESTIMATION ENDPOINTS
--- ============================================================================
+# ============================================================================
 
 @router.post(
     "/estimate-cost",
     summary="Estimate logistics cost for package",
 )
+@limiter.limit("60/minute")
 async def estimate_logistics_cost(
+    request: Request,
     weight_kg: float,
     length_cm: float,
     width_cm: float,
@@ -466,12 +574,12 @@ async def estimate_logistics_cost(
         engine = VolumetricUnitEngine()
         
         estimate = engine.estimate_cost(
-            weight_kg=weight_kg,
-            length_cm=length_cm,
-            width_cm=width_cm,
-            height_cm=height_cm,
+            weight_kg=Decimal(str(weight_kg)),
+            length_cm=Decimal(str(length_cm)),
+            width_cm=Decimal(str(width_cm)),
+            height_cm=Decimal(str(height_cm)),
             fixed_trip_cost_kobo=fixed_trip_cost_kobo,
-            total_route_vu=total_route_vu,
+            total_route_vu=Decimal(str(total_route_vu)),
             handling_fee_kobo=handling_fee_kobo,
         )
         

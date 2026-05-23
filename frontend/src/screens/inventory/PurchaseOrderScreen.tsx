@@ -10,18 +10,7 @@ import {
 import { usePurchaseOrders } from '@/hooks/useInventory';
 import { Ionicons } from '@expo/vector-icons';
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-interface PurchaseOrder {
-  id: string;
-  po_number: string;
-  supplier: { name: string };
-  status: 'draft' | 'pending' | 'confirmed' | 'shipped' | 'received' | 'cancelled';
-  expected_delivery_date: string | null;
-  total_amount_kobo: number;
-}
+import { PurchaseOrder } from '@/types/inventory';
 
 // ============================================================================
 // COMPONENTS
@@ -48,7 +37,7 @@ const PurchaseOrderItem = React.memo(({ po, onPress }: { po: PurchaseOrder; onPr
       activeOpacity={0.7}
     >
       <View style={styles.cardHeader}>
-        <Text style={styles.poNumber}>{po.po_number}</Text>
+        <Text style={styles.poNumber}>{po.po_number || 'N/A'}</Text>
         <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
           <Text style={[styles.statusText, { color: statusColors.text }]}>
             {po.status.toUpperCase()}

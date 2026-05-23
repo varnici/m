@@ -6,24 +6,64 @@ import { X, RefreshCw, ChevronRight } from 'lucide-react-native';
 import BarcodeScanner from '@/components/BarcodeScanner';
 import { createInventory, syncPendingInventory } from '@/services/inventoryApi';
 
+import { inventoryService } from '@/services/inventoryService';
+import { syncService } from '@/services/syncService';
+
 const ScanShelveScreen = ({
   navigation,
 }: RootStackScreenProps<'ScanShelve'>) => {
   const [scanned, setScanned] = useState<string[]>([]);
 
-  const handleBarcodeScanned = async (barcode: string) => {
-    if (scanned.includes(barcode)) return;
-    setScanned((prev) => [barcode, ...prev]);
+  const handleOfflineFallback = async (barcode: string, storeId: string) => {
     await createInventory({
       product_name: `Scanned-${barcode}`,
       customer_id: 'SCAN_USER',
       quantity: 1,
       pack_quantity: 0,
-      product_cost: 0,
-      price: 0,
+      product_cost: 50.00,
+      price: 70.00,
       sold: 0,
     });
     await syncPendingInventory();
+  };
+
+  const handleBarcodeScanned = async (barcode: string) => {
+    if (scanned.includes(barcode)) return;
+    setScanned((prev) => [barcode, ...prev]);
+
+    let storeId = 'default_store';
+    try {
+      const stores = await inventoryService.getStores();
+      if (stores.length > 0) {
+        storeId = stores[0].id;
+      }
+    } catch {
+      // Offline
+    }
+
+    try {
+      const product = await inventoryService.scanBarcode(barcode, storeId);
+      if (product && product.id) {
+        const movementPayload = {
+          product_id: product.id,
+          to_store_id: storeId,
+          movement_type: 'purchase' as const,
+          quantity: 1,
+          input_method: 'scan' as const,
+          notes: `Scanned barcode ${barcode} on shelf`,
+        };
+        try {
+          await inventoryService.recordStockMovement(movementPayload);
+        } catch {
+          await syncService.addToQueue('record_stock_movement', movementPayload);
+        }
+        Alert.alert('Scanned Product', `Recognized: ${product.name}. Added 1 unit to stock.`);
+      } else {
+        await handleOfflineFallback(barcode, storeId);
+      }
+    } catch {
+      await handleOfflineFallback(barcode, storeId);
+    }
   };
 
   const handleSubmit = () => {

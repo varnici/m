@@ -45,6 +45,7 @@ export interface DashboardData {
     timeAgo: string;
     headline: string;
     subtitle: string;
+    url?: string;
   }>;
   sales_streak?: {
     streak_days: number;

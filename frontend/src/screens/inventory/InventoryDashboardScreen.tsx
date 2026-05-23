@@ -15,6 +15,7 @@ import {
   History as HistoryIcon,
 } from 'lucide-react-native';
 import { FlashList } from '@shopify/flash-list';
+const TypedFlashList = FlashList as any;
 import { useNavigation } from '@react-navigation/native';
 
 import type { RootStackNavigationProp } from '@/navigation/types';
@@ -27,8 +28,10 @@ const InventoryDashboardScreen = () => {
   const { data: dashboardData } = useInventoryDashboard();
   const { data: lowStockData } = useLowStockAlerts();
 
-  const inventoryValue = dashboardData?.total_value_kobo || 0;
-  const turnoverText = dashboardData?.turnover_description || 'Loading turnover data...';
+  const inventoryValue = dashboardData?.total_inventory_value_kobo || 0;
+  const turnoverText = dashboardData?.turnover_ratio 
+    ? `Annual Turnover Ratio is ${dashboardData.turnover_ratio.toFixed(1)}x`
+    : 'Turnover ratio data not available';
   const recommendations = dashboardData?.global_recommendations || [];
   
   const criticalItems = lowStockData?.slice(0, 4) || [];
@@ -90,7 +93,7 @@ const InventoryDashboardScreen = () => {
                 <Text className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Global Recommendations</Text>
                 <Sparkles size={14} color="#4F46E5" />
              </View>
-             <FlashList
+             <TypedFlashList
                 data={recommendations}
                 renderItem={renderRecommendation}
                 horizontal

@@ -26,7 +26,7 @@ const OnboardingReviewScreen = ({
         tin: data.tin,
         location: {
           state: data.state,
-          address: data.shopAddress,
+          address: data.address,
         }
       });
       setIsSubmitting(false);
@@ -114,7 +114,7 @@ const OnboardingReviewScreen = ({
 
           {/* Integrity Alert */}
           <View style={{ 
-            backgroundColor: colors.ventureroot.industrial.surfaceLow, 
+            backgroundColor: theme.surfaceLow, 
             padding: 20, 
             flexDirection: 'row', 
             alignItems: 'center',

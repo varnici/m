@@ -100,8 +100,7 @@ def test_product(db_session, test_owner_id):
     db_session.commit()
     return product
 
-@pytest.mark.asyncio
-async def test_record_purchase_increases_stock(stock_service, test_product, test_store, db_session):
+def test_record_purchase_increases_stock(stock_service, test_product, test_store, db_session):
     """Test that a purchase movement increases stock level."""
     payload = StockMovementCreate(
         product_id=test_product.id,
@@ -111,7 +110,7 @@ async def test_record_purchase_increases_stock(stock_service, test_product, test
         input_method="api"
     )
     
-    movement = await stock_service.record_stock_movement(payload)
+    movement = stock_service.record_stock_movement(payload)
     
     assert movement.quantity == 100
     assert movement.to_store_id == test_store.id
@@ -124,11 +123,10 @@ async def test_record_purchase_increases_stock(stock_service, test_product, test
     assert level.quantity_on_hand == 100
     assert level.status == "in_stock"
 
-@pytest.mark.asyncio
-async def test_reserve_stock_decreases_available(stock_service, test_product, test_store, db_session):
+def test_reserve_stock_decreases_available(stock_service, test_product, test_store, db_session):
     """Test that reserving stock decreases available quantity."""
     # 1. Add initial stock
-    await stock_service.record_stock_movement(StockMovementCreate(
+    stock_service.record_stock_movement(StockMovementCreate(
         product_id=test_product.id,
         to_store_id=test_store.id,
         movement_type="purchase",
@@ -143,7 +141,7 @@ async def test_reserve_stock_decreases_available(stock_service, test_product, te
         quantity=20,
         purpose="test"
     )
-    reservation = await stock_service.reserve_stock(res_payload)
+    reservation = stock_service.reserve_stock(res_payload)
     
     assert reservation.quantity_reserved == 20
     assert reservation.status == "active"
@@ -157,18 +155,17 @@ async def test_reserve_stock_decreases_available(stock_service, test_product, te
     assert level.quantity_reserved == 20
     assert level.quantity_available == 30
 
-@pytest.mark.asyncio
-async def test_commit_reservation_depletes_stock(stock_service, test_product, test_store, db_session):
+def test_commit_reservation_depletes_stock(stock_service, test_product, test_store, db_session):
     """Test that committing a reservation updates on-hand quantity."""
     # 1. Setup stock & reservation
-    await stock_service.record_stock_movement(StockMovementCreate(
+    stock_service.record_stock_movement(StockMovementCreate(
         product_id=test_product.id,
         to_store_id=test_store.id,
         movement_type="purchase",
         quantity=50,
         input_method="api"
     ))
-    res = await stock_service.reserve_stock(StockReservationCreate(
+    res = stock_service.reserve_stock(StockReservationCreate(
         product_id=test_product.id,
         store_id=test_store.id,
         quantity=20,
@@ -176,7 +173,7 @@ async def test_commit_reservation_depletes_stock(stock_service, test_product, te
     ))
     
     # 2. Commit
-    await stock_service.commit_stock_reservation(
+    stock_service.commit_stock_reservation(
         reservation_id=res.id,
         payload=StockReservationAction(quantity=20)
     )
@@ -189,8 +186,7 @@ async def test_commit_reservation_depletes_stock(stock_service, test_product, te
     assert level.quantity_on_hand == 30
     assert level.quantity_reserved == 0
 
-@pytest.mark.asyncio
-async def test_insufficient_stock_raises_error(stock_service, test_product, test_store):
+def test_insufficient_stock_raises_error(stock_service, test_product, test_store):
     """Test that moving more stock than available raises ValueError."""
     payload = StockMovementCreate(
         product_id=test_product.id,
@@ -201,4 +197,5 @@ async def test_insufficient_stock_raises_error(stock_service, test_product, test
     )
     
     with pytest.raises(ValueError, match="Insufficient stock"):
-        await stock_service.record_stock_movement(payload)
+        stock_service.record_stock_movement(payload)
+

@@ -4,47 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.models.inventory import (
     InventoryCreate, InventoryUpdate, InventoryRecord, SummaryResponse
-)ta Studio into the MSSQL extension. Additionally, the MSSQL Data Management Keymap can be installed to add familiar shortcuts from Azure Data Studio.
-￼
-Try it
-￼
-Watch demo
-￼
-Learn more
-￼
-￼
-In case you missed it
-Previously released features you may not have explored yet.
-Resources
-Explore tutorials, docs, and what's coming next.
-
-￼
-Watch demos on YouTube
-￼
-View roadmap
-￼
-Read docs on Microsoft Learn
-Feedback
-Help us improve by sharing your thoughts.
-
-￼
-Open a new bug
-￼
-Request a new feature
-￼
-Join the discussions
-￼
-GitHub Copilot survey
-Getting Started
-New to the MSSQL extension? Check out our quick-start guide.
-
-￼
-MSSQL - VS Code walkthrough
-￼
-GitHub Copilot - VS Code walkthrough
-￼
-Customize keyboard shortcuts
-You are seeing this message because you updated the MSSQL extension to version 1.42.2.
+)
 from app.services import inventory_service as svc
 from app.middleware.security import limiter
 from fastapi import Request

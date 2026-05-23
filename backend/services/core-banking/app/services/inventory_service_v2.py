@@ -80,8 +80,8 @@ class InventoryServiceV2:
     def list_products(self, **kwargs) -> tuple[List[ProductOut], int]:
         return self.products.list_products(**kwargs)
     
-    def get_product_by_barcode(self, barcode: str) -> ProductOut:
-        return self.products.get_product_by_barcode(barcode)
+    def get_product_by_barcode(self, barcode: str, store_id: Optional[str] = None) -> ProductOut:
+        return self.products.get_product_by_barcode(barcode, store_id)
     
     def get_product_detail(self, product_id: str, store_id: Optional[str] = None) -> ProductDetailOut:
         return self.products.get_product_detail(product_id, store_id)
@@ -111,6 +111,9 @@ class InventoryServiceV2:
     
     def commit_stock_reservation(self, reservation_id: str, payload: StockReservationAction) -> StockReservationOut:
         return self.stock.commit_stock_reservation(reservation_id, payload)
+
+    def cleanup_expired_reservations(self) -> int:
+        return self.stock.cleanup_expired_reservations()
         
     def transfer_stock(self, from_store_id: str, to_store_id: str, product_id: str, quantity: int) -> StockMovementOut:
         return self.stock.transfer_stock(from_store_id, to_store_id, product_id, quantity)

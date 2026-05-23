@@ -217,6 +217,7 @@ class SavingsDashboard(BaseModel):
     goals_progress: List[SavingsProgress]
     upcoming_deadlines: List[SavingsGoalResponse]
     buckets: List[BudgetBucketResponse]
+    goals: List[SavingsGoalResponse] = []
 
 
 # ===================== Policy =====================

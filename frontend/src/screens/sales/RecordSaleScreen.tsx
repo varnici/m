@@ -266,7 +266,7 @@ const RecordSaleScreen = ({
           name: product?.name || 'Item',
           sku: product?.sku || 'N/A',
           quantity: item.quantity_sold,
-          unitPrice: item.unit_price_kobo / 100,
+          price_kobo: item.unit_price_kobo,
           stock: product?.total_quantity_on_hand || 0,
           reserved: product?.total_reserved_quantity || 0
         };
@@ -772,11 +772,11 @@ const RecordSaleScreen = ({
               </View>
             </View>
 
-            <FlashList
+            <TypedFlashList
               data={cartItems}
               estimatedItemSize={100}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
+              keyExtractor={(item: any) => item.id}
+              renderItem={({ item }: { item: any }) => (
                 <View className="flex-row items-center py-5 border-b border-gray-50">
                   <View className="w-14 h-14 bg-gray-50 rounded-2xl items-center justify-center mr-4">
                     <Package size={24} color={colors.ventureroot.green} />

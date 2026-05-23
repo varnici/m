@@ -34,30 +34,72 @@ export interface LoanDetails {
 
 export class WalletService extends BaseService {
   async getWalletDetails(userId: string): Promise<WalletDetails> {
-    const response = await this.fetchWithAuth(`/v1/core/wallet/${userId}`);
+    const response = await this.fetchWithAuth(`/v1/wallet/${userId}`);
     return response.json();
   }
 
   async topUpWallet(userId: string, amountKobo: number): Promise<void> {
-    await this.fetchWithAuth(`/v1/core/wallet/${userId}/topup`, {
+    await this.fetchWithAuth(`/v1/wallet/${userId}/topup`, {
       method: 'POST',
       body: JSON.stringify({ amount_kobo: amountKobo }),
     });
   }
 }
 
+export interface ActiveLoanData {
+  id: string;
+  product_name: string;
+  loan_amount: number;
+  outstanding: number;
+  status: string;
+  due_date: string | null;
+  insured: boolean;
+  icon: string;
+}
+
+export interface LoanHistoryItem {
+  id: string;
+  product_name: string;
+  month: string;
+  amount: number;
+  status: string;
+}
+
+export interface LoanDashboardData {
+  available_credit: number;
+  credit_in_use: number;
+  active_loans: ActiveLoanData[];
+  loan_history: LoanHistoryItem[];
+}
+
 export class LoanService extends BaseService {
-  async getActiveLoan(userId: string): Promise<LoanDetails | null> {
-    const response = await this.fetchWithAuth(`/v1/core/loans/active?user_id=${userId}`);
-    if (response.status === 404) return null;
+  async getLoanDashboard(userId: string): Promise<LoanDashboardData> {
+    const response = await this.fetchWithAuth(`/v1/loans/${userId}/dashboard`);
     return response.json();
   }
 
-  async getRepaymentSchedule(loanId: string): Promise<LoanRepayment[]> {
-    const response = await this.fetchWithAuth(`/v1/core/loans/${loanId}/schedule`);
+  async createLoan(userId: string, productSku: string, productQty: number, principalKobo: number): Promise<any> {
+    const response = await this.fetchWithAuth(`/v1/loans`, {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: userId,
+        product_sku: productSku,
+        product_qty: productQty,
+        principal_kobo: principalKobo,
+      }),
+    });
+    return response.json();
+  }
+
+  async applyRepayment(loanId: string, amountKobo: number): Promise<any> {
+    const response = await this.fetchWithAuth(`/v1/loans/${loanId}/repay`, {
+      method: 'POST',
+      body: JSON.stringify({ amount_kobo: amountKobo }),
+    });
     return response.json();
   }
 }
 
 export const walletService = new WalletService();
 export const loanService = new LoanService();
+

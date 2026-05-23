@@ -103,6 +103,13 @@ class Product(Base):
     rating: Mapped[float] = mapped_column(Float, default=5.0)
     review_count: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Marketplace compatibility fields
+    unit_price_kobo: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    estate: Mapped[str | None] = mapped_column(String, nullable=True)
+    city: Mapped[str | None] = mapped_column(String, nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     # Bulk/Packaging handling
     parent_id: Mapped[str | None] = mapped_column(String, ForeignKey("products.id", ondelete="SET NULL"), nullable=True)
     conversion_factor: Mapped[int] = mapped_column(Integer, default=1) 

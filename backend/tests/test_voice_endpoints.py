@@ -37,20 +37,51 @@ def test_voice_transcribe_missing_file():
 
 def test_voice_transcribe_response_format(monkeypatch):
     """Test endpoint format with mocked ASR backend."""
-    monkeypatch.setattr(voice_service, "transcribe_bytes", lambda *_: "sold twenty units")
+    async def mock_process_voice(*_args, **_kwargs):
+        return {
+            "product_name": "indomie",
+            "customer_id": "anon",
+            "quantity": 100,
+            "pack_quantity": 10,
+            "product_cost": 5.0,
+            "price": 10.0,
+            "sold": 20,
+            "_transcript": "sold twenty units",
+            "_language": "en",
+            "_trace_id": "testtrace",
+            "_source": "mock"
+        }
+    monkeypatch.setattr(voice_service, "process_voice", mock_process_voice)
     files = {"file": ("test.wav", io.BytesIO(b"fake-wav"), "audio/wav")}
     response = client.post("/voice/transcribe", files=files)
     assert response.status_code == 200
     payload = response.json()
-    assert payload["text"] == "sold twenty units"
-    assert payload["extracted_number"] == "20"
-    assert payload["field_type"] == "number"
+    assert payload["success"] is True
+    assert payload["transcript"] == "sold twenty units"
+    assert payload["data"]["sold"] == 20
+    assert payload["data"]["product_name"] == "indomie"
 
 
 def test_voice_transcribe_accepts_audio_filename_without_mime(monkeypatch):
     """Accepts files that have audio extension even if MIME is generic."""
-    monkeypatch.setattr(voice_service, "transcribe_bytes", lambda *_: "quantity 15")
+    async def mock_process_voice(*_args, **_kwargs):
+        return {
+            "product_name": "beans",
+            "customer_id": "anon",
+            "quantity": 100,
+            "pack_quantity": 10,
+            "product_cost": 5.0,
+            "price": 10.0,
+            "sold": 15,
+            "_transcript": "quantity 15",
+            "_language": "en",
+            "_trace_id": "testtrace",
+            "_source": "mock"
+        }
+    monkeypatch.setattr(voice_service, "process_voice", mock_process_voice)
     files = {"file": ("voice-input.wav", io.BytesIO(b"fake-wav"), "application/octet-stream")}
     response = client.post("/voice/transcribe", files=files)
     assert response.status_code == 200
-    assert response.json()["extracted_number"] == "15"
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["data"]["sold"] == 15

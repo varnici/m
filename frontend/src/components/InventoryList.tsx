@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { listInventory } from '../services/inventoryApi';
-import { InventoryRecord } from '../types/inventory';
+import { InventoryRecord } from '../types/voice-inventory';
 
 export default function InventoryList() {
   const [items, setItems] = useState<InventoryRecord[]>([]);

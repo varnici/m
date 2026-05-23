@@ -196,6 +196,10 @@ class VolumetricUnitEngine:
         try:
             total_vu = sum(retailers_vu.values())
             
+            # Check all retailers are included
+            if set(individual_shares.keys()) != set(retailers_vu.keys()):
+                return False, "Not all retailers included in shares"
+
             # Calculate expected total
             expected_total = fixed_trip_cost_kobo + (
                 handling_fee_kobo * len(retailers_vu)
@@ -217,10 +221,6 @@ class VolumetricUnitEngine:
             # Check for negative costs
             if any(cost < 0 for cost in individual_shares.values()):
                 return False, "Negative costs in distribution"
-            
-            # Check all retailers are included
-            if set(individual_shares.keys()) != set(retailers_vu.keys()):
-                return False, "Not all retailers included in shares"
             
             return True, "Distribution is valid"
             

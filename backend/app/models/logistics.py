@@ -148,7 +148,7 @@ class LogisticsRouteResponse(LogisticsRouteCreate):
 
 # ============================================================================
 # ROUTE MEMBER MODELS (CLUSTERING)
--- ============================================================================
+# ============================================================================
 
 class RouteMemberCreate(BaseModel):
     route_id: str
@@ -178,7 +178,7 @@ class RouteMemberResponse(RouteMemberCreate):
 
 # ============================================================================
 # WALLET FREEZE MODELS (ANTI-LEAKAGE)
--- ============================================================================
+# ============================================================================
 
 class WalletFreezeCreate(BaseModel):
     route_id: str
@@ -202,7 +202,7 @@ class WalletFreezeResponse(WalletFreezeCreate):
 
 # ============================================================================
 # QR CODE MODELS
--- ============================================================================
+# ============================================================================
 
 class QRCodeCreate(BaseModel):
     code_value: str
@@ -224,7 +224,7 @@ class QRCodeResponse(QRCodeCreate):
 
 # ============================================================================
 # QR HANDSHAKE MODELS (SECURITY AUDIT)
--- ============================================================================
+# ============================================================================
 
 class QRHandshakeCreate(BaseModel):
     qr_code_id: str
@@ -261,7 +261,7 @@ class QRHandshakeResponse(BaseModel):
 
 # ============================================================================
 # ANALYTICS MODELS (GOLD LAYER)
--- ============================================================================
+# ============================================================================
 
 class LogisticsAnalyticsResponse(BaseModel):
     id: str
@@ -282,7 +282,7 @@ class LogisticsAnalyticsResponse(BaseModel):
 
 # ============================================================================
 # COMPOSITE MODELS FOR API RESPONSES
--- ============================================================================
+# ============================================================================
 
 class RouteWithMembersResponse(LogisticsRouteResponse):
     """Route with all clustered members"""

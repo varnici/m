@@ -18,7 +18,7 @@ export function configureNotifications() {
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
-    }),
+    } as any),
   });
 
   // Handle notification responses
@@ -80,7 +80,7 @@ export async function scheduleDailyReminder(
         badge: 1,
         categoryIdentifier: 'BUDGET_BEST_REMINDER',
       },
-      trigger,
+      trigger: trigger as any,
     });
 
     // Store reminder mapping
@@ -113,7 +113,7 @@ export async function cancelReminder(goalId: string) {
     const reminder = reminders[goalId];
 
     if (reminder) {
-      await Notifications.cancelNotificationAsync(reminder.notificationId);
+      await Notifications.cancelScheduledNotificationAsync(reminder.notificationId);
       delete reminders[goalId];
       await AsyncStorage.setItem(
         DAILY_REMINDER_KEY,
@@ -173,7 +173,7 @@ export async function sendTestNotification() {
       sound: 'default',
       badge: 1,
     },
-    trigger: { seconds: 2 },
+    trigger: { seconds: 2 } as any,
   });
 }
 
@@ -205,7 +205,7 @@ export async function notifyMilestone(
       sound: 'default',
       badge: 1,
     },
-    trigger: { seconds: 1 },
+    trigger: { seconds: 1 } as any,
   });
 }
 
@@ -239,15 +239,15 @@ TaskManager.defineTask(
               sound: 'default',
               badge: 1,
             },
-            trigger: { seconds: 1 },
+            trigger: { seconds: 1 } as any,
           });
         }
       }
 
-      return TaskManager.TaskManagerTaskBody;
+      return (TaskManager as any).TaskManagerTaskBody || 0;
     } catch (err) {
       console.error('Error in background reminder task:', err);
-      return TaskManager.TaskManagerTaskBody;
+      return (TaskManager as any).TaskManagerTaskBody || 0;
     }
   }
 );
@@ -257,11 +257,16 @@ TaskManager.defineTask(
  */
 export async function startBackgroundReminders() {
   try {
-    await TaskManager.registerTaskAsync(NOTIFICATION_TASK_NAME, {
-      minimumInterval: 60, // Check every minute
-      stopOnTerminate: false,
-      startOnBoot: true,
-    });
+    const TM = TaskManager as any;
+    if (TM.registerTaskAsync) {
+      await TM.registerTaskAsync(NOTIFICATION_TASK_NAME, {
+        minimumInterval: 60, // Check every minute
+        stopOnTerminate: false,
+        startOnBoot: true,
+      });
+    } else {
+      console.warn('TaskManager.registerTaskAsync is not available on this platform');
+    }
   } catch (err) {
     console.error('Error starting background reminders:', err);
   }

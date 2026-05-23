@@ -13,7 +13,7 @@ export const colors = {
     dark: '#1A1A1A',
     // Industrial Monolith Tokens
     industrial: {
-      primary: '#88d982',
+      primary: '#059669',
       // Dynamic Variants
       light: {
         background: '#FFFFFF',

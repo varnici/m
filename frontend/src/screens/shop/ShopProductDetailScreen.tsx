@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   badgeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  categoryBadge: { backgroundColor: '#F0FDF4', px: 12, py: 6, borderRadius: 10 },
+  categoryBadge: { backgroundColor: '#F0FDF4', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
   categoryText: { color: '#16A34A', fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
   ratingBox: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   ratingText: { color: '#6B7280', fontSize: 13, fontWeight: '600' },

@@ -15,20 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { retailCategoriesData } from '@/data/retailCategories';
 import { colors } from '@/theme/colors';
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  category_id?: string;
-  cost_price_kobo: number;
-  selling_price_kobo: number;
-  minimum_stock_level: number;
-  quantity_on_hand: number;
-}
+import { Product } from '@/types/inventory';
 
 interface ProductItemProps {
   product: Product;
@@ -59,7 +46,8 @@ const getCategoryIcon = (categoryId?: string) => {
 };
 
 const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps) => {
-  const isLowStock = product.quantity_on_hand <= product.minimum_stock_level;
+  const quantityOnHand = product.quantity_on_hand ?? 0;
+  const isLowStock = quantityOnHand <= product.minimum_stock_level;
   const profitPerUnit = product.selling_price_kobo - product.cost_price_kobo;
   const profitPerUnitFormatted = `₦${(profitPerUnit / 100).toFixed(2)}`;
 
@@ -95,7 +83,7 @@ const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps
         </View>
 
         <View className="border-t border-gray-50 pt-2 items-center">
-          <Text style={[styles.statValue, { fontSize: 14 }]}>{product.quantity_on_hand} in stock</Text>
+          <Text style={[styles.statValue, { fontSize: 14 }]}>{quantityOnHand} in stock</Text>
           <Text style={[styles.statValueSuccess, { fontSize: 12, marginTop: 2 }]}>{profitPerUnitFormatted} profit</Text>
         </View>
 
@@ -147,7 +135,7 @@ const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps
         <View style={styles.statGroup}>
           <Text style={styles.statLabel}>Stock</Text>
           <Text style={[styles.statValue, isLowStock && styles.textError]}>
-            {product.quantity_on_hand}
+            {quantityOnHand}
           </Text>
         </View>
         
@@ -191,9 +179,9 @@ export const ProductListScreen = ({ navigation }: any) => {
 
   const renderItem = useCallback(
     ({ item }: { item: Product }) => (
-      <ProductItem product={item} onPress={handleProductPress} />
+      <ProductItem product={item} viewMode={viewMode} onPress={handleProductPress} />
     ),
-    [handleProductPress]
+    [handleProductPress, viewMode]
   );
 
   const keyExtractor = useCallback((item: Product) => item.id, []);

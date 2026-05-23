@@ -39,7 +39,6 @@ import RecordSaleScreen from '@/screens/sales/RecordSaleScreen';
 import ReceiptScreen from '@/screens/sales/ReceiptScreen';
 import InventoryReconciliationScreen from '@/screens/inventory/InventoryReconciliationScreen';
 import LowStockAlertsScreen from '@/screens/inventory/LowStockAlertsScreen';
-import FileClaimScreen from '@/screens/budget_best/FileClaimScreen';
 import BudgetBestDashboard from '@/screens/budget_best/BudgetBestDashboard';
 import BudgetBestDeposit from '@/screens/budget_best/BudgetBestDeposit';
 import BudgetBestGoals from '@/screens/budget_best/BudgetBestGoals';
@@ -67,6 +66,10 @@ import SettingsScreen from '@/screens/more/SettingsScreen';
 import ProfileScreen from '@/screens/more/ProfileScreen';
 import SecuritySettingsScreen from '@/screens/more/SecuritySettingsScreen';
 import VentureRouteScreen from '@/screens/VentureRouteScreen';
+import SupportScreen from '@/screens/more/SupportScreen';
+import NotificationsScreen from '@/screens/more/NotificationsScreen';
+import AccountDetailsScreen from '@/screens/more/AccountDetailsScreen';
+import TransactionHistoryScreen from '@/screens/wallet/TransactionHistoryScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -149,7 +152,8 @@ const RootNavigator = () => {
           <Stack.Screen name="RecordSale" component={RecordSaleScreen} />
           <Stack.Screen name="Receipt" component={ReceiptScreen} />
           <Stack.Screen name="InsuranceSummary" component={BudgetBestDashboard} />
-          <Stack.Screen name="FileClaim" component={FileClaimScreen} />
+          <Stack.Screen name="FileClaim" component={BudgetBestDashboard} />
+          <Stack.Screen name="ClaimHistory" component={BudgetBestDashboard} />
           <Stack.Screen name="BudgetBestDashboard" component={BudgetBestDashboard} />
           <Stack.Screen name="BudgetBestDeposit" component={BudgetBestDeposit} />
           <Stack.Screen name="BudgetBestGoals" component={BudgetBestGoals} />
@@ -183,6 +187,10 @@ const RootNavigator = () => {
           <Stack.Screen name="PINSetup" component={PINSetupScreen} />
           <Stack.Screen name="PatternSetup" component={PatternSetupScreen} />
           <Stack.Screen name="BiometricSetup" component={BiometricSetupScreen} />
+          <Stack.Screen name="Support" component={SupportScreen} />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} />
+          <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
         </>
       )}
     </Stack.Navigator>

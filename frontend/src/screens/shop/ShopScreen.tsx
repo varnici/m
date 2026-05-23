@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
+const TypedFlashList = FlashList as any;
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import {
   Search,
@@ -392,11 +393,11 @@ const ShopScreen = ({ navigation }: RootStackScreenProps<'Shop'>) => {
         </View>
       </View>
 
-      <FlashList
+      <TypedFlashList
         data={isLoading ? [1, 2, 3, 4, 5, 6] : products}
         numColumns={2}
         estimatedItemSize={300}
-        keyExtractor={(item: any, index) => isLoading ? `skeleton-${index}` : item.id}
+        keyExtractor={(item: any, index: number) => isLoading ? `skeleton-${index}` : item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         renderItem={isLoading ? () => <ProductSkeleton /> : renderProduct}
@@ -431,7 +432,7 @@ const ShopScreen = ({ navigation }: RootStackScreenProps<'Shop'>) => {
             </View>
 
             <View style={styles.categoriesWrapper}>
-              <FlashList
+              <TypedFlashList
                 data={categories}
                 horizontal
                 showsHorizontalScrollIndicator={false}

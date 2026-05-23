@@ -10,6 +10,9 @@ class ClusterParticipantOut(BaseModel):
     order_reference: str
     latitude: float
     longitude: float
+    status: str
+    share_kobo: int
+    volume_units: float
     joined_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

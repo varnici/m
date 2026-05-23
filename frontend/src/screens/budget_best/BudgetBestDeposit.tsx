@@ -128,10 +128,10 @@ const BudgetBestDeposit = ({ navigation, route }: any) => {
               >
                 <View className="flex-1">
                   <Text className="text-white font-semibold">
-                    {goal.goal_name}
+                    {goal.title}
                   </Text>
                   <Text className="text-white/60 text-xs mt-1">
-                    Current: ₦{goal.current_savings.toLocaleString()}
+                    Current: ₦{(goal.current_total_kobo / 100).toLocaleString()}
                   </Text>
                 </View>
                 {selectedGoal === goal.id && (

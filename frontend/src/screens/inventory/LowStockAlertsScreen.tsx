@@ -115,7 +115,7 @@ const LowStockAlertsScreen = ({
     const outOfStock: StockAlertItem[] = [];
     const lowStock: StockAlertItem[] = [];
 
-    (lowStockItems as StockAlertItem[]).forEach((item: StockAlertItem) => {
+    (lowStockItems as unknown as StockAlertItem[]).forEach((item: StockAlertItem) => {
       if (item.quantity_on_hand <= 0) {
         outOfStock.push(item);
       } else {
@@ -129,7 +129,7 @@ const LowStockAlertsScreen = ({
         a.quantity_on_hand - b.quantity_on_hand,
     );
 
-    return { outOfStock, lowStock, deadStock: deadStockItems as StockAlertItem[] };
+    return { outOfStock, lowStock, deadStock: deadStockItems as unknown as StockAlertItem[] };
   }, [lowStockItems, deadStockItems]);
 
   // ── Filtered list ─────────────────────────────────────────────

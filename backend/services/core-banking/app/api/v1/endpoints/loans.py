@@ -134,6 +134,9 @@ def repay(loan_id: str, payload: RepaymentCreate):
         loan = db.get(Loan, loan_id)
         if not loan:
             raise HTTPException(status_code=404, detail="Loan not found")
-        rep = apply_repayment(db, loan=loan, amount_kobo=payload.amount_kobo)
+        try:
+            rep = apply_repayment(db, loan=loan, amount_kobo=payload.amount_kobo)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         return rep
 

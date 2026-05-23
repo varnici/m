@@ -192,23 +192,27 @@ export async function getSummary(): Promise<InventorySummary> {
  *   "50 bags of rice, cost 500, selling at 700, customer is Emeka"
  *   "20 bottles of groundnut oil at 300 naira, sell for 450"
  */
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1];
+      resolve(base64);
+    };
+    reader.readAsDataURL(blob);
+  });
+};
+
 export async function uploadVoiceAndParse(
   file: Blob,
   fileName = 'voice-input.m4a'
 ): Promise<VoiceTranscribeResponse> {
-  const form = new FormData();
-  form.append('file', file, fileName);
+  const storeId = await getOrCreateStoreId();
+  const base64 = await blobToBase64(file);
+  const data = await inventoryService.processVoiceInput(base64, storeId);
 
-  const res = await fetch(`${VOICE_INVENTORY_API_URL}/voice/transcribe`, {
-    method: 'POST',
-    body: form,
-  });
-
-  if (!res.ok) {
-    const err = await res.text().catch(() => 'Unknown error');
-    throw new Error(`Voice upload failed: ${err}`);
-  }
-  const data = await res.json();
   if (!data.success || !data.data) {
     throw new Error(data.error || 'Voice parsing returned no inventory data');
   }
@@ -227,16 +231,13 @@ export async function uploadVoiceAndParse(
 export async function uploadVoice(
   file: Blob,
   fileName = 'voice-input.m4a'
-): Promise<{ text: string }> {
-  const form = new FormData();
-  form.append('file', file, fileName);
-
-  const res = await fetch(`${VOICE_INVENTORY_API_URL}/voice/transcribe`, {
-    method: 'POST',
-    body: form,
-  });
-
-  if (!res.ok) throw new Error('Voice upload failed');
-  const data = await res.json();
-  return { text: data.transcript || '' };
+): Promise<{ text: string; extracted_number?: string; field_type?: string }> {
+  const storeId = await getOrCreateStoreId();
+  const base64 = await blobToBase64(file);
+  const data = await inventoryService.processVoiceInput(base64, storeId);
+  return {
+    text: data.transcript || '',
+    extracted_number: data.data?.quantity?.toString(),
+    field_type: 'quantity',
+  };
 }

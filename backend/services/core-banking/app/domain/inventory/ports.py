@@ -13,6 +13,9 @@ class InventoryLedgerRepository(Protocol):
     def current_quantity(self, owner_id: str, product_id: str, store_id: str) -> int:
         ...
 
+    def get_balance(self, owner_id: str, product_id: str, store_id: str) -> int:
+        ...
+
 
 class InventoryIdempotencyStore(Protocol):
     def seen(self, owner_id: str, idempotency_key: str) -> bool:

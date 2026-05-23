@@ -53,18 +53,20 @@ const BudgetBestGoals = ({ navigation }: any) => {
 
   // Visual Bucket Breakdown - calculated from goals
   const getBuckets = (): Bucket[] => {
-    const total = goals.reduce((sum, g) => sum + g.target_amount, 0);
+    const total = goals.reduce((sum, g) => sum + (g.target_amount_kobo || 0) / 100, 0);
     if (total <= 0) return [];
     return goals.map((goal) => {
-      const percentage = (goal.target_amount / total) * 100;
-      const color = GOAL_TYPES.find((t) => t.value === goal.goal_type)?.color || '#10B981';
+      const targetAmount = (goal.target_amount_kobo || 0) / 100;
+      const percentage = (targetAmount / total) * 100;
+      const categoryValue = goal.category || 'custom';
+      const color = GOAL_TYPES.find((t) => t.value === categoryValue)?.color || '#10B981';
       return {
         id: goal.id,
-        name: goal.goal_name,
+        name: goal.title,
         percentage: percentage,
-        amount: goal.current_savings,
+        amount: (goal.current_total_kobo || 0) / 100,
         color,
-        icon: goal.goal_type,
+        icon: categoryValue,
       };
     });
   };
@@ -118,7 +120,7 @@ const BudgetBestGoals = ({ navigation }: any) => {
   };
 
   const buckets = useMemo(() => getBuckets(), [goals]);
-  const totalAmount = goals.reduce((sum, g) => sum + g.target_amount, 0);
+  const totalAmount = goals.reduce((sum, g) => sum + (g.target_amount_kobo || 0) / 100, 0);
 
   return (
     <SafeAreaView className="flex-1 bg-slate-950">
@@ -218,13 +220,16 @@ const BudgetBestGoals = ({ navigation }: any) => {
                 <ActivityIndicator color="#10B981" />
               </View>
             ) : goals.map((goal) => {
-              const goalType = GOAL_TYPES.find((t) => t.value === goal.goal_type);
-              const progress =
-                (goal.current_savings / goal.target_amount) * 100;
-              const daysLeft = Math.ceil(
-                (new Date(goal.deadline).getTime() - new Date().getTime()) /
+              const categoryValue = goal.category || 'custom';
+              const goalType = GOAL_TYPES.find((t) => t.value === categoryValue);
+              const currentSavings = (goal.current_total_kobo || 0) / 100;
+              const targetAmount = (goal.target_amount_kobo || 0) / 100;
+              const progress = goal.progress_percentage ?? ((currentSavings / (targetAmount || 1)) * 100);
+              const deadlineDate = goal.target_date || new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+              const daysLeft = Math.max(1, Math.ceil(
+                (new Date(deadlineDate).getTime() - new Date().getTime()) /
                   (1000 * 60 * 60 * 24)
-              );
+              ));
 
               return (
                 <View
@@ -239,11 +244,11 @@ const BudgetBestGoals = ({ navigation }: any) => {
                           style={{ backgroundColor: goalType?.color }}
                         />
                         <Text className="text-white font-semibold">
-                          {goal.goal_name}
+                          {goal.title}
                         </Text>
                       </View>
                       <Text className="text-white/60 text-xs">
-                        Target: ₦{goal.target_amount.toLocaleString()}
+                        Target: ₦{targetAmount.toLocaleString()}
                       </Text>
                     </View>
                     <TouchableOpacity

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StatusBar, Linking } from 'react-native';
 import {
   Bell,
   Home,
@@ -42,7 +42,7 @@ import { colors } from '@/theme/colors';
 
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import { dashboardService } from '@/services/dashboardService';
+import { dashboardService, DashboardData } from '@/services/dashboardService';
 
 // ─── Quick Access Grid Config ───────────────────────────────
 
@@ -114,12 +114,14 @@ const DashboardScreen = ({
   }
 
   // Fallback to empty/default if data is missing
-  const dashboard = data || {
-    user: { full_name: user?.email?.split('@')[0] || 'Guest', trust_level: 'Bronze' },
+  const dashboard: DashboardData = data || {
+    user: { id: user?.id || '', full_name: user?.email?.split('@')[0] || 'Guest', trust_level: 'Bronze' },
     wallet: { balance_kobo: 0, daily_change_kobo: 0, available_credit_kobo: 0, total_debt_kobo: 0 },
     recent_activity: [],
     market_ticker: [],
-    intelligence: []
+    intelligence: [],
+    sales_streak: { streak_days: 0, total_days: 7, points_earned: 0, next_reward_tier: 'Silver' },
+    community_stats: { total_members: 14400, active_discussions: 0, new_opportunities: 0 }
   };
 
   return (
@@ -163,6 +165,7 @@ const DashboardScreen = ({
                 accessibilityLabel="Notifications"
                 accessibilityRole="button"
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => navigation.navigate('Notifications')}
               >
                 <Bell size={22} color="white" />
                 <View className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 border border-ventureroot-green" />
@@ -335,43 +338,27 @@ const DashboardScreen = ({
           </ScrollView>
 
           {/* Intelligence Cards */}
-          {dashboard.intelligence.map((item, index) => (
-            <IntelligenceCard
-              key={index}
-              category={item.category}
-              source={item.source}
-              timeAgo={item.timeAgo}
-              headline={item.headline}
-              subtitle={item.subtitle}
-            />
-          ))}
+          {dashboard.intelligence
+            .filter((item) => item.category === activeIntelTab)
+            .map((item, index) => (
+              <IntelligenceCard
+                key={index}
+                category={item.category}
+                source={item.source}
+                timeAgo={item.timeAgo}
+                headline={item.headline}
+                subtitle={item.subtitle}
+                onPress={() => {
+                  if (item.url) {
+                    Linking.openURL(item.url).catch((err) =>
+                      console.error('Failed to open URL:', err)
+                    );
+                  }
+                }}
+              />
+            ))}
         </View>
 
-        {/* ═══ VR COMMUNITY ═══ */}
-        <View className="mb-4">
-          <View className="px-4 mb-3">
-            <Text className="text-gray-900 font-bold text-base">VR Community</Text>
-            <Text className="text-gray-400 text-xs mt-0.5">
-              Business · Finance · Entertainment · Networking
-            </Text>
-          </View>
-
-          <CommunityCard
-            platform="WhatsApp Business"
-            icon={<Text className="text-lg">💬</Text>}
-            description="Daily price alerts · Supplier deals · Trade tips"
-            memberCount={(dashboard.community_stats?.total_members || 14400).toLocaleString()}
-            isOfficial={true}
-            bgColor="#D1FAE5"
-          />
-          <CommunityCard
-            platform="Telegram"
-            icon={<Text className="text-lg">✈️</Text>}
-            description="Trade signals"
-            memberCount="5,700"
-            bgColor="#DBEAFE"
-          />
-        </View>
 
         {/* ═══ RECENT ACTIVITY ═══ */}
         <View className="mb-4 px-4">
@@ -381,6 +368,7 @@ const DashboardScreen = ({
               accessible={true}
               accessibilityLabel="View all activity"
               accessibilityRole="button"
+              onPress={() => navigation.navigate('TransactionHistory')}
             >
               <Text className="text-ventureroot-green text-xs font-medium">View All →</Text>
             </TouchableOpacity>
@@ -419,7 +407,8 @@ const DashboardScreen = ({
         {dashboard.wallet.total_debt_kobo > 0 && (
           <View className="mb-4">
             <RepaymentBanner 
-              amount={dashboard.wallet.repayment_amount_kobo / 100} 
+              amount={(dashboard.wallet.repayment_amount_kobo ?? 0) / 100} 
+              dueDate={dashboard.wallet.next_repayment_date || '--'}
               daysUntilDue={
                 dashboard.wallet.next_repayment_date 
                   ? Math.max(0, Math.ceil((new Date(dashboard.wallet.next_repayment_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))

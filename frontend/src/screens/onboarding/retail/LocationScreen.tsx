@@ -96,7 +96,7 @@ const LocationScreen = ({
               activeOpacity={0.7}
               className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${isPhysical ? 'bg-ventureroot-industrial-surfaceHigh shadow-lg' : ''}`}
             >
-              <Store size={18} color={isPhysical ? '#88d982' : '#94A3B8'} />
+              <Store size={18} color={isPhysical ? '#059669' : '#94A3B8'} />
               <Text className={`ml-2 text-[10px] font-black uppercase tracking-widest ${isPhysical ? 'text-ventureroot-industrial-primary' : 'text-slate-500'}`}>
                 Physical Store
               </Text>
@@ -107,7 +107,7 @@ const LocationScreen = ({
               activeOpacity={0.7}
               className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${!isPhysical ? 'bg-ventureroot-industrial-surfaceHigh shadow-lg' : ''}`}
             >
-              <Smartphone size={18} color={!isPhysical ? '#88d982' : '#94A3B8'} />
+              <Smartphone size={18} color={!isPhysical ? '#059669' : '#94A3B8'} />
               <Text className={`ml-2 text-[10px] font-black uppercase tracking-widest ${!isPhysical ? 'text-ventureroot-industrial-primary' : 'text-slate-500'}`}>
                 Online / Mobile
               </Text>

@@ -240,6 +240,21 @@ def update_reminder_settings(reminder_id: UUID, user_id: UUID, payload: Reminder
     return ReminderSettingsResponse(**res.data[0])
 
 
+def get_reminder_by_goal(goal_id: UUID, user_id: UUID) -> ReminderSettingsResponse | None:
+    """Get reminder settings for a specific goal."""
+    res = (
+        _client()
+        .table(REMINDERS_TABLE)
+        .select("*")
+        .eq("goal_id", str(goal_id))
+        .eq("user_id", str(user_id))
+        .execute()
+    )
+    if not res.data:
+        return None
+    return ReminderSettingsResponse(**res.data[0])
+
+
 def get_reminders_to_send() -> list[dict]:
     """Get all reminders that should be sent now."""
     now = datetime.now()
@@ -394,6 +409,42 @@ def get_auto_sweep(sweep_id: UUID, user_id: UUID) -> AutoSweepSettingsResponse |
     return AutoSweepSettingsResponse(**res.data[0])
 
 
+def get_auto_sweep_by_goal(goal_id: UUID, user_id: UUID) -> AutoSweepSettingsResponse | None:
+    """Get auto-sweep settings for a specific goal."""
+    res = (
+        _client()
+        .table(AUTO_SWEEP_TABLE)
+        .select("*")
+        .eq("goal_id", str(goal_id))
+        .eq("user_id", str(user_id))
+        .execute()
+    )
+    if not res.data:
+        return None
+    return AutoSweepSettingsResponse(**res.data[0])
+
+
+def update_auto_sweep(sweep_id: UUID, user_id: UUID, payload: AutoSweepSettingsUpdate) -> AutoSweepSettingsResponse | None:
+    """Update auto-sweep settings."""
+    data = payload.model_dump(exclude_none=True)
+    if "auto_save_amount" in data:
+        data["auto_save_amount"] = float(data["auto_save_amount"])
+    if "auto_save_time" in data:
+        data["auto_save_time"] = data["auto_save_time"].isoformat()
+    
+    res = (
+        _client()
+        .table(AUTO_SWEEP_TABLE)
+        .update(data)
+        .eq("id", str(sweep_id))
+        .eq("user_id", str(user_id))
+        .execute()
+    )
+    if not res.data:
+        return None
+    return AutoSweepSettingsResponse(**res.data[0])
+
+
 # ===================== BUDGET BUCKETS =====================
 
 def create_bucket(user_id: UUID, payload: BudgetBucketCreate) -> BudgetBucketResponse:
@@ -475,6 +526,7 @@ def get_savings_dashboard(user_id: UUID) -> SavingsDashboard:
         goals_progress=goals_progress,
         upcoming_deadlines=upcoming_deadlines[:5],  # Top 5
         buckets=buckets,
+        goals=goals,
     )
 
 

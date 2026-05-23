@@ -8,15 +8,15 @@ slowapi==0.1.9
 
 # Database & Storage
 sqlalchemy==2.0.19        # Fixed typo: was "sqqlalchemy"
-psycopg2-binary==2.9.6
+psycopg2-binary>=2.9.9
 redis==4.5.4
 supabase==2.7.4
 
 # AI, ML & NLP
 openai>=1.3.0             # Bumped for better 'proxies' handling
 faster-whisper==1.0.3
-spacy==3.7.4
-numpy==1.26.4
+spacy>=3.7.4
+numpy>=1.26.4
 soundfile==0.12.1
 
 # Task Scheduling & Background Jobs
