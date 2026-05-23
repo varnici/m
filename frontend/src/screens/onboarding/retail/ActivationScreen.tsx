@@ -69,7 +69,7 @@ const ActivationScreen = ({
         setTimeout(() => {
           navigation.reset({
             index: 0,
-            routes: [{ name: 'Dashboard' }],
+            routes: [{ name: 'Main' }],
           });
         }, 4500);
       } else {

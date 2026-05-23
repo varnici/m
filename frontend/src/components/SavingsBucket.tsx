@@ -1,101 +1,146 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors } from '../theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
 
-type SavingsBucketProps = {
-  name: string;
-  currentAmount: number;
-  targetAmount: number;
-  progressPercentage: number;
+export type SavingsBucketProps = {
+  // Stashed Props
+  title?: string;
+  category?: string;
+  progress?: number;
+  currency?: string;
+
+  // Upstream Props
+  name?: string;
+  progressPercentage?: number;
   color?: string;
   trustLabel?: string;
+
+  // Common Props
+  currentAmount: number;
+  targetAmount: number;
 };
 
-export default function SavingsBucket({
-  name,
+const SavingsBucket: React.FC<SavingsBucketProps> = ({
+  title,
+  category,
   currentAmount,
   targetAmount,
+  currency = '₦',
+  progress,
+  name,
   progressPercentage,
-  color = colors.ventureroot.green,
-  trustLabel = 'Principal Protected',
-}: SavingsBucketProps) {
+  color,
+  trustLabel,
+}) => {
+  const displayTitle = name || title || 'Savings';
+  const displayCategory = category || trustLabel || 'Principal Protected';
+  const displayProgress = progressPercentage !== undefined ? progressPercentage : (progress !== undefined ? progress : 0);
+  
+  // Format numbers to currency
+  const formatCurrency = (amount: number) => {
+    // Detect if amount is in kobo or normal Naira.
+    const isKobo = title !== undefined || progress !== undefined;
+    const finalAmount = isKobo ? amount / 100 : amount;
+    return `${currency}${finalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const barColors = color ? [color, color] : ['#004D2C', '#009D5C'];
+
   return (
-    <View style={styles.card}>
-      <View style={styles.topRow}>
-        <Text style={styles.name}>{name}</Text>
-        <Text style={styles.badge}>{trustLabel}</Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>{displayTitle}</Text>
+          <Text style={styles.category}>{displayCategory}</Text>
+        </View>
+        <View style={styles.amountContainer}>
+          <Text style={styles.currentAmount}>{formatCurrency(currentAmount)}</Text>
+          <Text style={styles.targetAmount}>of {formatCurrency(targetAmount)}</Text>
+        </View>
       </View>
-      <View style={styles.amountRow}>
-        <Text style={styles.amount}>N{currentAmount.toLocaleString()}</Text>
-        <Text style={styles.target}>/ N{targetAmount.toLocaleString()}</Text>
+
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBarBackground}>
+          <LinearGradient
+            colors={barColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.progressBarFill, { width: `${Math.min(100, displayProgress)}%` }]}
+          />
+        </View>
+        <Text style={styles.progressText}>{displayProgress.toFixed(1)}%</Text>
       </View>
-      <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width: `${Math.min(progressPercentage, 100)}%`, backgroundColor: color }]} />
-      </View>
-      <Text style={styles.progress}>{progressPercentage.toFixed(1)}% funded</Text>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.background.card,
-    borderRadius: 12,
+  container: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 3,
     borderWidth: 1,
-    borderColor: colors.border.light,
-    padding: 14,
-    marginBottom: 12,
+    borderColor: '#F1F5F9',
   },
-  topRow: {
+  header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
   },
-  name: {
-    color: colors.text.primary,
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  category: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  amountContainer: {
+    alignItems: 'flex-end',
+  },
+  currentAmount: {
     fontSize: 16,
     fontWeight: '700',
+    color: '#004D2C',
   },
-  badge: {
-    color: colors.ventureroot.green,
-    borderColor: colors.ventureroot.green,
-    borderWidth: 1,
-    borderRadius: 999,
-    fontSize: 11,
-    fontWeight: '600',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  amountRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: 10,
-  },
-  amount: {
-    fontSize: 18,
-    color: colors.text.primary,
-    fontWeight: '700',
-  },
-  target: {
-    marginLeft: 6,
-    color: colors.text.secondary,
-    fontSize: 13,
-  },
-  barTrack: {
-    marginTop: 10,
-    height: 10,
-    borderRadius: 999,
-    overflow: 'hidden',
-    backgroundColor: '#E5E7EB',
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 999,
-  },
-  progress: {
-    marginTop: 8,
-    color: colors.text.secondary,
+  targetAmount: {
     fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  progressBarBackground: {
+    flex: 1,
+    height: 10,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  progressText: {
+    fontSize: 14,
     fontWeight: '600',
+    color: '#1E293B',
+    width: 45,
+    textAlign: 'right',
   },
 });
+
+export default SavingsBucket;

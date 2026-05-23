@@ -1,63 +1,91 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Vibration, TouchableOpacity } from 'react-native';
-import { IndustrialPage, IndustrialText, useIndustrialTheme } from '../../components/ui/IndustrialComponents';
-import { colors } from '../../theme/colors';
-import { useSecurityStore } from '../../store/securityStore';
-import { NumericKeypad } from '../../components/security/NumericKeypad';
-import { PatternGrid } from '../../components/security/PatternGrid';
-import * as LocalAuthentication from 'expo-local-authentication';
-import { Shield, Fingerprint, Lock, Grid } from 'lucide-react-native';
-import type { RootStackScreenProps } from '@/navigation/types';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  StatusBar,
+  TouchableOpacity,
+  Vibration,
+  Platform,
+} from 'react-native';
+import { BlurView } from 'expo-blur';
+import Animated, { 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withSpring, 
+  withSequence,
+  withTiming,
+  interpolate,
+  Extrapolate
+} from 'react-native-reanimated';
+import { Lock, Fingerprint, ShieldAlert, ShieldCheck } from 'lucide-react-native';
+import { useSecurityStore } from '@/store/securityStore';
 import { userService } from '@/services/userService';
+import { colors } from '@/theme/colors';
+import { IndustrialText, IndustrialPage } from '@/components/ui/IndustrialComponents';
+import { NumericKeypad } from '@/components/security/NumericKeypad';
+import { PatternGrid } from '@/components/security/PatternGrid';
+import * as LocalAuthentication from 'expo-local-authentication';
+import type { RootStackScreenProps } from '@/navigation/types';
 
 const SecurityLockScreen = ({ navigation }: RootStackScreenProps<'SecurityLock'>) => {
-  const { 
-    securityType, 
-    biometricsEnabled, 
-    setIsLocked 
-  } = useSecurityStore();
-
+  const { setIsLocked, securityType, biometricsEnabled } = useSecurityStore();
   const [input, setInput] = useState('');
-  const [error, setError] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const theme = useIndustrialTheme();
-
-  const handleSuccess = useCallback(() => {
-    Vibration.vibrate(50);
-    setIsLocked(false);
-    // Navigation usually handled by a wrapper, but if we are here as a screen:
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
-  }, [navigation, setIsLocked]);
-
-  const handleBiometrics = async () => {
-    if (biometricsEnabled) {
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock VentureRoot',
-        fallbackLabel: 'Use ' + (securityType === 'pin' ? 'PIN' : 'Pattern'),
-      });
-      if (result.success) {
-        handleSuccess();
-      }
-    }
-  };
+  const [error, setError] = useState(false);
+  
+  // Animation values
+  const shakeOffset = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(0);
 
   useEffect(() => {
-    handleBiometrics();
+    opacity.value = withTiming(1, { duration: 800 });
+    if (biometricsEnabled) {
+      handleBiometrics();
+    }
   }, []);
 
-  const handlePinPress = (val: string) => {
-    if (isVerifying) {
-      return;
-    }
-    if (input.length < 6) {
-      const newInput = input + val;
-      setInput(newInput);
+  const triggerError = () => {
+    setError(true);
+    Vibration.vibrate([0, 50, 100, 50]);
+    shakeOffset.value = withSequence(
+      withTiming(-10, { duration: 50 }),
+      withTiming(10, { duration: 50 }),
+      withTiming(-10, { duration: 50 }),
+      withTiming(10, { duration: 50 }),
+      withTiming(0, { duration: 50 })
+    );
+    scale.value = withSequence(
+      withTiming(1.05, { duration: 100 }),
+      withSpring(1)
+    );
+    setTimeout(() => {
       setError(false);
+      setInput('');
+    }, 1500);
+  };
+
+  const handleSuccess = () => {
+    Vibration.vibrate(10);
+    scale.value = withTiming(0.9, { duration: 200 });
+    opacity.value = withTiming(0, { duration: 300 });
+    setTimeout(() => {
+      setIsLocked(false);
+    }, 300);
+  };
+
+  const handleBiometrics = async () => {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+    
+    if (hasHardware && isEnrolled) {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Authenticate to unlock VentureRoot',
+        fallbackLabel: 'Use PIN/Pattern',
+      });
       
-      if (newInput.length === 6) {
-        void verifyPin(newInput);
+      if (result.success) {
+        handleSuccess();
       }
     }
   };
@@ -69,125 +97,124 @@ const SecurityLockScreen = ({ navigation }: RootStackScreenProps<'SecurityLock'>
       if (result.valid) {
         handleSuccess();
       } else {
-        setError(true);
-        Vibration.vibrate(200);
-        setTimeout(() => setInput(''), 500);
+        triggerError();
       }
-    } catch {
-      setError(true);
-      Vibration.vibrate(200);
-      setTimeout(() => setInput(''), 500);
+    } catch (err) {
+      triggerError();
     } finally {
       setIsVerifying(false);
     }
   };
 
   const handlePatternComplete = async (pattern: number[]) => {
-    if (isVerifying) {
+    if (pattern.length < 4) {
+      triggerError();
       return;
     }
+    
     try {
       setIsVerifying(true);
       const result = await userService.verifySecurity({ pattern: pattern.join(',') });
       if (result.valid) {
         handleSuccess();
       } else {
-        setError(true);
-        Vibration.vibrate(200);
-        setTimeout(() => setError(false), 1000);
+        triggerError();
       }
-    } catch {
-      setError(true);
-      Vibration.vibrate(200);
-      setTimeout(() => setError(false), 1000);
+    } catch (err) {
+      triggerError();
     } finally {
       setIsVerifying(false);
     }
   };
 
-  const renderContent = () => {
-    if (securityType === 'pin') {
-      return (
-        <View style={styles.content}>
-          <IndustrialText variant="h2" style={styles.title}>ENTER PIN</IndustrialText>
-          <View style={styles.pinIndicators}>
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <View 
-                key={i} 
-                style={[
-                  styles.pinDot,
-                  { 
-                    backgroundColor: input.length >= i 
-                      ? (error ? '#FF4B4B' : colors.ventureroot.industrial.primary) 
-                      : (theme.outline + '40') 
-                  }
-                ]} 
-              />
-            ))}
-          </View>
-          <NumericKeypad 
-            onPress={handlePinPress} 
-            onDelete={() => !isVerifying && setInput(input.slice(0, -1))} 
-          />
-          {isVerifying && (
-            <IndustrialText variant="label" style={{ marginTop: 16, opacity: 0.6, letterSpacing: 1 }}>
-              VERIFYING...
-            </IndustrialText>
-          )}
-        </View>
-      );
-    }
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }, { translateX: shakeOffset.value }],
+  }));
 
-    if (securityType === 'pattern') {
-      return (
-        <View style={styles.content}>
-          <IndustrialText variant="h2" style={styles.title}>DRAW PATTERN</IndustrialText>
-          <PatternGrid onComplete={handlePatternComplete} error={error} />
-          {error && (
-            <IndustrialText variant="label" style={styles.errorText}>
-              INCORRECT PATTERN
-            </IndustrialText>
-          )}
-          {isVerifying && (
-            <IndustrialText variant="label" style={{ marginTop: 16, opacity: 0.6, letterSpacing: 1 }}>
-              VERIFYING...
-            </IndustrialText>
-          )}
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.content}>
-        <IndustrialText>No security set.</IndustrialText>
-        <TouchableOpacity onPress={() => setIsLocked(false)}>
-          <IndustrialText style={{ color: colors.ventureroot.industrial.primary, marginTop: 20 }}>
-            BYPASS (DEV ONLY)
-          </IndustrialText>
-        </TouchableOpacity>
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <View style={[styles.lockIcon, error && styles.lockIconError]}>
+        {error ? (
+          <ShieldAlert size={32} color="#FF4B4B" />
+        ) : (
+          <Lock size={32} color={colors.ventureroot.industrial.primary} />
+        )}
       </View>
-    );
-  };
+      <IndustrialText variant="h1" style={styles.title}>
+        {error ? 'ACCESS DENIED' : 'SECURE ACCESS'}
+      </IndustrialText>
+      <IndustrialText style={styles.subtitle}>
+        {securityType === 'pin' 
+          ? 'Enter your 6-digit PIN to proceed' 
+          : 'Draw your security pattern'}
+      </IndustrialText>
+    </View>
+  );
+
+  const renderPinDots = () => (
+    <View style={styles.dotsContainer}>
+      {[...Array(6)].map((_, i) => (
+        <View 
+          key={i} 
+          style={[
+            styles.dot, 
+            i < input.length && styles.dotFilled,
+            error && styles.dotError
+          ]} 
+        />
+      ))}
+    </View>
+  );
 
   return (
     <IndustrialPage>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.shieldBox}>
-            <Shield size={32} color={colors.ventureroot.industrial.primary} />
-          </View>
-          <IndustrialText variant="label" style={styles.brand}>VENTUREROOT SECURE</IndustrialText>
+      <StatusBar barStyle="light-content" />
+      <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+      
+      <Animated.View style={[styles.container, containerStyle]}>
+        {renderHeader()}
+
+        <View style={styles.content}>
+          {securityType === 'pin' ? (
+            <>
+              {renderPinDots()}
+              <NumericKeypad 
+                onPress={(val) => {
+                  if (input.length < 6 && !isVerifying) {
+                    const next = input + val;
+                    setInput(next);
+                    if (next.length === 6) verifyPin(next);
+                  }
+                }}
+                onDelete={() => !isVerifying && setInput(input.slice(0, -1))}
+              />
+            </>
+          ) : (
+            <PatternGrid 
+              onComplete={handlePatternComplete} 
+              error={error}
+            />
+          )}
         </View>
 
-        {renderContent()}
-
         {biometricsEnabled && (
-          <TouchableOpacity style={styles.biometricBtn} onPress={handleBiometrics}>
+          <TouchableOpacity 
+            style={styles.bioButton} 
+            onPress={handleBiometrics}
+          >
             <Fingerprint size={32} color={colors.ventureroot.industrial.primary} />
-            <IndustrialText variant="label" style={styles.biometricText}>TAP TO USE BIOMETRICS</IndustrialText>
+            <IndustrialText style={styles.bioText}>Use Biometrics</IndustrialText>
           </TouchableOpacity>
         )}
-      </View>
+
+        <View style={styles.footer}>
+          <ShieldCheck size={16} color="rgba(255,255,255,0.3)" />
+          <IndustrialText style={styles.footerText}>
+            VENTUREROOT END-TO-END ENCRYPTED
+          </IndustrialText>
+        </View>
+      </Animated.View>
     </IndustrialPage>
   );
 };
@@ -195,60 +222,82 @@ const SecurityLockScreen = ({ navigation }: RootStackScreenProps<'SecurityLock'>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 32,
-    paddingTop: 40,
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 60,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginTop: 20,
   },
-  shieldBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(22, 163, 74, 0.1)',
+  lockIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  brand: {
-    letterSpacing: 2,
-    opacity: 0.6,
-  },
-  content: {
-    flex: 1,
-    width: '100%',
-    alignItems: 'center',
+  lockIconError: {
+    borderColor: '#FF4B4B',
+    backgroundColor: 'rgba(255, 75, 75, 0.1)',
   },
   title: {
-    marginBottom: 40,
-    letterSpacing: 2,
+    fontSize: 24,
+    letterSpacing: 4,
+    marginBottom: 8,
   },
-  pinIndicators: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 60,
-  },
-  pinDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-  errorText: {
-    color: '#FF4B4B',
-    marginTop: 20,
-    letterSpacing: 2,
-  },
-  biometricBtn: {
-    padding: 20,
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 20,
-  },
-  biometricText: {
-    fontSize: 8,
+  subtitle: {
     opacity: 0.5,
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+  content: {
+    alignItems: 'center',
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 40,
+  },
+  dot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  dotFilled: {
+    backgroundColor: colors.ventureroot.industrial.primary,
+    borderColor: colors.ventureroot.industrial.primary,
+    transform: [{ scale: 1.2 }],
+  },
+  dotError: {
+    borderColor: '#FF4B4B',
+    backgroundColor: '#FF4B4B',
+  },
+  bioButton: {
+    alignItems: 'center',
+    gap: 10,
+    alignSelf: 'center',
+  },
+  bioText: {
+    fontSize: 10,
+    opacity: 0.6,
+    letterSpacing: 2,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    opacity: 0.4,
+  },
+  footerText: {
+    fontSize: 9,
+    letterSpacing: 1.5,
   },
 });
 

@@ -171,6 +171,46 @@ const ReceiptScreen = ({ navigation, route }: RootStackScreenProps<'Receipt'>) =
           </View>
         </ViewShot>
 
+        {/* Smart Savings Suggestion Hook */}
+        {sale.savings_suggestion && (
+          <View className="mt-8 bg-emerald-600 rounded-[32px] p-6 shadow-xl shadow-emerald-900/20 overflow-hidden">
+            <View className="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-white/10 rounded-full" />
+            
+            <View className="flex-row items-center gap-3 mb-4">
+              <View className="bg-white/20 p-2 rounded-xl">
+                <CheckCircle2 color="white" size={24} />
+              </View>
+              <Text className="text-white text-lg font-black">{sale.savings_suggestion.title}</Text>
+            </View>
+
+            <Text className="text-white/90 text-sm font-medium leading-5 mb-6">
+              {sale.savings_suggestion.message}
+            </Text>
+
+            <TouchableOpacity 
+              onPress={() => {
+                // In a real app, this would trigger a quick-deposit flow
+                navigation.navigate('BudgetBestDeposit', { 
+                  goalId: sale.savings_suggestion.goal_id,
+                  amount: sale.savings_suggestion.suggested_amount_kobo / 100
+                });
+              }}
+              className="bg-white py-4 rounded-2xl items-center shadow-sm"
+            >
+              <Text className="text-emerald-700 font-black uppercase tracking-widest">
+                Save ₦{(sale.savings_suggestion.suggested_amount_kobo / 100).toLocaleString()} Now
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              onPress={() => {}}
+              className="mt-4 items-center"
+            >
+              <Text className="text-white/60 text-xs font-bold uppercase tracking-widest">Maybe Later</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
       </ScrollView>
 
       {/* Floating Action Buttons */}

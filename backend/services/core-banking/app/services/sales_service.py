@@ -20,6 +20,16 @@ from app.schemas.inventory_schemas import (
     StockReservationAction,
 )
 from app.services.stock_service import StockService
+from app.services.savings_service import SavingsService
+from app.schemas.inventory_schemas import (
+    SalesTransactionCreate,
+    SalesTransactionUpdate,
+    SalesTransactionOut,
+    SalesTransactionItemCreate,
+    StockReservationCreate,
+    StockReservationAction,
+    SavingsSuggestion
+)
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +134,20 @@ class SalesService:
             self.db.commit()
             self.db.refresh(transaction)
             
-            return self.get_sales_transaction_by_id(transaction.id)
+            # 5. Fetch Smart Savings Suggestion
+            savings_service = SavingsService(self.db, self.owner_id)
+            suggestion = savings_service.suggest_savings(transaction.total_amount_kobo)
+            
+            response = self.get_sales_transaction_by_id(transaction.id)
+            if suggestion:
+                response.savings_suggestion = SavingsSuggestion(
+                    title=suggestion["title"],
+                    message=suggestion["message"],
+                    suggested_amount_kobo=suggestion["suggested_amount_kobo"],
+                    goal_id=suggestion.get("goal_id")
+                )
+            
+            return response
 
         except ValueError as exc:
             self.db.rollback()

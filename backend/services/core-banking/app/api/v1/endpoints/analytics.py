@@ -44,3 +44,26 @@ def get_supplier_performance(
     """Get reliability and performance scores for suppliers."""
     service = AnalyticsService(db, str(current_user.id))
     return service.get_supplier_performance()
+
+@router.get("/velocity", response_model=List[Dict[str, Any]])
+def get_sales_velocity(
+    days: int = Query(30, gt=0),
+    db: Session = Depends(deps.get_db),
+    current_user = Depends(deps.get_current_active_user),
+):
+    """
+    Sales Velocity Pipeline: Calculate units moved per day per category.
+    """
+    service = AnalyticsService(db, str(current_user.id))
+    return service.calculate_sales_velocity(days)
+
+@router.get("/market-insights", response_model=List[Dict[str, Any]])
+def get_market_insights(
+    db: Session = Depends(deps.get_db),
+    current_user = Depends(deps.get_current_active_user),
+):
+    """
+    B2B Data Pipeline: Anonymized aggregation of real-time shelf data for manufacturers.
+    """
+    service = AnalyticsService(db, str(current_user.id))
+    return service.get_market_insights()

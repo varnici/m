@@ -710,6 +710,12 @@ class ReconciliationResult(BaseModel):
     status: str
     timestamp: datetime
 
+class SavingsSuggestion(BaseModel):
+    title: str
+    message: str
+    suggested_amount_kobo: int
+    goal_id: Optional[str] = None
+
 class SalesTransactionOut(BaseModel):
     id: str
     owner_id: str
@@ -732,8 +738,6 @@ class SalesTransactionOut(BaseModel):
     notes: Optional[str]
     transaction_date: datetime
     items: List[SalesTransactionItemOut]
+    savings_suggestion: Optional[SavingsSuggestion] = None
 
     model_config = ConfigDict(from_attributes=True)
-        
-
-

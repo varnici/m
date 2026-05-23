@@ -14,6 +14,7 @@ from app.models.inventory_domain import (
     DomainOutboxMessageModel,
     InventoryReservationModel,
 )
+from app.models.savings import SavingsGoal, SavingsTransaction, SavingsStreak
 from app.models.artisan import Artisan, ArtisanBooking, ArtisanRating
 from app.models.transport import DriverProfile, TransportBooking, BookingTrackingPoint
 from app.models.credit_score import CreditScore
@@ -33,10 +34,10 @@ __all__ = [
     "Store", "Category", "Supplier", "StockLevel", "StockMovement",
     "PurchaseOrder", "PurchaseOrderItem", "SalesTransaction", "SalesTransactionItem", "InventorySnapshot",
     "InventoryLedgerEntryModel", "InventoryIdempotencyKeyModel", "DomainOutboxMessageModel", "InventoryReservationModel",
+    "SavingsGoal", "SavingsTransaction", "SavingsStreak",
     "Artisan", "ArtisanBooking", "ArtisanRating", "DriverProfile",
     "TransportBooking", "BookingTrackingPoint", "CreditScore", "SalesMetrics",
     "InventoryMetrics", "LoanMetrics", "LoanApplication", "LoanRepaymentSchedule",
     "LoanTransaction", "Notification", "Message", "SupportTicket",
     "ClusterDelivery", "ClusterParticipant"
 ]
-

@@ -112,7 +112,6 @@ export type RootStackParamList = {
   ContractViewer: undefined;
   SalesHistory: undefined;
   SalesVelocity: undefined;
-  ClaimHistory: undefined;
   CreditDashboard: undefined;
   ClusterPickup: undefined;
   PoolDetail: { poolId: number };

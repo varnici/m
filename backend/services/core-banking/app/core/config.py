@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     env: str = "dev"
     log_level: str = "info"
 
+    supabase_url: str = ""
+    supabase_service_key: str = ""
+    api_secret_key: str = "dev_api_secret"
+
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_db: str = "ventureroot"
@@ -32,9 +36,9 @@ class Settings(BaseSettings):
     )
     cors_allow_credentials: bool = True
 
-    auth_auto_sync_users: bool = False
+    auth_auto_sync_users: bool = True
 
-    jwt_secret: str = ""
+    jwt_secret: str = "dev_secret_only_for_local_use"
     jwt_algorithm: str = "HS256"
 
     @field_validator("cors_origins", mode="before")
@@ -65,4 +69,3 @@ def sqlalchemy_url() -> str:
         f"postgresql+psycopg2://{settings.postgres_user}:{settings.postgres_password}"
         f"@{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"
     )
-

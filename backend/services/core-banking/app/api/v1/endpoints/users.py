@@ -62,25 +62,23 @@ def update_current_user(payload: UserUpdate, user_id: str = Depends(get_current_
 
 @router.patch("/me/security", response_model=UserOut)
 def update_security(payload: SecurityUpdate, user_id: str = Depends(get_current_user_id)):
+    """Update security settings (PIN, Pattern, etc.)."""
     with db_session() as db:
         user = db.get(User, user_id)
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail="User_NOT_FOUND")
         
         if payload.security_type:
             user.security_type = payload.security_type
             
         if payload.new_pin:
-            # Use Argon2 for PIN hashing (Enterprise-Hardened)
             user.hashed_pin = security_service.hash_secret(payload.new_pin)
             
         if payload.new_pattern:
-            # Use Argon2 for Pattern hashing
             user.hashed_pattern = security_service.hash_secret(payload.new_pattern)
             
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        # db_session context manager will commit on exit
         return user
 
 
@@ -88,31 +86,29 @@ def update_security(payload: SecurityUpdate, user_id: str = Depends(get_current_
 @limiter.limit("10/minute")
 def verify_security(
     request: Request,
-    payload: Dict[str, str], # {"pin": "..."} or {"pattern": "..."}
+    payload: Dict[str, str],
     user_id: str = Depends(get_current_user_id)
 ):
     """Verify PIN or Pattern for application lock screen."""
     with db_session() as db:
         user = db.get(User, user_id)
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail="USER_NOT_FOUND")
         
         pin = payload.get("pin")
         pattern = payload.get("pattern")
         
         if pin:
             if not user.hashed_pin:
-                raise HTTPException(status_code=400, detail="PIN not set")
-            is_valid = security_service.verify_secret(user.hashed_pin, pin)
-            return {"valid": is_valid}
+                raise HTTPException(status_code=400, detail="PIN_NOT_CONFIGURED")
+            return {"valid": security_service.verify_secret(user.hashed_pin, pin)}
             
         if pattern:
             if not user.hashed_pattern:
-                raise HTTPException(status_code=400, detail="Pattern not set")
-            is_valid = security_service.verify_secret(user.hashed_pattern, pattern)
-            return {"valid": is_valid}
+                raise HTTPException(status_code=400, detail="PATTERN_NOT_CONFIGURED")
+            return {"valid": security_service.verify_secret(user.hashed_pattern, pattern)}
             
-        raise HTTPException(status_code=400, detail="PIN or Pattern required")
+        raise HTTPException(status_code=400, detail="INVALID_PAYLOAD")
 
 
 @router.get("/{user_id}", response_model=UserOut)

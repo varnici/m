@@ -385,3 +385,71 @@ class AnalyticsService:
         # In a more granular implementation, we'd filter by product/store in SQL
         result = self.db.execute(query, {"owner_id": self.owner_id, "days": days}).scalar()
         return float(result or 0.0)
+
+    def calculate_sales_velocity(self, days: int = 30) -> List[Dict[str, Any]]:
+        """
+        Sales Velocity Algorithm: Velocity = Total Sales / Time (per product category).
+        """
+        query = text("""
+            SELECT 
+                c.name as category_name,
+                COALESCE(SUM(sti.quantity_sold), 0) as total_units_sold,
+                COALESCE(SUM(sti.line_total_kobo), 0) as total_revenue_kobo
+            FROM categories c
+            LEFT JOIN products p ON c.id = p.category_id
+            LEFT JOIN sales_transaction_items sti ON p.id = sti.product_id
+            LEFT JOIN sales_transactions st ON sti.sale_id = st.id
+            WHERE c.owner_id = :owner_id 
+            AND (st.transaction_date >= NOW() - CAST(:days || ' days' AS INTERVAL) OR st.transaction_date IS NULL)
+            GROUP BY c.id, c.name
+        """)
+        
+        results = self.db.execute(query, {"owner_id": self.owner_id, "days": days}).fetchall()
+        
+        velocity_data = []
+        for r in results:
+            units_sold = r[1]
+            revenue = r[2]
+            # Velocity = Units / Days
+            velocity = units_sold / days
+            velocity_data.append({
+                "category": r[0],
+                "total_units": units_sold,
+                "total_revenue_kobo": revenue,
+                "velocity_units_per_day": round(velocity, 2)
+            })
+            
+        return velocity_data
+
+    def get_market_insights(self) -> List[Dict[str, Any]]:
+        """
+        Manufacturer Data Export: Anonymized aggregation of real-time shelf data.
+        Example: "Coca-Cola is moving 20% faster in Lagos Mainland than Island"
+        (Simulated aggregation for Lagos regions based on store locations).
+        """
+        query = text("""
+            SELECT 
+                p.name,
+                s.city,
+                COALESCE(SUM(sti.quantity_sold), 0) as total_sold,
+                AVG(EXTRACT(EPOCH FROM (st.transaction_date - p.created_at))) as shelf_life_avg
+            FROM products p
+            JOIN sales_transaction_items sti ON p.id = sti.product_id
+            JOIN sales_transactions st ON sti.sale_id = st.id
+            JOIN stores s ON st.store_id = s.id
+            WHERE p.is_active = TRUE
+            GROUP BY p.name, s.city
+            ORDER BY total_sold DESC
+        """)
+        
+        results = self.db.execute(query).fetchall()
+        
+        return [
+            {
+                "product_name": r[0],
+                "region": r[1],
+                "units_moved": r[2],
+                "velocity_index": round(float(r[2]) / 30, 2) # Normalized to 30 days
+            }
+            for r in results
+        ]

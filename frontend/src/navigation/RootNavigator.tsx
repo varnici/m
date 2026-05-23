@@ -10,6 +10,7 @@ import { colors } from '@/theme/colors';
 import PINSetupScreen from '@/screens/auth/PINSetupScreen';
 import PatternSetupScreen from '@/screens/auth/PatternSetupScreen';
 import BiometricSetupScreen from '@/screens/auth/BiometricSetupScreen';
+import LoanDashboardScreen from '@/screens/loans/LoanDashboardScreen';
 
 // Navigators
 import AuthNavigator from './AuthNavigator';
@@ -49,12 +50,11 @@ import RepaymentScreen from '@/screens/wallet/RepaymentScreen';
 import WithdrawalScreen from '@/screens/wallet/WithdrawalScreen';
 import SavingsGoalsScreen from '@/screens/wallet/SavingsGoalsScreen';
 import WalletScreen from '@/screens/wallet/WalletScreen';
-import LoanDashboardScreen from '@/screens/loans/LoanDashboardScreen';
 import ApplyLoanScreen from '@/screens/loans/ApplyLoanScreen';
 import ContractViewerScreen from '@/screens/loans/ContractViewerScreen';
 import SalesHistoryScreen from '@/screens/sales/SalesHistoryScreen';
 import SalesVelocityScreen from '@/screens/sales/SalesVelocityScreen';
-import ClaimHistoryScreen from '@/screens/budget_best/ClaimHistoryScreen';
+
 import CreditDashboardScreen from '@/screens/credit/CreditDashboardScreen';
 import ClusterPickupScreen from '@/screens/pools/ClusterPickupScreen';
 import PoolDetailScreen from '@/screens/pools/PoolDetailScreen';
@@ -165,7 +165,7 @@ const RootNavigator = () => {
           <Stack.Screen name="ContractViewer" component={ContractViewerScreen} />
           <Stack.Screen name="SalesHistory" component={SalesHistoryScreen} />
           <Stack.Screen name="SalesVelocity" component={SalesVelocityScreen} />
-          <Stack.Screen name="ClaimHistory" component={ClaimHistoryScreen} />
+
           <Stack.Screen name="CreditDashboard" component={CreditDashboardScreen} />
           <Stack.Screen name="ClusterPickup" component={ClusterPickupScreen} />
           <Stack.Screen name="PoolDetail" component={PoolDetailScreen} />

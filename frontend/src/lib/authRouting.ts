@@ -38,7 +38,7 @@ export const resolveAuthSnapshot = async (): Promise<AuthSnapshot> => {
   // Determine route based on existing data
   let nextRoute: keyof RootStackParamList = 'RoleSelection';
   if (business?.onboarding_completed_at) {
-    nextRoute = 'Dashboard';
+    nextRoute = 'Main';
   } else if (business) {
     // If business exists but onboarding not done, maybe redirect to a specific step?
     // For now, keep it simple

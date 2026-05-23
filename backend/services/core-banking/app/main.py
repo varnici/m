@@ -16,7 +16,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="VentureRoot Core Banking", version="0.1.0")
+app = FastAPI(title="VentureRoot Core Banking", version="0.1.0", debug=True)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
@@ -46,6 +46,7 @@ async def attach_request_id(request: Request, call_next):
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.tasks.daily_inventory_rollup import run_daily_inventory_rollup
+from app.tasks.savings_tasks import run_auto_sweep_process
 
 @app.on_event("startup")
 def _startup() -> None:
@@ -55,6 +56,8 @@ def _startup() -> None:
     scheduler = BackgroundScheduler()
     # Run the daily inventory rollup at 00:30 every day
     scheduler.add_job(run_daily_inventory_rollup, 'cron', hour=0, minute=30)
+    # Run the savings auto-sweep at 08:00 every day
+    scheduler.add_job(run_auto_sweep_process, 'cron', hour=8, minute=0)
     scheduler.start()
     
     # Optional: Run immediately on startup for testing if needed

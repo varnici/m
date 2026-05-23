@@ -1,23 +1,22 @@
-import React, { useState } from 'react';
-import { Alert, View, TouchableOpacity, StatusBar, useColorScheme } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import type { RootStackScreenProps } from '@/navigation/types';
-import { Delete, ShieldCheck, FingerprintPattern, Lock, ArrowRight } from 'lucide-react-native';
-import { colors } from '../../theme/colors';
-import { IndustrialPage, IndustrialText, useIndustrialTheme } from '../../components/ui/IndustrialComponents';
-import { useSecurityStore } from '@/store/securityStore';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, StatusBar, Vibration, Alert } from 'react-native';
+import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import { ShieldCheck, ShieldAlert, Lock } from 'lucide-react-native';
+import { IndustrialPage, IndustrialText, IndustrialButton } from '@/components/ui/IndustrialComponents';
 import { NumericKeypad } from '@/components/security/NumericKeypad';
+import { colors } from '@/theme/colors';
+import { useSecurityStore } from '@/store/securityStore';
 import { userService } from '@/services/userService';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { CommonActions } from '@react-navigation/native';
 
 const PINSetupScreen = ({ navigation }: RootStackScreenProps<'PINSetup'>) => {
   const { setSecurityType, setIsLocked } = useSecurityStore();
   const [pin, setPin] = useState('');
+  const [firstPin, setFirstPin] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [firstPin, setFirstPin] = useState('');
-  const [error, setError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const theme = useIndustrialTheme();
-  const isDark = useColorScheme() === 'dark';
+  const [error, setError] = useState(false);
 
   const persistPin = async (nextPin: string) => {
     try {
@@ -28,134 +27,104 @@ const PINSetupScreen = ({ navigation }: RootStackScreenProps<'PINSetup'>) => {
       });
       setSecurityType('pin');
       setIsLocked(false);
-      setTimeout(() => navigation.navigate('OnboardingTerms'), 500);
-    } catch {
-      setError(true);
-      setPin('');
-      setConfirming(false);
-      setFirstPin('');
-      Alert.alert('Security setup failed', 'Unable to save PIN right now. Please try again.');
+      
+      Vibration.vibrate([0, 100, 50, 100]);
+      
+      // Determine next navigation based on context
+      // If we are in the root stack and not logged in or onboarding not finished
+      // For now, let's assume we proceed to onboarding if it's the first setup
+      setTimeout(() => {
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+           navigation.dispatch(
+             CommonActions.reset({
+               index: 0,
+               routes: [{ name: 'Onboarding', params: { screen: 'OnboardingTerms' } }],
+             })
+           );
+        }
+      }, 800);
+    } catch (error: any) {
+      Alert.alert('Setup Failed', error.message || 'Could not save your PIN. Please try again.');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handlePress = (val: string) => {
-    if (isSaving) {
-      return;
-    }
     if (pin.length < 6) {
-      const newPin = pin + val;
-      setPin(newPin);
+      const next = pin + val;
+      setPin(next);
       setError(false);
-      
-      if (newPin.length === 6) {
+
+      if (next.length === 6) {
         if (!confirming) {
-          // Transition to confirmation mode
+          setFirstPin(next);
+          // Small delay so user sees the 6th dot fill up
           setTimeout(() => {
-            setFirstPin(newPin);
             setPin('');
             setConfirming(true);
+            Vibration.vibrate(50);
           }, 300);
         } else {
-          // Check if matches
-          if (newPin === firstPin) {
-             // Save hashed PIN on backend and proceed
-             void persistPin(newPin);
+          if (next === firstPin) {
+            void persistPin(next);
           } else {
-             // Error - Reset confirmation
-             setError(true);
-             setTimeout(() => {
-               setPin('');
-             }, 800);
+            setError(true);
+            Vibration.vibrate([0, 50, 100, 50]);
+            setPin('');
+            setTimeout(() => setError(false), 1500);
           }
         }
       }
     }
   };
 
-  const handleDelete = () => {
-    if (isSaving) {
-      return;
-    }
-    setPin(pin.slice(0, -1));
-    setError(false);
-  };
-
   return (
     <IndustrialPage>
-      <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: 60 }}>
-        
-        {/* Header */}
-        <View style={{ alignItems: 'flex-start', marginBottom: 60 }}>
-          <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, letterSpacing: 4, marginBottom: 8 }}>
-            SECURITY SETUP
+      <StatusBar barStyle="light-content" />
+      <View style={styles.container}>
+        <Animated.View entering={FadeIn.duration(600)} style={styles.header}>
+          <View style={[styles.iconBox, error && styles.iconBoxError]}>
+            {error ? <ShieldAlert size={32} color="#FF4B4B" /> : <Lock size={32} color={colors.ventureroot.industrial.primary} />}
+          </View>
+          <IndustrialText variant="h1" style={styles.title}>
+            {confirming ? 'CONFIRM PIN' : 'CREATE PIN'}
           </IndustrialText>
-          <IndustrialText variant="h1" style={{ fontSize: 42, lineHeight: 48 }}>
-            {confirming ? 'CONFIRM\nYOUR PIN' : 'CREATE\nACCESS PIN'}
+          <IndustrialText style={styles.subtitle}>
+            {error 
+              ? 'PINs do not match. Try again.' 
+              : confirming 
+                ? 'Re-enter your 6-digit PIN to verify' 
+                : 'Set a secure 6-digit PIN for your account'}
           </IndustrialText>
-          <View style={{ width: 40, height: 4, backgroundColor: colors.ventureroot.industrial.primary, marginTop: 24 }} />
-          
-          <IndustrialText style={{ marginTop: 20, opacity: 0.4, fontSize: 13, lineHeight: 20 }}>
-            Create a 6-digit PIN to secure your account and authorize transactions.
-          </IndustrialText>
-        </View>
+        </Animated.View>
 
-        {/* PIN Indicators */}
-        <View style={{ alignItems: 'center', marginBottom: 60 }}>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            {[1, 2, 3, 4, 5, 6].map((i) => (
+        <View style={styles.content}>
+          <View style={styles.dotsContainer}>
+            {[...Array(6)].map((_, i) => (
               <View 
                 key={i} 
-                style={{ 
-                  width: 20, 
-                  height: 20, 
-                  borderWidth: 1,
-                  borderColor: pin.length >= i ? colors.ventureroot.industrial.primary : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
-                  backgroundColor: pin.length >= i 
-                    ? colors.ventureroot.industrial.primary 
-                    : 'transparent',
-                  borderRadius: 4,
-                }} 
+                style={[
+                  styles.dot, 
+                  i < pin.length && styles.dotFilled,
+                  error && styles.dotError
+                ]} 
               />
             ))}
           </View>
-          
-          {confirming && !error && (
-            <View style={{ marginTop: 32, backgroundColor: 'rgba(39, 174, 96, 0.1)', paddingVertical: 8, paddingHorizontal: 16 }}>
-              <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, fontSize: 9, letterSpacing: 2 }}>
-                PLEASE RE-ENTER YOUR PIN
-              </IndustrialText>
-            </View>
-          )}
-          
-          {error && (
-            <View style={{ marginTop: 32, backgroundColor: 'rgba(255, 75, 75, 0.1)', paddingVertical: 8, paddingHorizontal: 16 }}>
-              <IndustrialText variant="label" style={{ color: '#FF4B4B', fontSize: 9, letterSpacing: 2 }}>
-                PINS DO NOT MATCH. TRY AGAIN.
-              </IndustrialText>
-            </View>
-          )}
 
-          {isSaving && (
-            <View style={{ marginTop: 32, backgroundColor: 'rgba(39, 174, 96, 0.1)', paddingVertical: 8, paddingHorizontal: 16 }}>
-              <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, fontSize: 9, letterSpacing: 2 }}>
-                SAVING SECURITY SETTINGS...
-              </IndustrialText>
-            </View>
-          )}
+          <NumericKeypad 
+            onPress={handlePress} 
+            onDelete={() => setPin(pin.slice(0, -1))}
+          />
         </View>
 
-        {/* Numeric Keypad */}
-        <View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: 40 }}>
-          <NumericKeypad onPress={handlePress} onDelete={handleDelete} />
-        </View>
-
-        {/* Footer */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, opacity: 0.3 }}>
-          <ShieldCheck size={12} color={colors.ventureroot.industrial.primary} />
-          <IndustrialText variant="label" style={{ fontSize: 8, marginLeft: 8, letterSpacing: 1 }}>
-            SECURED BY VENTUREROOT
+        <View style={styles.footer}>
+          <ShieldCheck size={14} color="rgba(255,255,255,0.3)" />
+          <IndustrialText style={styles.footerText}>
+            MILITARY-GRADE ENCRYPTION ACTIVE
           </IndustrialText>
         </View>
       </View>
@@ -163,6 +132,77 @@ const PINSetupScreen = ({ navigation }: RootStackScreenProps<'PINSetup'>) => {
   );
 };
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingVertical: 60,
+  },
+  header: {
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  iconBox: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  iconBoxError: {
+    borderColor: '#FF4B4B',
+    backgroundColor: 'rgba(255, 75, 75, 0.1)',
+  },
+  title: {
+    fontSize: 22,
+    letterSpacing: 4,
+    marginBottom: 8,
+  },
+  subtitle: {
+    textAlign: 'center',
+    opacity: 0.5,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  content: {
+    alignItems: 'center',
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 50,
+  },
+  dot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  dotFilled: {
+    backgroundColor: colors.ventureroot.industrial.primary,
+    borderColor: colors.ventureroot.industrial.primary,
+    transform: [{ scale: 1.2 }],
+  },
+  dotError: {
+    borderColor: '#FF4B4B',
+    backgroundColor: '#FF4B4B',
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    opacity: 0.3,
+  },
+  footerText: {
+    fontSize: 8,
+    letterSpacing: 2,
+  },
+});
+
 export default PINSetupScreen;
-
-
