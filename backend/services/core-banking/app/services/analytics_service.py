@@ -29,17 +29,17 @@ class AnalyticsService:
 
     def get_dashboard_summary(self) -> Dict[str, Any]:
         """Get high-level dashboard summary using standalone SQL functions."""
-        # 1. Total Inventory Value
-        total_val = self.db.execute(
-            text("SELECT total_inventory_value(:owner_id)"),
-            {"owner_id": self.owner_id}
-        ).scalar() or 0
-
-        # Fallback if SQL function returns 0
-        if total_val == 0:
+        # 1. Total Inventory Value (prefer SQL function; fallback to aggregate on failure)
+        try:
+            total_val = self.db.execute(
+                text("SELECT public.total_inventory_value(CAST(:owner_id AS varchar))"),
+                {"owner_id": self.owner_id}
+            ).scalar() or 0
+        except Exception as e:
+            logger.warning("total_inventory_value function call failed: %s; falling back to aggregate", e)
             total_val = self.db.execute(
                 text("""
-                    SELECT SUM(sl.quantity_on_hand * p.cost_price_kobo)
+                    SELECT COALESCE(SUM(sl.quantity_on_hand * p.cost_price_kobo), 0)
                     FROM stock_levels sl
                     JOIN products p ON sl.product_id = p.id
                     WHERE p.owner_id = :owner_id
@@ -48,22 +48,34 @@ class AnalyticsService:
             ).scalar() or 0
 
         # 2. Turnover Ratio
-        turnover = self.db.execute(
-            text("SELECT inventory_turnover(:owner_id, 30)"),
-            {"owner_id": self.owner_id}
-        ).scalar() or 0
+        try:
+            turnover = self.db.execute(
+                text("SELECT public.inventory_turnover(CAST(:owner_id AS varchar), 30)"),
+                {"owner_id": self.owner_id}
+            ).scalar() or 0
+        except Exception as e:
+            logger.warning("inventory_turnover function call failed: %s; defaulting to 0", e)
+            turnover = 0
 
         # 3. Best Sellers
-        best_sellers = self.db.execute(
-            text("SELECT * FROM best_selling_products(:owner_id, 5)"),
-            {"owner_id": self.owner_id}
-        ).fetchall()
+        try:
+            best_sellers = self.db.execute(
+                text("SELECT * FROM public.best_selling_products(CAST(:owner_id AS varchar), 5)"),
+                {"owner_id": self.owner_id}
+            ).fetchall()
+        except Exception as e:
+            logger.warning("best_selling_products function call failed: %s; returning empty list", e)
+            best_sellers = []
 
         # 4. Dead Stock Count
-        dead_stock = self.db.execute(
-            text("SELECT COUNT(*) FROM dead_stock_detection(:owner_id, 90)"),
-            {"owner_id": self.owner_id}
-        ).scalar() or 0
+        try:
+            dead_stock = self.db.execute(
+                text("SELECT COUNT(*) FROM public.dead_stock_detection(CAST(:owner_id AS varchar), 90)"),
+                {"owner_id": self.owner_id}
+            ).scalar() or 0
+        except Exception as e:
+            logger.warning("dead_stock_detection function call failed: %s; defaulting to 0", e)
+            dead_stock = 0
 
         # 5. Total Revenue & Profit (Last 30 days)
         revenue = self.db.execute(
