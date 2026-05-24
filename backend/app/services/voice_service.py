@@ -36,8 +36,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-import aiofiles
 import httpx
+
+try:
+    import aiofiles
+except ImportError:  # pragma: no cover - fallback for lean local test envs
+    aiofiles = None
 
 logger = logging.getLogger(__name__)
 
@@ -100,12 +104,8 @@ def load_spacy():
         try:
             nlp = spacy.load("en_core_web_sm")
         except OSError:
-            import subprocess, sys
-            subprocess.run(
-                [sys.executable, "-m", "spacy", "download", "en_core_web_sm"],
-                check=True, capture_output=True, timeout=120,
-            )
-            nlp = spacy.load("en_core_web_sm")
+            logger.warning("spaCy model en_core_web_sm is not installed")
+            return None
 
         # Nigerian commerce entity patterns
         ruler = nlp.add_pipe("entity_ruler", before="ner", name="nigerian_ruler")
@@ -665,8 +665,11 @@ async def transcribe_bytes(
     trace  = str(uuid.uuid4())[:8]
     tmp    = TEMP_DIR / f"mapvo_{trace}_{int(time.time())}{suffix}"
 
-    async with aiofiles.open(tmp, "wb") as f:
-        await f.write(audio_bytes)
+    if aiofiles is not None:
+        async with aiofiles.open(tmp, "wb") as f:
+            await f.write(audio_bytes)
+    else:
+        await asyncio.to_thread(tmp.write_bytes, audio_bytes)
 
     try:
         loop   = asyncio.get_event_loop()

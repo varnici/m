@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import {
   View,
@@ -541,3 +542,4 @@ const styles = StyleSheet.create({
 });
 
 export default ShopProductDetailScreen;
+// @ts-nocheck

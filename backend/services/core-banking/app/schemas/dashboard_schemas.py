@@ -1,45 +1,18 @@
+"""Dashboard and metrics schemas."""
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import List, Optional
+from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
 
-from pydantic import BaseModel, Field
 
-
-# Dashboard Summary Schemas
-class UserProfile(BaseModel):
+class CreditScoreOut(BaseModel):
+    """Response schema for credit score."""
     id: str
-    phone: str
-    email: Optional[str]
-    full_name: Optional[str]
-    category: str
-    business_name: Optional[str]
-    trading_name: Optional[str]
-    ownership_type: Optional[str]
-    registration_status: Optional[str]
-    trust_level: str
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class WalletState(BaseModel):
-    balance_kobo: int
-    credit_limit_kobo: Optional[int]
-    available_credit_kobo: Optional[int]
-    total_debt_kobo: int
-    next_repayment_date: Optional[datetime]
-    repayment_amount_kobo: Optional[int]
-
-    class Config:
-        from_attributes = True
-
-
-class CreditScoreDetail(BaseModel):
+    user_id: str
     score: int
     risk_level: str
-    factors: List[dict]
+    factors: List[Dict[str, Any]]
     calculated_at: datetime
     expires_at: datetime
 
@@ -47,6 +20,7 @@ class CreditScoreDetail(BaseModel):
         from_attributes = True
 
 
+<<<<<<< HEAD
 class SalesMetricsSummary(BaseModel):
     total_sales_kobo: int
     transaction_count: int
@@ -125,7 +99,10 @@ class SalesMetricsOut(BaseModel):
 
 
 # Inventory Metrics Schemas
+=======
+>>>>>>> 28426ae5 (ai asistance ui and update)
 class InventoryMetricsOut(BaseModel):
+    """Response schema for inventory metrics."""
     id: str
     user_id: str
     date: date
@@ -133,15 +110,30 @@ class InventoryMetricsOut(BaseModel):
     low_stock_items: int
     out_of_stock_items: int
     inventory_turnover_ratio: float
-    top_selling_items: List[dict]
+    top_selling_items: List[Dict[str, Any]]
     created_at: datetime
 
     class Config:
         from_attributes = True
 
 
-# Loan Metrics Schemas
+class SalesMetricsOut(BaseModel):
+    """Response schema for sales metrics."""
+    id: str
+    user_id: str
+    date: date
+    total_sales_kobo: int
+    transaction_count: int
+    average_transaction_kobo: int
+    top_products: List[Dict[str, Any]]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class LoanMetricsOut(BaseModel):
+    """Response schema for loan metrics."""
     id: str
     user_id: str
     date: date
@@ -156,15 +148,15 @@ class LoanMetricsOut(BaseModel):
         from_attributes = True
 
 
-# Credit Score Schemas
-class CreditScoreOut(BaseModel):
-    id: str
+class DashboardSummary(BaseModel):
+    """Complete dashboard summary for a user."""
     user_id: str
-    score: int
-    risk_level: str
-    factors: List[dict]
-    calculated_at: datetime
-    expires_at: datetime
-
+    wallet_balance_kobo: int
+    credit_score: Optional[CreditScoreOut]
+    today_sales_kobo: int
+    active_loans_count: int
+    outstanding_kobo: int
+    inventory_health: Optional[InventoryMetricsOut]
+    
     class Config:
         from_attributes = True

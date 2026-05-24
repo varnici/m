@@ -3,9 +3,10 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
 import logging
+import os
 
 from app.middleware.security import register_middleware
-from app.routers import inventory, voice, budget_best, savings, logistics
+from app.routers import inventory, voice, budget_best, savings, logistics, proxy
 from app.services.savings_service import start_auto_sweep_scheduler, stop_auto_sweep_scheduler
 from app.config import get_settings
 
@@ -41,10 +42,11 @@ async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
     logger.info("Starting Inventory API...")
 
-    # Warm up ASR + NLP models in thread pool (non-blocking)
-    import asyncio
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _warmup_voice_model)
+    if os.getenv("VOICE_WARMUP", "false").lower() == "true":
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+        app.state.voice_warmup_future = loop.run_in_executor(None, _warmup_voice_model)
 
     # Start savings auto-sweep scheduler
     start_auto_sweep_scheduler()
@@ -74,6 +76,7 @@ app.include_router(voice.router)
 app.include_router(budget_best.router)
 app.include_router(savings.router)
 app.include_router(logistics.router)
+app.include_router(proxy.router)  # Proxy to core-banking and other services
 
 
 @app.get("/health", tags=["Health"])

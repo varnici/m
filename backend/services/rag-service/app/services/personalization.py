@@ -1,19 +1,31 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 from pydantic import BaseModel
-import google.generativeai as genai
-from supabase import create_client, Client
 from app.core.config import settings
+from app.models.schemas import (
+    BusinessEntity,
+    BusinessRelation,
+    BusinessSnapshot,
+    DocumentInput,
+    IngestRequest,
+    Modality,
+    MultimodalPart,
+    QueryRequest,
+)
+from app.services.rag_engine import engine
 
-# Initialize clients
-genai.configure(api_key=settings.google_api_key)
-supabase: Optional[Client] = None
+supabase: Optional[Any] = None
 if settings.supabase_url.startswith(("http://", "https://")):
-    supabase = create_client(settings.supabase_url, settings.supabase_key)
+    try:
+        from supabase import create_client
+
+        supabase = create_client(settings.supabase_url, settings.supabase_key)
+    except Exception:
+        supabase = None
 
 class InventoryItem(BaseModel):
     name: str
     category: str
-    metadata: Optional[dict] = {}
+    metadata: Optional[dict[str, Any]] = {}
 
 class PersonalizationRequest(BaseModel):
     user_id: str
@@ -26,48 +38,87 @@ class RecommendationResponse(BaseModel):
 
 def store_inventory_embeddings(req: PersonalizationRequest):
     """
-    Generates embeddings for shop items and stores them in Supabase pgvector.
+    Indexes shop inventory as tenant-scoped RAG documents and graph entities.
     """
-    for item in req.items:
-        # Generate embedding using Google Generative AI
-        # model: models/embedding-001
-        content = f"Product: {item.name}, Category: {item.category}"
-        embedding = genai.embed_content(
-            model="models/embedding-001",
-            content=content,
-            task_type="retrieval_document"
+    documents: list[DocumentInput] = []
+    entities: list[BusinessEntity] = []
+    relations: list[BusinessRelation] = []
+
+    shop_entity_id = f"shop:{req.shop_id}"
+    entities.append(
+        BusinessEntity(
+            entity_id=shop_entity_id,
+            entity_type="store",
+            name=f"Shop {req.shop_id}",
+            attributes={"user_id": req.user_id},
         )
-        
-        # Store in Supabase
-        # table: shop_inventory_vectors (assumed to exist with 'embedding' vector column)
-        data = {
-            "user_id": req.user_id,
-            "shop_id": req.shop_id,
-            "product_name": item.name,
-            "category": item.category,
-            "embedding": embedding['embedding'],
-            "metadata": item.metadata
-        }
-        
-        # In this skeleton, we assume the Supabase client is configured.
-        # supabase.table("shop_inventory_vectors").insert(data).execute()
-        pass
+    )
+    for item in req.items:
+        product_id = f"product:{req.shop_id}:{item.name.lower().replace(' ', '-')}"
+        metadata = item.metadata or {}
+        entities.append(
+            BusinessEntity(
+                entity_id=product_id,
+                entity_type="product",
+                name=item.name,
+                attributes={"category": item.category, **metadata},
+            )
+        )
+        relations.append(
+            BusinessRelation(
+                source_id=shop_entity_id,
+                target_id=product_id,
+                relation_type="stocks",
+                weight=float(metadata.get("sales_velocity", 1) or 1),
+                metadata=metadata,
+            )
+        )
+        documents.append(
+            DocumentInput(
+                tenant_id=req.user_id,
+                user_id=req.user_id,
+                shop_id=req.shop_id,
+                title=f"Inventory item: {item.name}",
+                parts=[
+                    MultimodalPart(
+                        modality=Modality.text,
+                        content=f"Product: {item.name}\nCategory: {item.category}\nMetadata: {metadata}",
+                    )
+                ],
+                source_uri="inventory/personalize",
+                metadata={"category": item.category, **metadata},
+            )
+        )
+
+    return engine.ingest(
+        IngestRequest(
+            documents=documents,
+            business_snapshot=BusinessSnapshot(
+                user_id=req.user_id,
+                shop_id=req.shop_id,
+                entities=entities,
+                relations=relations,
+                source="inventory/personalize",
+            ),
+        )
+    )
 
 def get_personalized_suggestions(user_id: str, shop_id: str, query: str) -> RecommendationResponse:
     """
     Retrieves relevant inventory context based on past shop logs.
     """
-    # 1. Embed query
-    query_embedding = genai.embed_content(
-        model="models/embedding-001",
-        content=query,
-        task_type="retrieval_query"
-    )['embedding']
-    
-    # 2. Vector search in Supabase
-    # supabase.rpc('match_inventory', {'query_embedding': query_embedding, ...}).execute()
-    
+    response = engine.answer(
+        QueryRequest(
+            tenant_id=user_id,
+            user_id=user_id,
+            shop_id=shop_id,
+            message=query,
+        )
+    )
+    suggestions = [action.title for action in response.recommended_actions]
+    if not suggestions:
+        suggestions = [citation.title for citation in response.citations[:3]]
     return RecommendationResponse(
-        suggested_inventory=["Personalized Item A", "Personalized Item B"],
-        context_reason=f"Retrieved based on similarity search for '{query}'"
+        suggested_inventory=suggestions,
+        context_reason=response.answer,
     )

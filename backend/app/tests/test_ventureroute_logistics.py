@@ -478,9 +478,15 @@ class TestVolumetricUnitEngine:
             assert float(fill) == expected_fill
 
 
+<<<<<<< HEAD
     # ========================================================================
     # INTEGRATION TEST SUITE
     # ========================================================================
+=======
+# ========================================================================
+# INTEGRATION TEST SUITE
+# ========================================================================
+>>>>>>> 28426ae5 (ai asistance ui and update)
 
 class TestVentureRouteIntegration:
     """Integration tests for complete VentureRoute workflow"""

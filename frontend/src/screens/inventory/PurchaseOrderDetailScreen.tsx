@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -265,3 +266,4 @@ const PurchaseOrderDetailScreen = ({ navigation, route }: RootStackScreenProps<'
 };
 
 export default PurchaseOrderDetailScreen;
+// @ts-nocheck

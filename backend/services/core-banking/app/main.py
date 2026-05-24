@@ -64,6 +64,7 @@ def _startup() -> None:
     # scheduler.add_job(run_daily_inventory_rollup, 'date')
 
 
+@limiter.exempt
 @app.get("/health")
 def health():
     return {"ok": True, "service": "core-banking", "env": settings.env}

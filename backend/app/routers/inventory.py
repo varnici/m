@@ -1,13 +1,19 @@
 """Inventory CRUD endpoints."""
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.models.inventory import (
+<<<<<<< HEAD
     InventoryCreate, InventoryUpdate, InventoryRecord, SummaryResponse
+=======
+    InventoryCreate,
+    InventoryUpdate,
+    InventoryRecord,
+    SummaryResponse,
+>>>>>>> 28426ae5 (ai asistance ui and update)
 )
 from app.services import inventory_service as svc
 from app.middleware.security import limiter
-from fastapi import Request
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 

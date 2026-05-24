@@ -1,6 +1,8 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { Database } from '@/types/database.types';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 export interface ApiConfig {
   baseURL: string;
@@ -15,7 +17,7 @@ export class BaseService {
     this.supabase = supabase as any;
 
     this.config = {
-      baseURL: process.env.EXPO_PUBLIC_API_URL!,
+      baseURL: resolveApiBaseUrl(),
       timeout: 30000,
     };
   }
@@ -75,9 +77,34 @@ export class BaseService {
     } catch (error: any) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        throw new Error('Request timed out');
+        throw new Error(`Request timed out while connecting to ${this.config.baseURL}`);
+      }
+      if (error.message === 'Network request failed') {
+        throw new Error(
+          `Network request failed. Tried ${this.config.baseURL}. Check that the backend is running and EXPO_PUBLIC_API_URL points to your computer LAN IP, not localhost.`
+        );
       }
       throw error;
     }
   }
+}
+
+function resolveApiBaseUrl(): string {
+  const configured = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (configured) return configured.replace(/\/+$/, '');
+
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:8080';
+  }
+
+  const debuggerHost =
+    (Constants.expoConfig?.hostUri || (Constants as any).manifest?.debuggerHost || '')
+      .split(':')[0]
+      .trim();
+
+  if (debuggerHost) {
+    return `http://${debuggerHost}:8080`;
+  }
+
+  return 'http://localhost:8080';
 }

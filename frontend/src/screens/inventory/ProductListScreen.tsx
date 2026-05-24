@@ -9,13 +9,24 @@ import {
   ActivityIndicator,
   ScrollView,
   Image,
+  RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useProducts } from '@/hooks/useInventory';
 import { Ionicons } from '@expo/vector-icons';
 import { retailCategoriesData } from '@/data/retailCategories';
 import { colors } from '@/theme/colors';
+import type { Product as InventoryProduct } from '@/types/inventory';
 
+<<<<<<< HEAD
 import { Product } from '@/types/inventory';
+=======
+// ============================================================================
+// TYPES
+// ============================================================================
+
+type Product = InventoryProduct;
+>>>>>>> 28426ae5 (ai asistance ui and update)
 
 interface ProductItemProps {
   product: Product;
@@ -46,10 +57,23 @@ const getCategoryIcon = (categoryId?: string) => {
 };
 
 const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps) => {
+<<<<<<< HEAD
   const quantityOnHand = product.quantity_on_hand ?? 0;
   const isLowStock = quantityOnHand <= product.minimum_stock_level;
+=======
+  const quantityOnHand = product.total_quantity_on_hand ?? product.quantity_on_hand ?? 0;
+  const reservedQuantity = product.total_reserved_quantity ?? 0;
+  const availableQuantity = Math.max(0, quantityOnHand - reservedQuantity);
+  const isOutOfStock = availableQuantity <= 0;
+  const isLowStock = !isOutOfStock && availableQuantity <= product.minimum_stock_level;
+>>>>>>> 28426ae5 (ai asistance ui and update)
   const profitPerUnit = product.selling_price_kobo - product.cost_price_kobo;
-  const profitPerUnitFormatted = `₦${(profitPerUnit / 100).toFixed(2)}`;
+  const margin =
+    product.selling_price_kobo > 0
+      ? Math.round((profitPerUnit / product.selling_price_kobo) * 100)
+      : 0;
+  const stockLabel = isOutOfStock ? 'Out of stock' : isLowStock ? 'Low stock' : 'Healthy';
+  const stockColor = isOutOfStock ? '#DC2626' : isLowStock ? '#D97706' : '#047857';
 
   // Find category icon
   const category = getCategoryIcon(product.category_id);
@@ -82,14 +106,20 @@ const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps
           <Text style={[styles.productName, { textAlign: 'center' }]} numberOfLines={2}>{product.name}</Text>
         </View>
 
+<<<<<<< HEAD
         <View className="border-t border-gray-50 pt-2 items-center">
           <Text style={[styles.statValue, { fontSize: 14 }]}>{quantityOnHand} in stock</Text>
           <Text style={[styles.statValueSuccess, { fontSize: 12, marginTop: 2 }]}>{profitPerUnitFormatted} profit</Text>
+=======
+        <View style={styles.gridMetrics}>
+          <Text style={[styles.statValue, { fontSize: 14 }]}>{availableQuantity} available</Text>
+          <Text style={[styles.statValueSuccess, { fontSize: 12, marginTop: 2 }]}>{margin}% margin</Text>
+>>>>>>> 28426ae5 (ai asistance ui and update)
         </View>
 
-        {isLowStock && (
-          <View style={[styles.lowStockBadge, { position: 'absolute', top: 8, right: 8, marginLeft: 0 }]}>
-            <Text style={[styles.lowStockText, { fontSize: 10 }]}>Low</Text>
+        {(isLowStock || isOutOfStock) && (
+          <View style={[styles.lowStockBadge, { position: 'absolute', top: 8, right: 8, marginLeft: 0, backgroundColor: isOutOfStock ? '#FEF2F2' : '#FFFBEB' }]}>
+            <Text style={[styles.lowStockText, { fontSize: 10, color: stockColor }]}>{isOutOfStock ? 'Out' : 'Low'}</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -124,24 +154,31 @@ const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps
           <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
           <Text style={styles.skuText}>SKU: {product.sku}</Text>
         </View>
-        {isLowStock && (
-          <View style={styles.lowStockBadge}>
-            <Text style={styles.lowStockText}>Low Stock</Text>
-          </View>
-        )}
+        <View style={[styles.statusPill, { backgroundColor: isOutOfStock ? '#FEF2F2' : isLowStock ? '#FFFBEB' : '#ECFDF5' }]}>
+          <Text style={[styles.statusText, { color: stockColor }]}>{stockLabel}</Text>
+        </View>
       </View>
       
       <View style={styles.cardFooter}>
         <View style={styles.statGroup}>
-          <Text style={styles.statLabel}>Stock</Text>
+          <Text style={styles.statLabel}>Available</Text>
           <Text style={[styles.statValue, isLowStock && styles.textError]}>
+<<<<<<< HEAD
             {quantityOnHand}
+=======
+            {availableQuantity}
+>>>>>>> 28426ae5 (ai asistance ui and update)
           </Text>
         </View>
         
         <View style={styles.statGroup}>
-          <Text style={styles.statLabel}>Profit/Unit</Text>
-          <Text style={styles.statValueSuccess}>{profitPerUnitFormatted}</Text>
+          <Text style={styles.statLabel}>Reserved</Text>
+          <Text style={styles.statValue}>{reservedQuantity}</Text>
+        </View>
+        
+        <View style={styles.statGroup}>
+          <Text style={styles.statLabel}>Margin</Text>
+          <Text style={styles.statValueSuccess}>{margin}%</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -155,7 +192,7 @@ export const ProductListScreen = ({ navigation }: any) => {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   // Use React Query for data fetching
-  const { data: products, isLoading, isError, error, refetch } = useProducts(
+  const { data: products = [], isLoading, isFetching, isError, error, refetch } = useProducts(
     0,
     100,
     selectedCategoryId,
@@ -177,6 +214,7 @@ export const ProductListScreen = ({ navigation }: any) => {
     [navigation]
   );
 
+<<<<<<< HEAD
   const renderItem = useCallback(
     ({ item }: { item: Product }) => (
       <ProductItem product={item} viewMode={viewMode} onPress={handleProductPress} />
@@ -184,25 +222,59 @@ export const ProductListScreen = ({ navigation }: any) => {
     [handleProductPress, viewMode]
   );
 
+=======
+>>>>>>> 28426ae5 (ai asistance ui and update)
   const keyExtractor = useCallback((item: Product) => item.id, []);
+
+  const inventorySummary = useMemo(() => {
+    return products.reduce(
+      (summary, product) => {
+        const quantity = product.total_quantity_on_hand ?? product.quantity_on_hand ?? 0;
+        const reserved = product.total_reserved_quantity ?? 0;
+        const available = Math.max(0, quantity - reserved);
+        const value = quantity * product.cost_price_kobo;
+
+        summary.totalSkus += 1;
+        summary.totalUnits += quantity;
+        summary.totalValue += value;
+        if (available <= 0) summary.outOfStock += 1;
+        else if (available <= product.minimum_stock_level) summary.lowStock += 1;
+        return summary;
+      },
+      { totalSkus: 0, totalUnits: 0, totalValue: 0, lowStock: 0, outOfStock: 0 }
+    );
+  }, [products]);
 
   // Performance audit: Memoize FlatList configuration
   const listEmptyComponent = useMemo(() => {
-    if (isLoading) return <ActivityIndicator size="large" color="#4F46E5" style={styles.loader} />;
-    if (isError) return <Text style={styles.errorText}>Error loading products: {(error as Error).message}</Text>;
+    if (isLoading) return <ActivityIndicator size="large" color={colors.ventureroot.green} style={styles.loader} />;
+    if (isError) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="cloud-offline-outline" size={44} color="#DC2626" />
+          <Text style={styles.errorText}>Could not load inventory</Text>
+          <Text style={styles.emptySubtext}>{(error as Error).message}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name="cube-outline" size={48} color="#D1D5DB" />
-        <Text style={styles.emptyText}>No products found.</Text>
+        <Text style={styles.emptyText}>No products found</Text>
+        <Text style={styles.emptySubtext}>Add products or adjust your search filters.</Text>
       </View>
     );
-  }, [isLoading, isError, error]);
+  }, [isLoading, isError, error, refetch]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View className="flex-1">
-          <Text style={styles.headerTitle}>Shop Inventory</Text>
+          <Text style={styles.headerEyebrow}>Inventory Control</Text>
+          <Text style={styles.headerTitle}>Product Catalogue</Text>
         </View>
         <View className="flex-row items-center gap-3">
           <TouchableOpacity 
@@ -225,6 +297,27 @@ export const ProductListScreen = ({ navigation }: any) => {
           >
             <Ionicons name="add" size={26} color="#FFF" />
           </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.summaryBand}>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>SKUs</Text>
+          <Text style={styles.summaryValue}>{inventorySummary.totalSkus}</Text>
+        </View>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>Units</Text>
+          <Text style={styles.summaryValue}>{inventorySummary.totalUnits.toLocaleString()}</Text>
+        </View>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>Cost Value</Text>
+          <Text style={styles.summaryValue}>₦{(inventorySummary.totalValue / 100).toLocaleString()}</Text>
+        </View>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>Alerts</Text>
+          <Text style={[styles.summaryValue, inventorySummary.lowStock + inventorySummary.outOfStock > 0 && { color: '#DC2626' }]}>
+            {inventorySummary.lowStock + inventorySummary.outOfStock}
+          </Text>
         </View>
       </View>
 
@@ -259,7 +352,7 @@ export const ProductListScreen = ({ navigation }: any) => {
         <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search name or SKU..."
+          placeholder="Search products by name, SKU, or barcode"
           value={searchQuery}
           onChangeText={setSearchQuery}
           clearButtonMode="while-editing"
@@ -269,7 +362,7 @@ export const ProductListScreen = ({ navigation }: any) => {
       <FlatList
         key={viewMode}
         numColumns={viewMode === 'grid' ? 2 : 1}
-        data={products || []}
+        data={products}
         renderItem={({ item }) => (
           <View style={viewMode === 'grid' ? { flex: 0.5, padding: 6 } : null}>
             <ProductItem product={item} viewMode={viewMode} onPress={handleProductPress} />
@@ -281,13 +374,18 @@ export const ProductListScreen = ({ navigation }: any) => {
           viewMode === 'grid' && { paddingHorizontal: 10 }
         ]}
         ListEmptyComponent={listEmptyComponent}
-        onRefresh={refetch}
-        refreshing={isLoading}
+        refreshControl={
+          <RefreshControl
+            refreshing={isFetching && !isLoading}
+            onRefresh={refetch}
+            tintColor={colors.ventureroot.green}
+          />
+        }
         initialNumToRender={10}
         maxToRenderPerBatch={10}
         windowSize={5}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -300,22 +398,30 @@ export default ProductListScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
+  headerEyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.ventureroot.green,
+    letterSpacing: 0,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
   headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: '#111827',
   },
   addButton: {
@@ -331,6 +437,33 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+  },
+  summaryBand: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  summaryItem: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    marginRight: 8,
+  },
+  summaryLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   categoryScroll: {
     paddingHorizontal: 16,
@@ -369,7 +502,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     margin: 16,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#D1D5DB',
   },
@@ -388,7 +521,7 @@ const styles = StyleSheet.create({
   },
   productCard: {
     backgroundColor: '#FFF',
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
@@ -416,6 +549,16 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginLeft: 8,
   },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
   lowStockText: {
     color: '#DC2626',
     fontSize: 12,
@@ -432,6 +575,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
     paddingTop: 12,
+  },
+  gridMetrics: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 10,
+    alignItems: 'center',
   },
   statGroup: {
     marginRight: 24,
@@ -469,10 +618,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
+  emptySubtext: {
+    textAlign: 'center',
+    color: '#94A3B8',
+    marginTop: 6,
+    fontSize: 13,
+    paddingHorizontal: 24,
+  },
   errorText: {
     textAlign: 'center',
     color: '#DC2626',
-    marginTop: 40,
+    marginTop: 12,
     fontSize: 16,
+    fontWeight: '800',
+  },
+  retryButton: {
+    marginTop: 16,
+    backgroundColor: '#111827',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

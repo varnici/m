@@ -7,11 +7,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """Application settings."""
-    supabase_url: str
-    supabase_service_key: str
+    supabase_url: str = "memory://local"
+    supabase_service_key: str = "dev-placeholder"
 
     # API security
-    api_secret_key: str
+    api_secret_key: str = "dev-secret-change-me"
     allowed_origins: list[str] = ["http://localhost:8081", "http://localhost:3000"]
    
    #APP

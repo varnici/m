@@ -60,6 +60,7 @@ from app.schemas.inventory_schemas import (
     StoreOut,
     # Analytics schemas
     InventoryDashboardSummary,
+    InventoryOptimizationSummary,
     InventoryMetricsOut,
     ProductHealthOut,
     AIInsightsOut,
@@ -771,6 +772,18 @@ def get_inventory_dashboard(
     """Get comprehensive inventory metrics and KPIs."""
     analytics_service = AnalyticsService(db, owner_id)
     return analytics_service.get_dashboard_summary()
+
+@router.get("/analytics/optimization", response_model=InventoryOptimizationSummary)
+def get_inventory_optimization(
+    store_id: Optional[str] = None,
+    days: int = Query(30, ge=7, le=365),
+    limit: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Get prioritized restock, revenue risk, and carrying-cost recommendations."""
+    analytics_service = AnalyticsService(db, owner_id)
+    return analytics_service.get_inventory_optimization(store_id=store_id, days=days, limit=limit)
 
 @router.get("/analytics/product-health", response_model=List[ProductHealthOut])
 def get_product_health_scores(

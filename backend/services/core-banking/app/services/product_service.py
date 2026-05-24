@@ -200,8 +200,8 @@ class ProductService:
         )
         if category_id:
             query = query.filter(Product.category_id == category_id)
-        if search:
-            search_term = f"%{search}%"
+        if search and search.strip():
+            search_term = f"%{search.strip()}%"
             query = query.filter(
                 or_(
                     Product.name.ilike(search_term),
@@ -211,42 +211,52 @@ class ProductService:
             )
 
         total_count = query.count()
-        products = query.offset(skip).limit(limit).all()
-        product_ids = [p.id for p in products]
+        page = query.order_by(Product.updated_at.desc(), Product.id).offset(skip).limit(limit).subquery()
 
-        if not product_ids:
-            return [], total_count
-
-        stock_query = self.db.query(StockLevel).filter(StockLevel.product_id.in_(product_ids))
+        stock_query = self.db.query(
+            StockLevel.product_id.label("product_id"),
+            func.coalesce(func.sum(StockLevel.quantity_on_hand), 0).label("total_quantity_on_hand"),
+        ).join(page, StockLevel.product_id == page.c.id)
         if store_id:
             stock_query = stock_query.filter(StockLevel.store_id == store_id)
-        stock_levels = stock_query.all()
+        stock_totals = stock_query.group_by(StockLevel.product_id).subquery()
 
-        stock_map: dict[str, int] = {}
-        for s in stock_levels:
-            stock_map[s.product_id] = stock_map.get(s.product_id, 0) + s.quantity_on_hand
-
-        res_query = self.db.query(InventoryReservationModel).filter(
-            InventoryReservationModel.product_id.in_(product_ids),
+        reservation_query = self.db.query(
+            InventoryReservationModel.product_id.label("product_id"),
+            func.coalesce(
+                func.sum(
+                    InventoryReservationModel.quantity_reserved
+                    - InventoryReservationModel.quantity_released
+                    - InventoryReservationModel.quantity_committed
+                ),
+                0,
+            ).label("total_reserved_quantity"),
+        ).join(page, InventoryReservationModel.product_id == page.c.id).filter(
+            InventoryReservationModel.owner_id == self.owner_id,
             InventoryReservationModel.status == "active",
         )
         if store_id:
-            res_query = res_query.filter(InventoryReservationModel.store_id == store_id)
-        reservations = res_query.all()
+            reservation_query = reservation_query.filter(InventoryReservationModel.store_id == store_id)
+        reservation_totals = reservation_query.group_by(InventoryReservationModel.product_id).subquery()
 
-        reservation_map: dict[str, int] = {}
-        for r in reservations:
-            net_res = r.quantity_reserved - r.quantity_released - r.quantity_committed
-            if net_res > 0:
-                reservation_map[r.product_id] = (
-                    reservation_map.get(r.product_id, 0) + net_res
-                )
+        rows = (
+            self.db.query(
+                Product,
+                func.coalesce(stock_totals.c.total_quantity_on_hand, 0).label("total_quantity_on_hand"),
+                func.coalesce(reservation_totals.c.total_reserved_quantity, 0).label("total_reserved_quantity"),
+            )
+            .join(page, Product.id == page.c.id)
+            .outerjoin(stock_totals, stock_totals.c.product_id == Product.id)
+            .outerjoin(reservation_totals, reservation_totals.c.product_id == Product.id)
+            .order_by(page.c.updated_at.desc(), page.c.id)
+            .all()
+        )
 
         result = []
-        for p in products:
+        for p, total_quantity, total_reserved in rows:
             p_out = ProductOut.model_validate(p)
-            p_out.total_quantity_on_hand = stock_map.get(p.id, 0)
-            p_out.total_reserved_quantity = reservation_map.get(p.id, 0)
+            p_out.total_quantity_on_hand = int(total_quantity or 0)
+            p_out.total_reserved_quantity = max(0, int(total_reserved or 0))
             result.append(p_out)
         return result, total_count
 
@@ -344,7 +354,10 @@ class ProductService:
                     "impact": "negative",
                 }
             )
-        elif total_quantity <= total_quantity * self.LOW_STOCK_THRESHOLD_PCT:
+        elif (
+            product.maximum_stock_level
+            and total_quantity <= product.maximum_stock_level * self.LOW_STOCK_THRESHOLD_PCT
+        ):
             intelligence.append(
                 {
                     "headline": "Low Stock Alert",

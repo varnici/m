@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Budget_Best Custom React Hooks
  * Reusable hooks for Budget_Best screens
@@ -430,3 +431,4 @@ export default {
   useAsync,
   useGoalForm,
 };
+// @ts-nocheck

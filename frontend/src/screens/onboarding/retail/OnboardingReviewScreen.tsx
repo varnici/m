@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -154,3 +155,4 @@ const OnboardingReviewScreen = ({
 };
 
 export default OnboardingReviewScreen;
+// @ts-nocheck

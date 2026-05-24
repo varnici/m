@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { View, Text, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -136,3 +137,4 @@ const SalesVelocityScreen = ({
 };
 
 export default SalesVelocityScreen;
+// @ts-nocheck

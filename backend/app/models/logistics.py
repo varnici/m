@@ -228,6 +228,7 @@ class QRCodeResponse(QRCodeCreate):
 
 class QRHandshakeCreate(BaseModel):
     qr_code_id: str
+    qr_code_value: Optional[str] = None
     route_member_id: Optional[str] = None
     handshake_type: QRHandshakeType
     

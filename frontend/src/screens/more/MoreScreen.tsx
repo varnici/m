@@ -68,6 +68,7 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
         { label: 'Voice Stock', caption: 'Record stock by voice', icon: Mic, color: '#059669', route: 'VoiceStock' },
         { label: 'Scan Shelve', caption: 'Camera-led shelf checks', icon: Camera, color: '#4F46E5', route: 'ScanShelve' },
         { label: 'AI Insights', caption: 'Inventory recommendations', icon: Bot, color: '#16A34A', route: 'AIInsights' },
+        { label: 'AI Assistant', caption: 'Ask the business intelligence agent', icon: Bot, color: '#059669', route: 'AIAssistant' },
         { label: 'Sales', caption: 'Daily sales and velocity', icon: TrendingUp, color: '#2563EB', route: 'SalesDashboard' },
         { label: 'Record Sale', caption: 'Create a new receipt', icon: ReceiptText, color: '#16A34A', route: 'RecordSale' },
         { label: 'Sales History', caption: 'Receipts and past sales', icon: ReceiptText, color: '#0891B2', route: 'SalesHistory' },

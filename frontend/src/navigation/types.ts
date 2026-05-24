@@ -93,6 +93,7 @@ export type RootStackParamList = {
   AddSupplier: undefined;
   PurchaseOrderDetail: { poId: string };
   AIInsights: undefined;
+  AIAssistant: undefined;
   RecordSale: { saleId?: string };
   Receipt: { saleId: string };
   InsuranceSummary: undefined; // Backward-compatible route alias

@@ -32,6 +32,7 @@ import StockAdjustmentScreen from '@/screens/inventory/StockAdjustmentScreen';
 import { ProductDetailScreen } from '@/screens/inventory/ProductDetailScreen';
 import { PurchaseOrderScreen } from '@/screens/inventory/PurchaseOrderScreen';
 import { AIInsightsScreen } from '@/screens/inventory/AIInsightsScreen';
+import AIAssistantScreen from '@/screens/inventory/AIAssistantScreen';
 import CreatePurchaseOrderScreen from '@/screens/inventory/CreatePurchaseOrderScreen';
 import AddSupplierScreen from '@/screens/inventory/AddSupplierScreen';
 import PurchaseOrderDetailScreen from '@/screens/inventory/PurchaseOrderDetailScreen';
@@ -149,6 +150,7 @@ const RootNavigator = () => {
           <Stack.Screen name="AddSupplier" component={AddSupplierScreen} />
           <Stack.Screen name="PurchaseOrderDetail" component={PurchaseOrderDetailScreen} />
           <Stack.Screen name="AIInsights" component={AIInsightsScreen} />
+          <Stack.Screen name="AIAssistant" component={AIAssistantScreen} />
           <Stack.Screen name="RecordSale" component={RecordSaleScreen} />
           <Stack.Screen name="Receipt" component={ReceiptScreen} />
           <Stack.Screen name="InsuranceSummary" component={BudgetBestDashboard} />

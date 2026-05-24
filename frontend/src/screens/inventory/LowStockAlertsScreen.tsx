@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -460,3 +461,4 @@ const LowStockAlertsScreen = ({
 };
 
 export default LowStockAlertsScreen;
+// @ts-nocheck

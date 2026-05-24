@@ -3,13 +3,16 @@ Analytics Service
 Handles complex inventory calculations and reporting using optimized SQL functions.
 """
 
+import heapq
+import math
 from typing import List, Optional, Dict, Any
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 import logging
 
+from app.models import Product, SalesTransaction, SalesTransactionItem, StockLevel
 from app.schemas.inventory_schemas import (
     InventoryMetricsOut,
     ProductHealthOut,
@@ -121,6 +124,169 @@ class AnalyticsService:
             "recent_transactions": self.get_recent_transactions(5),
             "revenue_trend": revenue_trend,
             "global_recommendations": self.get_global_recommendations()
+        }
+
+    def get_inventory_optimization(
+        self,
+        store_id: Optional[str] = None,
+        days: int = 30,
+        limit: int = 25,
+        ordering_cost_kobo: int = 250_000,
+        annual_holding_rate: float = 0.20,
+    ) -> Dict[str, Any]:
+        """
+        Compute inventory decisions in one batched read.
+
+        The algorithm uses aggregate hash maps from SQL subqueries, then a bounded
+        heap to keep only the highest-risk SKUs in memory. That keeps request cost
+        predictable when a tenant has a large catalog.
+        """
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+        stock_query = self.db.query(
+            StockLevel.product_id.label("product_id"),
+            func.coalesce(func.sum(StockLevel.quantity_on_hand), 0).label("on_hand"),
+            func.coalesce(func.sum(StockLevel.quantity_reserved), 0).label("reserved"),
+        ).join(Product, Product.id == StockLevel.product_id).filter(
+            Product.owner_id == self.owner_id,
+            Product.is_active == True,
+        )
+        if store_id:
+            stock_query = stock_query.filter(StockLevel.store_id == store_id)
+        stock_totals = stock_query.group_by(StockLevel.product_id).subquery()
+
+        sales_totals = (
+            self.db.query(
+                SalesTransactionItem.product_id.label("product_id"),
+                func.coalesce(func.sum(SalesTransactionItem.quantity_sold), 0).label("units_sold"),
+                func.coalesce(func.sum(SalesTransactionItem.line_total_kobo), 0).label("revenue_kobo"),
+                func.max(SalesTransaction.transaction_date).label("last_sale_at"),
+            )
+            .join(SalesTransaction, SalesTransaction.id == SalesTransactionItem.sale_id)
+            .filter(
+                SalesTransaction.owner_id == self.owner_id,
+                SalesTransaction.transaction_date >= cutoff,
+            )
+        )
+        if store_id:
+            sales_totals = sales_totals.filter(SalesTransaction.store_id == store_id)
+        sales_totals = sales_totals.group_by(SalesTransactionItem.product_id).subquery()
+
+        rows = (
+            self.db.query(
+                Product,
+                func.coalesce(stock_totals.c.on_hand, 0).label("on_hand"),
+                func.coalesce(stock_totals.c.reserved, 0).label("reserved"),
+                func.coalesce(sales_totals.c.units_sold, 0).label("units_sold"),
+                func.coalesce(sales_totals.c.revenue_kobo, 0).label("revenue_kobo"),
+                sales_totals.c.last_sale_at,
+            )
+            .outerjoin(stock_totals, stock_totals.c.product_id == Product.id)
+            .outerjoin(sales_totals, sales_totals.c.product_id == Product.id)
+            .filter(Product.owner_id == self.owner_id, Product.is_active == True)
+            .all()
+        )
+
+        candidates: list[tuple[int, str, Dict[str, Any]]] = []
+        total_stock_value_kobo = 0
+        total_reserved_units = 0
+        revenue_at_risk_kobo = 0
+        carrying_cost_kobo = 0
+        dead_stock_value_kobo = 0
+        stockout_count = 0
+        reorder_count = 0
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        for product, on_hand, reserved, units_sold, revenue_kobo, last_sale_at in rows:
+            on_hand = int(on_hand or 0)
+            reserved = int(reserved or 0)
+            units_sold = int(units_sold or 0)
+            revenue_kobo = int(revenue_kobo or 0)
+            available = max(0, on_hand - reserved)
+            stock_value = on_hand * int(product.cost_price_kobo or 0)
+            total_stock_value_kobo += stock_value
+            total_reserved_units += reserved
+
+            daily_demand = units_sold / max(days, 1)
+            reorder_point = max(
+                int(product.minimum_stock_level or 0),
+                math.ceil(daily_demand * int(product.supplier_lead_time_days or 1)),
+            )
+            stock_gap = max(0, reorder_point - available)
+            risk_value = stock_gap * int(product.selling_price_kobo or 0)
+            revenue_at_risk_kobo += risk_value
+
+            holding_cost_per_unit = max(1, int(product.cost_price_kobo or 0) * annual_holding_rate)
+            period_demand = max(units_sold, int(product.reorder_quantity or 1))
+            eoq = math.ceil(math.sqrt((2 * period_demand * ordering_cost_kobo) / holding_cost_per_unit))
+
+            item_carrying_cost = math.ceil(stock_value * annual_holding_rate * (days / 365))
+            carrying_cost_kobo += item_carrying_cost
+
+            days_since_sale = None
+            if last_sale_at:
+                if getattr(last_sale_at, "tzinfo", None):
+                    last_sale_at = last_sale_at.replace(tzinfo=None)
+                days_since_sale = max(0, (now - last_sale_at).days)
+            elif on_hand > 0:
+                days_since_sale = days
+
+            if on_hand > 0 and (days_since_sale is None or days_since_sale >= days) and units_sold == 0:
+                dead_stock_value_kobo += stock_value
+
+            days_of_cover = None if daily_demand <= 0 else round(available / daily_demand, 1)
+            urgency = "healthy"
+            if available <= 0:
+                urgency = "stockout"
+            elif stock_gap > 0:
+                urgency = "reorder_now"
+            elif days_of_cover is not None and days_of_cover <= int(product.supplier_lead_time_days or 1):
+                urgency = "lead_time_risk"
+            if urgency == "stockout":
+                stockout_count += 1
+            if urgency in {"stockout", "reorder_now", "lead_time_risk"}:
+                reorder_count += 1
+
+            recommendation = {
+                "product_id": str(product.id),
+                "sku": product.sku,
+                "name": product.name,
+                "available_quantity": available,
+                "reserved_quantity": reserved,
+                "units_sold": units_sold,
+                "daily_demand": round(daily_demand, 2),
+                "days_of_cover": days_of_cover,
+                "reorder_point": reorder_point,
+                "recommended_order_quantity": max(stock_gap, eoq if stock_gap > 0 else 0),
+                "economic_order_quantity": eoq,
+                "revenue_at_risk_kobo": risk_value,
+                "carrying_cost_kobo": item_carrying_cost,
+                "urgency": urgency,
+            }
+            if urgency != "healthy":
+                priority_score = max(risk_value, stock_gap, 1)
+                heapq.heappush(candidates, (priority_score, str(product.id), recommendation))
+                if len(candidates) > limit:
+                    heapq.heappop(candidates)
+
+        top_actions = [item for _, _, item in sorted(candidates, key=lambda row: row[0], reverse=True)]
+
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "window_days": days,
+            "store_id": store_id,
+            "algorithm": "batched_aggregate_priority_heap_eoq",
+            "summary": {
+                "sku_count": len(rows),
+                "stockout_count": stockout_count,
+                "reorder_action_count": reorder_count,
+                "total_stock_value_kobo": total_stock_value_kobo,
+                "reserved_units": total_reserved_units,
+                "revenue_at_risk_kobo": revenue_at_risk_kobo,
+                "estimated_carrying_cost_kobo": carrying_cost_kobo,
+                "dead_stock_value_kobo": dead_stock_value_kobo,
+            },
+            "top_actions": top_actions,
         }
 
     def get_global_recommendations(self) -> List[Dict[str, Any]]:

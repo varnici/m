@@ -1,34 +1,261 @@
 version: '3.8'
 
+# Production configuration for 2M users with horizontal scaling
+# Use with: docker-compose -f docker-compose-production.yml up -d
+# Scale services: docker-compose -f docker-compose-production.yml up -d --scale core-banking=5 --scale api-gateway=3
+
 services:
-  api:
-    build: .
-    ports:
-      - "8000:8000"
+  postgres:
+    image: postgis/postgis:16-3.4
     environment:
-      ENV: production
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
-      API_SECRET_KEY: ${API_SECRET_KEY}
+      POSTGRES_DB: ventureroot
+      POSTGRES_USER: ventureroot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ventureroot}
+      POSTGRES_INITDB_ARGS: "-c shared_buffers=4GB -c effective_cache_size=12GB -c work_mem=10MB -c maintenance_work_mem=1GB"
+    ports:
+      - "5433:5432"
     volumes:
-      - ./app:/app/app
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ventureroot -h localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    resources:
+      limits:
+        cpus: '4'
+        memory: 8G
+      reservations:
+        cpus: '2'
+        memory: 4G
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru --loglevel warning
+    ports:
+      - "6379:6379"
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    resources:
+      limits:
+        cpus: '2'
+        memory: 2.5G
+      reservations:
+        cpus: '1'
+        memory: 1.5G
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+
+  core-banking:
+    build:
+      context: ./services/core-banking
+      dockerfile: Dockerfile
+    environment:
+      PYTHONUNBUFFERED: '1'
+      LOG_LEVEL: info
+      WORKERS: '4'
+    env_file:
+      - .env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8001"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    resources:
+      limits:
+        cpus: '3'
+        memory: 1.5G
+      reservations:
+        cpus: '2'
+        memory: 1G
+    networks:
+      - backend
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+
+  ai-ml-service:
+    build:
+      context: ./services/ai-ml-service
+      dockerfile: Dockerfile
+    environment:
+      PYTHONUNBUFFERED: '1'
+      LOG_LEVEL: info
+      WORKERS: '2'
+    env_file:
+      - .env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8002"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    resources:
+      limits:
+        cpus: '4'
+        memory: 3G
+      reservations:
+        cpus: '2.5'
+        memory: 2G
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+
+  rag-service:
+    build:
+      context: ./services/rag-service
+      dockerfile: Dockerfile
+      args:
+        INSTALL_RAG_OPTIONAL: "false"
+    environment:
+      PYTHONUNBUFFERED: '1'
+      LOG_LEVEL: info
+      WORKERS: '2'
+    env_file:
+      - .env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8003"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    resources:
+      limits:
+        cpus: '3'
+        memory: 2G
+      reservations:
+        cpus: '2'
+        memory: 1.5G
+    networks:
+      - backend
+    deploy:
+      replicas: 2
+
+  ussd-service:
+    build:
+      context: ./services/ussd-service
+      dockerfile: Dockerfile
+    environment:
+      PYTHONUNBUFFERED: '1'
+      LOG_LEVEL: info
+      WORKERS: '4'
+    env_file:
+      - .env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8004"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    resources:
+      limits:
+        cpus: '2'
+        memory: 1G
+      reservations:
+        cpus: '1.5'
+        memory: 512M
+    networks:
+      - backend
+    deploy:
+      replicas: 3
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    environment:
+      PYTHONUNBUFFERED: '1'
+      LOG_LEVEL: info
+      WORKERS: '8'
+      FORWARDED_ALLOW_IPS: '*'
+    env_file:
+      - .env.production
+    depends_on:
+      core-banking:
+        condition: service_healthy
+      ai-ml-service:
+        condition: service_healthy
+      rag-service:
+        condition: service_healthy
+      ussd-service:
+        condition: service_healthy
+    ports:
+      - "8080:8000"
+    restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-  # Optional: PostgreSQL for local development
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: ventureroot
-      POSTGRES_USER: ventureroot
-      POSTGRES_PASSWORD: ventureroot
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      start_period: 30s
+    resources:
+      limits:
+        cpus: '3'
+        memory: 1.5G
+      reservations:
+        cpus: '2'
+        memory: 1G
+    networks:
+      - backend
+    deploy:
+      replicas: 3
+      placement:
+        constraints:
+          - node.role == manager
 
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  backend:
+    driver: bridge

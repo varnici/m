@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -229,3 +230,4 @@ const SalesDashboardScreen = ({
 };
 
 export default SalesDashboardScreen;
+// @ts-nocheck

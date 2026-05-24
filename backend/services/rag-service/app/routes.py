@@ -1,8 +1,22 @@
 from __future__ import annotations
 
+<<<<<<< HEAD
 from typing import List, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Query
+=======
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from app.models.schemas import IngestRequest, IngestResponse, QueryRequest, QueryResponse, RetrievalMode
+from app.services.personalization import (
+    PersonalizationRequest,
+    RecommendationResponse,
+    get_personalized_suggestions,
+    store_inventory_embeddings,
+)
+from app.services.rag_engine import engine
+>>>>>>> 28426ae5 (ai asistance ui and update)
 
 router = APIRouter()
 
@@ -10,36 +24,45 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     user_id: str
     message: str
+    tenant_id: str | None = None
+    shop_id: str | None = None
 
 
-class ChatResponse(BaseModel):
-    answer: str
-    citations: list[str] = []
+@router.post("/ingest", response_model=IngestResponse)
+def ingest(req: IngestRequest):
+    if not req.documents and not req.business_snapshot:
+        raise HTTPException(status_code=400, detail="documents or business_snapshot is required")
+    return engine.ingest(req)
 
 
-from app.services.personalization import (
-    PersonalizationRequest, 
-    RecommendationResponse, 
-    store_inventory_embeddings, 
-    get_personalized_suggestions
-)
+@router.post("/query", response_model=QueryResponse)
+def query(req: QueryRequest):
+    return engine.answer(req)
 
-@router.post("/chat", response_model=ChatResponse)
+
+@router.post("/chat", response_model=QueryResponse)
 def chat(req: ChatRequest):
-    # Placeholder: wire to vector store + LLM later.
-    return ChatResponse(
-        answer=f"(stub) I received: {req.message}",
-        citations=["documentation.md"],
+    return engine.answer(
+        QueryRequest(
+            tenant_id=req.tenant_id or req.user_id,
+            user_id=req.user_id,
+            shop_id=req.shop_id,
+            message=req.message,
+            mode=RetrievalMode.hybrid,
+        )
     )
+
 
 @router.post("/inventory/personalize")
 def personalize(req: PersonalizationRequest):
-    store_inventory_embeddings(req)
-    return {"status": "success", "message": "Inventory embeddings stored."}
+    response = store_inventory_embeddings(req)
+    return {"status": "success", "message": "Inventory embeddings stored.", "indexed": response.model_dump()}
+
 
 @router.get("/inventory/suggest", response_model=RecommendationResponse)
 def suggest(user_id: str, shop_id: str, query: str):
     return get_personalized_suggestions(user_id, shop_id, query)
+<<<<<<< HEAD
 
 
 # ===================== INTELLIGENCE ENDPOINTS =====================
@@ -90,3 +113,5 @@ async def trigger_refresh():
     return await refresh_all_intelligence()
 
 
+=======
+>>>>>>> 28426ae5 (ai asistance ui and update)

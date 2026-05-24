@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { 
@@ -20,27 +20,54 @@ import { useNavigation } from '@react-navigation/native';
 
 import type { RootStackNavigationProp } from '@/navigation/types';
 import ScreenHeader from '@/components/ui/ScreenHeader';
-import { useInventoryDashboard, useLowStockAlerts } from '@/hooks/useInventory';
+import { useInventoryDashboard, useInventoryOptimization, useLowStockAlerts } from '@/hooks/useInventory';
 
 const InventoryDashboardScreen = () => {
   const navigation = useNavigation<RootStackNavigationProp<'InventoryDashboard'>>();
 
-  const { data: dashboardData } = useInventoryDashboard();
-  const { data: lowStockData } = useLowStockAlerts();
+  const {
+    data: dashboardData,
+    isLoading: dashboardLoading,
+    isFetching: dashboardFetching,
+    isError: dashboardError,
+    error: dashboardErrorValue,
+    refetch: refetchDashboard,
+  } = useInventoryDashboard();
+  const {
+    data: lowStockData = [],
+    isFetching: lowStockFetching,
+    refetch: refetchLowStock,
+  } = useLowStockAlerts();
+  const {
+    data: optimizationData,
+    isFetching: optimizationFetching,
+    refetch: refetchOptimization,
+  } = useInventoryOptimization(undefined, 30, 5);
 
   const inventoryValue = dashboardData?.total_inventory_value_kobo || 0;
   const turnoverText = dashboardData?.turnover_ratio 
     ? `Annual Turnover Ratio is ${dashboardData.turnover_ratio.toFixed(1)}x`
     : 'Turnover ratio data not available';
   const recommendations = dashboardData?.global_recommendations || [];
+  const categories = dashboardData?.categories || [];
+  const bestSellers = dashboardData?.best_sellers || [];
+  const optimizationSummary = optimizationData?.summary;
+  const priorityActions = optimizationData?.top_actions || [];
   
-  const criticalItems = lowStockData?.slice(0, 4) || [];
-  const criticalCount = lowStockData?.length || 0;
+  const criticalItems = lowStockData.slice(0, 4);
+  const criticalCount = lowStockData.length;
+  const isRefreshing = dashboardFetching || lowStockFetching || optimizationFetching;
+
+  const handleRefresh = () => {
+    refetchDashboard();
+    refetchLowStock();
+    refetchOptimization();
+  };
 
   const renderRecommendation = ({ item }: { item: any }) => (
     <TouchableOpacity 
       className="mr-4 w-72 rounded-3xl overflow-hidden"
-      onPress={() => navigation.navigate(item.action_route as any, item.metadata)}
+      onPress={() => navigation.navigate(item.action_route as any, item.metadata || {})}
     >
       <BlurView intensity={20} tint="light" className="p-5 h-full bg-white/20 border border-white/30">
         <View className="flex-row items-center mb-3">
@@ -85,7 +112,36 @@ const InventoryDashboardScreen = () => {
         showBack={false}
       />
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing && !dashboardLoading}
+            onRefresh={handleRefresh}
+            tintColor="#16A34A"
+          />
+        }
+      >
+        {dashboardLoading && (
+          <View className="px-4 py-10 items-center">
+            <ActivityIndicator size="large" color="#16A34A" />
+            <Text className="text-slate-500 text-xs font-bold mt-3">Loading inventory from database...</Text>
+          </View>
+        )}
+
+        {dashboardError && (
+          <View className="mx-4 mt-5 bg-red-50 border border-red-100 rounded-2xl p-4">
+            <Text className="text-red-900 font-black text-sm">Inventory database unavailable</Text>
+            <Text className="text-red-700 text-xs mt-1" numberOfLines={3}>
+              {(dashboardErrorValue as Error).message}
+            </Text>
+            <TouchableOpacity className="bg-red-600 px-4 py-2 rounded-lg self-start mt-3" onPress={() => refetchDashboard()}>
+              <Text className="text-white font-bold text-xs">Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Global Recommendations Carousel */}
         {recommendations.length > 0 && (
           <View className="mt-4">
@@ -139,6 +195,53 @@ const InventoryDashboardScreen = () => {
                  </Text>
               </View>
            </View>
+
+           <View className="flex-row gap-4 mb-6">
+              <View className="flex-1 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                 <Text className="text-gray-400 text-[9px] font-black uppercase mb-2">Categories</Text>
+                 <Text className="text-gray-900 text-xl font-black">{categories.length}</Text>
+              </View>
+              <View className="flex-1 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                 <Text className="text-gray-400 text-[9px] font-black uppercase mb-2">Dead Stock</Text>
+                 <Text className="text-amber-600 text-xl font-black">{dashboardData?.dead_stock_count || 0}</Text>
+              </View>
+           </View>
+
+           {optimizationSummary && (
+             <View className="mb-8">
+                <Text className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-4">Cost & Time Optimization</Text>
+                <View className="bg-slate-900 rounded-2xl p-5">
+                  <View className="flex-row gap-3 mb-4">
+                    <View className="flex-1">
+                      <Text className="text-slate-400 text-[9px] font-black uppercase mb-1">Revenue Risk</Text>
+                      <Text className="text-white text-lg font-black">
+                        ₦{(optimizationSummary.revenue_at_risk_kobo / 100).toLocaleString()}
+                      </Text>
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-slate-400 text-[9px] font-black uppercase mb-1">Carry Cost</Text>
+                      <Text className="text-white text-lg font-black">
+                        ₦{(optimizationSummary.estimated_carrying_cost_kobo / 100).toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+                  {priorityActions.slice(0, 3).map((item) => (
+                    <View key={item.product_id} className="py-3 border-t border-white/10 flex-row items-center">
+                      <View className="w-9 h-9 rounded-xl bg-white/10 items-center justify-center mr-3">
+                        <Zap size={16} color="#FBBF24" />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-white font-black text-xs" numberOfLines={1}>{item.name}</Text>
+                        <Text className="text-slate-400 text-[9px]">
+                          Order {item.recommended_order_quantity} units - {item.days_of_cover ?? 0} days cover
+                        </Text>
+                      </View>
+                      <Text className="text-amber-300 font-black text-[10px] uppercase">{item.urgency.replace(/_/g, ' ')}</Text>
+                    </View>
+                  ))}
+                </View>
+             </View>
+           )}
 
            {(criticalCount > 0) && (
              <TouchableOpacity 
@@ -211,8 +314,8 @@ const InventoryDashboardScreen = () => {
         </View>
 
         <View className="px-4 mb-8">
-           <Text className="text-gray-900 font-bold text-base mb-4">Recent Sales (Sheet)</Text>
-           <View className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+           <Text className="text-gray-900 font-bold text-base mb-4">Recent Sales</Text>
+           <View className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <View className="bg-gray-50 px-4 py-2 flex-row border-b border-gray-100">
                  <Text className="flex-1 text-gray-400 text-[8px] font-bold uppercase">Product</Text>
                  <Text className="w-16 text-gray-400 text-[8px] font-bold uppercase text-center">Qty</Text>
@@ -238,6 +341,26 @@ const InventoryDashboardScreen = () => {
               )}
            </View>
         </View>
+
+        {bestSellers.length > 0 && (
+          <View className="px-4 mb-8">
+            <Text className="text-gray-900 font-bold text-base mb-4">Best Sellers</Text>
+            <View className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              {bestSellers.map((item: any, index: number) => (
+                <View key={item.product_id || index} className="px-4 py-3 flex-row items-center border-b border-gray-50 last:border-0">
+                  <View className="w-8 h-8 rounded-lg bg-emerald-50 items-center justify-center mr-3">
+                    <Text className="text-emerald-700 font-black text-xs">{index + 1}</Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-gray-900 font-bold text-xs" numberOfLines={1}>{item.name}</Text>
+                    <Text className="text-gray-400 text-[9px]">{item.sku}</Text>
+                  </View>
+                  <Text className="text-gray-900 font-black text-xs">{item.total_sold} sold</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         <View className="h-32" />
         <View className="h-32" />

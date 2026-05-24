@@ -1,6 +1,6 @@
 # Web Framework & Server
 fastapi==0.115.0
-uvicorn[standard]==0.30.6
+uvicorn==0.30.6
 pydantic==2.9.2
 pydantic-settings==2.5.2
 python-multipart==0.0.12
@@ -18,6 +18,7 @@ faster-whisper==1.0.3
 spacy>=3.7.4
 numpy>=1.26.4
 soundfile==0.12.1
+chromadb==0.4.0           # Added for RAG engine
 
 # Task Scheduling & Background Jobs
 apscheduler==3.10.4
@@ -26,9 +27,12 @@ celery==5.3.0
 # Async & Networking
 httpx==0.27.2             # Pinned to 0.27.2 to avoid OpenAI 'proxies' TypeError
 aiofiles==24.1.0          # Adjusted version for stability
-PyJWT==2.8.0              # Added this (fixes the 'jwt' error in api-gateway)
+PyJWT==2.10.1             # FIXED: Updated from 2.8.0 to 2.10.1 for consistency
 
 # Utils & Testing
 python-dotenv==1.0.1
 pytest==8.3.3
 pytest-asyncio==0.24.0
+
+# Monitoring & Logging
+python-json-logger==2.0.7  # Structured logging

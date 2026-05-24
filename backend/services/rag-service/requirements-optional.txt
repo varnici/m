@@ -1,0 +1,7 @@
+# Optional production RAG providers.
+# Install these when RAG_EMBEDDING_PROVIDER=sentence-transformers,
+# RAG_VECTOR_STORE=deeplake, or when using LlamaIndex workers.
+sentence-transformers==3.3.1
+llama-index==0.12.11
+deeplake==4.1.19
+numpy==2.2.1

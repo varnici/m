@@ -1,55 +1,72 @@
+"""User profile and authentication schemas."""
 from __future__ import annotations
 
-from pydantic import BaseModel, EmailStr, Field
+from datetime import datetime
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional, Dict, Any
 
 
 class UserCreate(BaseModel):
-    phone: str = Field(..., min_length=8, max_length=20)
-    email: EmailStr | None = None
-    full_name: str | None = None
-    category: str = Field(default="personal")
+    """Schema for creating a user."""
+    phone: str = Field(..., min_length=10)
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+    category: str = Field(default="personal", pattern=r"^(personal|nine_to_five|business_owner)$")
+    
+    # Business profile fields
+    business_name: Optional[str] = None
+    trading_name: Optional[str] = None
+    business_category: Optional[str] = None
+    bank_name: Optional[str] = None
+    account_number: Optional[str] = None
+    tin: Optional[str] = None
+    ownership_type: Optional[str] = None  # sole_proprietorship, partnership, corporation
+    registration_status: Optional[str] = None  # registered, unregistered, pending
+    location: Optional[Dict[str, Any]] = None
+    profile_image_url: Optional[str] = None
+    security_type: str = Field(default="pin", pattern=r"^(pin|pattern)$")
 
 
 class UserUpdate(BaseModel):
-    full_name: str | None = None
-    email: EmailStr | None = None
-    business_name: str | None = None
-    trading_name: str | None = None
-    business_category: str | None = None
-    bank_name: str | None = None
-    account_number: str | None = None
-    tin: str | None = None
-    profile_image_url: str | None = None
-    settings: dict | None = None
-    location: dict | None = None
-    security_type: str | None = None
+    """Schema for updating a user."""
+    phone: Optional[str] = None
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+    business_name: Optional[str] = None
+    trading_name: Optional[str] = None
+    business_category: Optional[str] = None
+    bank_name: Optional[str] = None
+    account_number: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    location: Optional[Dict[str, Any]] = None
 
 
 class SecurityUpdate(BaseModel):
-    current_password: str | None = None # For high-security changes
-    new_pin: str | None = Field(None, min_length=4, max_length=6)
-    new_pattern: str | None = None
-    security_type: str | None = None # pin | pattern
+    """Schema for updating security credentials."""
+    hashed_pin: Optional[str] = None
+    hashed_pattern: Optional[str] = None
+    security_type: Optional[str] = Field(None, pattern=r"^(pin|pattern)$")
 
 
 class UserOut(BaseModel):
+    """Response schema for user."""
     id: str
     phone: str
-    email: EmailStr | None
-    full_name: str | None
+    email: Optional[str]
+    full_name: Optional[str]
     category: str
+    business_name: Optional[str]
+    trading_name: Optional[str]
+    business_category: Optional[str]
+    bank_name: Optional[str]
+    account_number: Optional[str]
+    tin: Optional[str]
+    ownership_type: Optional[str]
+    registration_status: Optional[str]
+    location: Optional[Dict[str, Any]]
+    profile_image_url: Optional[str]
     trust_level: str
-    business_name: str | None = None
-    trading_name: str | None = None
-    business_category: str | None = None
-    bank_name: str | None = None
-    account_number: str | None = None
-    tin: str | None = None
-    profile_image_url: str | None = None
-    settings: dict | None = {}
-    location: dict | None = None
-    security_type: str = "pin"
+    created_at: datetime
 
     class Config:
         from_attributes = True
-

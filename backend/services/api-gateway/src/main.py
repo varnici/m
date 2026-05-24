@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic_settings import BaseSettings
 
 from rate_limiter import InMemoryRateLimiter
-from jwt_validdator import JWTValidationError, validate_hs256_jwt
+from jwt_validator import JWTValidationError, validate_hs256_jwt
 
 
 class Settings(BaseSettings):
@@ -88,32 +88,32 @@ async def _proxy(request: Request, upstream_base: str, path: str) -> Response:
     return Response(content=upstream.content, status_code=upstream.status_code, headers=dict(upstream.headers))
 
 
-@app.api_route("/v1/core/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/v1/core/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
 async def proxy_core(path: str, request: Request, _sub: str = Depends(require_auth)):
     return await _proxy(request, settings.core_banking_url, f"v1/{path}")
 
 
-@app.api_route("/v1/inventory", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/v1/inventory", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
 async def proxy_inventory_root(request: Request, _sub: str = Depends(require_auth)):
     return await _proxy(request, settings.core_banking_url, "v1/inventory")
 
 
-@app.api_route("/v1/inventory/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/v1/inventory/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
 async def proxy_inventory(path: str, request: Request, _sub: str = Depends(require_auth)):
     return await _proxy(request, settings.core_banking_url, f"v1/inventory/{path}")
 
 
-@app.api_route("/v1/ai/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/v1/ai/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
 async def proxy_ai(path: str, request: Request, _sub: str = Depends(require_auth)):
     return await _proxy(request, settings.ai_ml_url, f"v1/{path}")
 
 
-@app.api_route("/v1/rag/{path:path}", methods=["GET", "POST"])
+@app.api_route("/v1/rag/{path:path}", methods=["GET", "POST"], include_in_schema=False)
 async def proxy_rag(path: str, request: Request, _sub: str = Depends(require_auth)):
     return await _proxy(request, settings.rag_url, f"v1/{path}")
 
 
-@app.api_route("/v1/ussd/{path:path}", methods=["GET", "POST"])
+@app.api_route("/v1/ussd/{path:path}", methods=["GET", "POST"], include_in_schema=False)
 async def proxy_ussd(path: str, request: Request):
     # USSD callbacks are typically unauthenticated but signed at provider layer.
     return await _proxy(request, settings.ussd_url, f"v1/{path}")

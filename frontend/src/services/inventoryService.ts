@@ -2,7 +2,7 @@ import { BaseService } from './baseService';
 import { 
   Category, Product, Store, StockLevel, StockMovement, 
   StockReservation, Supplier, PurchaseOrder, 
-  InventoryDashboardMetrics, AIInsight, TurnoverRatio 
+  InventoryDashboardMetrics, InventoryOptimizationReport, AIInsight, TurnoverRatio 
 } from '@/types/inventory';
 
 export class InventoryService extends BaseService {
@@ -414,6 +414,23 @@ export class InventoryService extends BaseService {
   async getProductHealthScores(limit: number = 50): Promise<Product[]> {
     const response = await this.fetchWithAuth(
       `/v1/inventory/analytics/product-health?limit=${limit}`
+    );
+    return response.json();
+  }
+
+  async getInventoryOptimization(
+    storeId?: string,
+    days: number = 30,
+    limit: number = 25
+  ): Promise<InventoryOptimizationReport> {
+    const params = new URLSearchParams({
+      days: days.toString(),
+      limit: limit.toString(),
+      ...(storeId && { store_id: storeId }),
+    });
+
+    const response = await this.fetchWithAuth(
+      `/v1/inventory/analytics/optimization?${params}`
     );
     return response.json();
   }

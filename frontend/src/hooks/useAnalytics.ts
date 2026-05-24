@@ -37,6 +37,22 @@ export function useProductHealthScores(limit: number = 50) {
 }
 
 /**
+ * useInventoryOptimization - Fetch reorder priority and carrying-cost actions
+ */
+export function useInventoryOptimization(
+  storeId?: string,
+  days: number = 30,
+  limit: number = 25
+) {
+  return useQuery({
+    queryKey: ['inventory-optimization', storeId, days, limit],
+    queryFn: () => inventoryService.getInventoryOptimization(storeId, days, limit),
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
+  });
+}
+
+/**
  * useLowStockAlerts - Fetch low stock alerts
  */
 export function useLowStockAlerts(storeId?: string) {

@@ -3,16 +3,19 @@
  * Handles daily reminders and push notifications
  */
 
-import * as Notifications from 'expo-notifications';
-import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { budgetBestApi } from './budgetBestApi';
 
 const NOTIFICATION_TASK_NAME = 'BUDGET_BEST_REMINDER_TASK';
 const DAILY_REMINDER_KEY = 'BUDGET_BEST_DAILY_REMINDERS';
 
+const notificationUnavailable = () => {
+  console.log('expo-notifications not installed; using in-app reminders only');
+};
+
 // Configure notification behavior
 export function configureNotifications() {
+<<<<<<< HEAD
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
@@ -35,19 +38,18 @@ export function configureNotifications() {
   );
 
   return subscription;
+=======
+  notificationUnavailable();
+  return { remove: () => {} };
+>>>>>>> 28426ae5 (ai asistance ui and update)
 }
 
 /**
  * Request notification permissions
  */
 export async function requestNotificationPermission() {
-  try {
-    const { status } = await Notifications.requestPermissionsAsync();
-    return status === 'granted';
-  } catch (err) {
-    console.error('Error requesting notification permission:', err);
-    return false;
-  }
+  notificationUnavailable();
+  return false;
 }
 
 /**
@@ -71,6 +73,7 @@ export async function scheduleDailyReminder(
       repeats: true,
     };
 
+<<<<<<< HEAD
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: "It's time to save 💰",
@@ -82,6 +85,9 @@ export async function scheduleDailyReminder(
       },
       trigger: trigger as any,
     });
+=======
+    const notificationId = `local-${goalId}-${hours}-${minutes}`;
+>>>>>>> 28426ae5 (ai asistance ui and update)
 
     // Store reminder mapping
     const reminders = await getStoredReminders();
@@ -113,7 +119,10 @@ export async function cancelReminder(goalId: string) {
     const reminder = reminders[goalId];
 
     if (reminder) {
+<<<<<<< HEAD
       await Notifications.cancelScheduledNotificationAsync(reminder.notificationId);
+=======
+>>>>>>> 28426ae5 (ai asistance ui and update)
       delete reminders[goalId];
       await AsyncStorage.setItem(
         DAILY_REMINDER_KEY,
@@ -166,6 +175,7 @@ export async function syncRemindersWithBackend() {
  * Send immediate notification (for testing)
  */
 export async function sendTestNotification() {
+<<<<<<< HEAD
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Budget_Best Test',
@@ -175,6 +185,9 @@ export async function sendTestNotification() {
     },
     trigger: { seconds: 2 } as any,
   });
+=======
+  notificationUnavailable();
+>>>>>>> 28426ae5 (ai asistance ui and update)
 }
 
 /**
@@ -197,6 +210,7 @@ export async function notifyMilestone(
     tier_up: `⬆️ Tier promoted! You reached ${target} tier.`,
   };
 
+<<<<<<< HEAD
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Milestone Reached 🏆',
@@ -207,11 +221,15 @@ export async function notifyMilestone(
     },
     trigger: { seconds: 1 } as any,
   });
+=======
+  console.log('Milestone notification:', { goalId, message: messages[milestone] });
+>>>>>>> 28426ae5 (ai asistance ui and update)
 }
 
 /**
  * Register background task for scheduled reminders
  */
+<<<<<<< HEAD
 TaskManager.defineTask(
   NOTIFICATION_TASK_NAME,
   async () => {
@@ -252,10 +270,13 @@ TaskManager.defineTask(
   }
 );
 
+=======
+>>>>>>> 28426ae5 (ai asistance ui and update)
 /**
  * Start background task for reminders
  */
 export async function startBackgroundReminders() {
+<<<<<<< HEAD
   try {
     const TM = TaskManager as any;
     if (TM.registerTaskAsync) {
@@ -270,17 +291,16 @@ export async function startBackgroundReminders() {
   } catch (err) {
     console.error('Error starting background reminders:', err);
   }
+=======
+  notificationUnavailable();
+>>>>>>> 28426ae5 (ai asistance ui and update)
 }
 
 /**
  * Stop background task
  */
 export async function stopBackgroundReminders() {
-  try {
-    await TaskManager.unregisterTaskAsync(NOTIFICATION_TASK_NAME);
-  } catch (err) {
-    console.error('Error stopping background reminders:', err);
-  }
+  notificationUnavailable();
 }
 
 /**
@@ -288,7 +308,6 @@ export async function stopBackgroundReminders() {
  */
 export async function clearAllReminders() {
   try {
-    await Notifications.cancelAllScheduledNotificationsAsync();
     await AsyncStorage.removeItem(DAILY_REMINDER_KEY);
   } catch (err) {
     console.error('Error clearing reminders:', err);

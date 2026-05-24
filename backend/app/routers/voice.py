@@ -20,10 +20,11 @@ import base64
 import json
 import logging
 import os
+import re
 import uuid
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from slowapi import Limiter
@@ -132,6 +133,57 @@ def _audio_validation(content_type: str, filename: str, size: int):
         raise HTTPException(413, f"Audio exceeds {svc.MAX_AUDIO_MB}MB limit")
 
 
+async def _read_audio_upload(request: Request) -> tuple[bytes, str, str, str, bool]:
+    """
+    Read an audio upload without requiring FastAPI's multipart dependency at
+    route registration time. Supports the simple multipart shape sent by mobile
+    clients and tests.
+    """
+    content_type = request.headers.get("content-type", "")
+    body = await request.body()
+    if not body:
+        raise HTTPException(422, "Audio file is required")
+
+    if "multipart/form-data" not in content_type:
+        return body, content_type or "audio/wav", "upload.wav", "anonymous", False
+
+    boundary_match = re.search(r"boundary=([^;]+)", content_type)
+    if not boundary_match:
+        raise HTTPException(400, "Invalid multipart upload")
+
+    boundary = boundary_match.group(1).strip('"').encode()
+    file_content: bytes | None = None
+    file_content_type = "application/octet-stream"
+    filename = "upload"
+    user_id = "anonymous"
+    prefer_offline = False
+
+    for raw_part in body.split(b"--" + boundary):
+        part = raw_part.strip(b"\r\n")
+        if not part or part == b"--" or b"\r\n\r\n" not in part:
+            continue
+        header_blob, content = part.split(b"\r\n\r\n", 1)
+        headers = header_blob.decode("utf-8", errors="ignore")
+        content = content.rstrip(b"\r\n")
+
+        name_match = re.search(r'name="([^"]+)"', headers)
+        field_name = name_match.group(1) if name_match else ""
+        if field_name == "file":
+            filename_match = re.search(r'filename="([^"]*)"', headers)
+            type_match = re.search(r"Content-Type:\s*([^\r\n]+)", headers, re.IGNORECASE)
+            filename = filename_match.group(1) if filename_match else filename
+            file_content_type = type_match.group(1).strip() if type_match else file_content_type
+            file_content = content
+        elif field_name == "user_id":
+            user_id = content.decode("utf-8", errors="ignore") or user_id
+        elif field_name == "prefer_offline":
+            prefer_offline = content.decode("utf-8", errors="ignore").lower() in {"1", "true", "yes"}
+
+    if file_content is None:
+        raise HTTPException(422, "Audio file is required")
+    return file_content, file_content_type, filename, user_id, prefer_offline
+
+
 # ---------------------------------------------------------------------------
 # SYNC ENDPOINT  — best for audio under ~15 seconds
 # ---------------------------------------------------------------------------
@@ -140,9 +192,6 @@ def _audio_validation(content_type: str, filename: str, size: int):
 @limiter.limit("30/minute")
 async def transcribe_sync(
     request: Request,
-    file: UploadFile = File(..., description="Audio file (WAV/M4A/WebM/OGG/MP3)"),
-    prefer_offline: bool = Form(False, description="Skip SLM, use local NLP only"),
-    user_id: str = Form("anonymous"),
 ):
     """
     **Upload audio → get inventory JSON immediately.**
@@ -152,13 +201,13 @@ async def transcribe_sync(
     - Works offline if SLM (Ollama) is not running
     - Rate limited to 30 requests/minute per IP
     """
-    content = await file.read()
-    _audio_validation(file.content_type or "", file.filename or "", len(content))
+    content, content_type, filename, user_id, prefer_offline = await _read_audio_upload(request)
+    _audio_validation(content_type, filename, len(content))
 
     try:
         raw = await svc.process_voice(
             content,
-            file.content_type or "audio/wav",
+            content_type,
             user_id,
             prefer_offline,
         )
@@ -181,21 +230,18 @@ async def transcribe_sync(
 @limiter.limit("30/minute")
 async def transcribe_and_parse_compat(
     request: Request,
-    file: UploadFile = File(..., description="Audio file (WAV/M4A/WebM/OGG/MP3)"),
-    prefer_offline: bool = Form(False),
-    user_id: str = Form("anonymous"),
 ):
     """
     Backward-compatible shape for the React Native voice inventory screen:
     { text, inventory, _source, language }.
     """
-    content = await file.read()
-    _audio_validation(file.content_type or "", file.filename or "", len(content))
+    content, content_type, filename, user_id, prefer_offline = await _read_audio_upload(request)
+    _audio_validation(content_type, filename, len(content))
 
     try:
         raw = await svc.process_voice(
             content,
-            file.content_type or "audio/wav",
+            content_type,
             user_id,
             prefer_offline,
         )
@@ -225,9 +271,6 @@ async def transcribe_and_parse_compat(
 async def transcribe_async(
     request: Request,
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    user_id: str = Form("anonymous"),
-    prefer_offline: bool = Form(False),
 ):
     """
     **202 Accepted** — returns `job_id` immediately.
@@ -236,11 +279,10 @@ async def transcribe_async(
     - Uses Celery + Redis when `USE_CELERY=true`
     - Falls back to FastAPI BackgroundTasks if Celery is off
     """
-    content = await file.read()
-    _audio_validation(file.content_type or "", file.filename or "", len(content))
+    content, ct, filename, user_id, prefer_offline = await _read_audio_upload(request)
+    _audio_validation(ct, filename, len(content))
 
     job_id = str(uuid.uuid4())
-    ct     = file.content_type or "audio/wav"
 
     celery = _get_celery()
     if celery:
