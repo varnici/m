@@ -1,5 +1,6 @@
 # Python virtualenv
 .venv-core-banking/
+backend/venv/
 __pycache__/
 *.pyc
 *.pyo
