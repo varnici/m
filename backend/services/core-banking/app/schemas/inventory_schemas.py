@@ -233,6 +233,14 @@ class ProductOut(ProductCreate):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_validator("id", "owner_id", "category_id", "parent_id", mode="before")
+    @classmethod
+    def _coerce_uuid_to_str(cls, v: Any) -> Any:
+        if v is not None and not isinstance(v, str):
+            return str(v)
+        return v
+
+
 class DemandForecastPoint(BaseModel):
     date: str
     quantity: int

@@ -9,7 +9,7 @@ import sqlite3
 # Exclude stale test_inventory.py — it imports the removed `inventory_service`
 # module (superseded by inventory_service_v2). Port it before re-enabling.
 # ---------------------------------------------------------------------------
-collect_ignore_glob = ["tests/test_inventory.py"]
+collect_ignore_glob = ["test_inventory.py"]
 
 
 # Ensure `import app...` works when running from repo root

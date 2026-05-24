@@ -7,6 +7,7 @@
 **Priority**: 🔴 CRITICAL PATH
 
 ---
+make this as an universal city, with falling stars raining , and horse with a universal body comes from the side and  run towords the cist
 
 ## 📁 Documentation Files Created
 
