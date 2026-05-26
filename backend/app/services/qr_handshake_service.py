@@ -38,11 +38,7 @@ class QRHandshakeService:
     OTP_VALIDITY_MINUTES = 10
     QR_CODE_VALIDITY_HOURS = 24
 
-<<<<<<< HEAD
-    def __init__(self, db: AsyncSession, *args, **kwargs):
-=======
     def __init__(self, db: AsyncSession):
->>>>>>> 28426ae5 (ai asistance ui and update)
         self.db = db
 
     # ========================================================================

@@ -61,7 +61,6 @@ export interface Product {
   total_quantity_on_hand: number;
   total_reserved_quantity: number;
   margin_percentage: number;
-  turnover_30d?: number;
   is_dead_stock?: boolean;
   rating?: number;
   review_count?: number;
@@ -127,14 +126,7 @@ export interface PurchaseOrder {
   status: 'draft' | 'pending' | 'confirmed' | 'shipped' | 'received' | 'cancelled';
   total_amount_kobo: number;
   items: PurchaseOrderItem[];
-<<<<<<< HEAD
-  po_number?: string;
   expected_delivery_date?: string;
-  supplier?: Supplier;
-  store?: Store;
-=======
-  expected_delivery_date: string;
->>>>>>> 28426ae5 (ai asistance ui and update)
   created_at: string;
 }
 
@@ -169,26 +161,23 @@ export interface InventorySummary {
  */
 
 export interface InventoryDashboardMetrics {
-  total_value_kobo: number;
-  total_revenue_kobo: number;
-  total_profit_kobo: number;
-  turnover_ratio: number;
-  turnover_description: string;
-  dead_stock_count: number;
-<<<<<<< HEAD
-  sales_velocity_30d: number;
-  total_profit_kobo?: number;
+  total_value_kobo?: number;
+  total_inventory_value_kobo?: number;
   total_revenue_kobo?: number;
-  recent_transactions?: Array<{
-    id: string;
-    quantity: number;
-    [key: string]: any;
-=======
+  total_profit_kobo?: number;
+  turnover_ratio?: number;
+  turnover_description?: string;
+  dead_stock_count?: number;
+  sales_velocity_30d?: number;
   best_sellers: Array<{
-    product_id: string;
+    id?: string;
+    product_id?: string;
     sku: string;
     name: string;
-    total_sold: number;
+    quantity_sold?: number;
+    total_sold?: number;
+    revenue_kobo?: number;
+    profit_kobo?: number;
   }>;
   categories: Array<{
     category_id: string;
@@ -199,50 +188,26 @@ export interface InventoryDashboardMetrics {
   }>;
   recent_transactions: Array<{
     id: string;
-    date: string;
-    amount_kobo: number;
-    customer: string;
+    date?: string;
+    amount_kobo?: number;
+    customer?: string;
     customer_phone?: string;
-    product_name: string;
+    product_name?: string;
     quantity: number;
-    unit_price_kobo: number;
-    profit_kobo: number;
->>>>>>> 28426ae5 (ai asistance ui and update)
+    unit_price_kobo?: number;
+    profit_kobo?: number;
+    [key: string]: any;
   }>;
   revenue_trend?: Array<{
     day: string;
     revenue: number;
-<<<<<<< HEAD
     [key: string]: any;
   }>;
-  best_sellers?: Array<{
-    id?: string;
-    product_id?: string;
-    name: string;
-    sku: string;
-    quantity_sold?: number;
-    total_sold?: number;
-    revenue_kobo?: number;
-    profit_kobo?: number;
-  }>;
-  turnover_ratio?: number;
-  global_recommendations?: Array<{
-=======
-  }>;
   global_recommendations: Array<{
->>>>>>> 28426ae5 (ai asistance ui and update)
     id: string;
     type: string;
     title: string;
     description: string;
-<<<<<<< HEAD
-    impact: string;
-    priority?: number;
-    action_text?: string;
-    action_route?: string;
-    metadata?: any;
-  }>;
-=======
     impact: 'high' | 'medium' | 'low' | string;
     priority: number;
     action_text: string;
@@ -284,7 +249,6 @@ export interface InventoryOptimizationReport {
     dead_stock_value_kobo: number;
   };
   top_actions: InventoryOptimizationAction[];
->>>>>>> 28426ae5 (ai asistance ui and update)
 }
 
 export interface AIInsight {

@@ -28,77 +28,7 @@ from app.services.trust_score import TrustScore
 from app.models.inventory import SalesTransaction
 from app.models.loan import Loan
 from app.models.repayment import Repayment
-from app.models.wallet import Wallet
-from app.schemas.trust_score_schemas import (
-    TrustScoreResponse,
-    TrustScoreBreakdown,
-    TrustScoreComponentDetail,
-    TrustScoreSnapshot,
-    TrustScoreRefreshResponse,
-)
-
-# ── Tier thresholds ────────────────────────────────────────────────────────────
-TIERS = [
-    (0,  "Emerging"),
-    (40, "Trusted"),
-    (65, "Established"),
-    (85, "Elite"),
-]
-
-# How long a cached score stays valid before recomputation is triggered
-CACHE_TTL_MINUTES = 60
-
-# ── Component weights (must sum to 1.0) ────────────────────────────────────────
-WEIGHTS = {
-    "sales_velocity":    0.35,
-    "repayment_history": 0.30,
-    "savings_behavior":  0.20,
-    "pool_participation": 0.15,
-}
-
-
-def _tier_for_score(score: float) -> str:
-    tier = TIERS[0][1]
-    for threshold, label in TIERS:
-        if score >= threshold:
-            tier = label
-    return tier
-
-
-def _next_tier(current_tier: str) -> Optional[str]:
-    names = [t[1] for t in TIERS]
-    idx = names.index(current_tier)
-    return names[idx + 1] if idx + 1 < len(names) else None
-
-
-def _points_to_next(score: float, current_tier: str) -> Optional[float]:
-    for threshold, label in TIERS:
-        if label == current_tier:
-            # Find the next threshold
-            idx = TIERS.index((threshold, label))
-            if idx + 1 < len(TIERS):
-                return round(TIERS[idx + 1][0] - score, 1)
-    return None
-
-
-def _component_label(score: float) -> str:
-    if score >= 85:
-        return "Excellent"
-    if score >= 65:
-        return "Strong"
-    if score >= 40:
-        return "Growing"
-    return "Needs work"
-
-
-def _build_component(raw_score: float, weight: float) -> TrustScoreComponentDetail:
-    clamped = max(0.0, min(100.0, raw_score))
-    return TrustScoreComponentDetail(
-        score=round(clamped, 1),
-        weight=weight,
-        weighted_contribution=round(clamped * weight, 2),
-from app.models.loan import Loan
-from app.models.repayment import Repayment
+from app.models.savings import SavingsGoal
 from app.models.wallet import Wallet
 from app.schemas.trust_score_schemas import (
     TrustScoreResponse,
@@ -202,6 +132,57 @@ async def _score_sales_velocity(user_id: UUID, db: AsyncSession) -> tuple[float,
             SalesTransaction.transaction_date >= seven_days_ago,
         )
     )
+    active_days: int = result7.scalar() or 0
+    streak_bonus = min(10.0, (active_days / 7) * 10)
+    return min(100.0, volume_score + streak_bonus), total_sales
+
+
+async def _score_repayment_history(user_id: UUID, db: AsyncSession) -> tuple[float, int]:
+    """Score loan repayment reliability."""
+    result = await db.execute(
+        select(func.count(Loan.id)).where(
+            Loan.user_id == str(user_id),
+            Loan.status == "closed",
+        )
+    )
+    repaid_count: int = result.scalar() or 0
+
+    late_result = await db.execute(
+        select(func.count(Loan.id)).where(
+            Loan.user_id == str(user_id),
+            Loan.days_past_due > 0,
+        )
+    )
+    late_count: int = late_result.scalar() or 0
+    score = min(100.0, repaid_count * 25.0)
+    return max(0.0, score - (late_count * 15.0)), repaid_count
+
+
+async def _score_savings_behavior(user_id: UUID, db: AsyncSession) -> tuple[float, int]:
+    """Score active savings participation."""
+    result = await db.execute(
+        select(func.count(SavingsGoal.id)).where(
+            SavingsGoal.user_id == str(user_id),
+            SavingsGoal.status == "active",
+        )
+    )
+    active_goals: int = result.scalar() or 0
+
+    wallet_result = await db.execute(
+        select(Wallet).where(Wallet.user_id == str(user_id))
+    )
+    wallet: Optional[Wallet] = wallet_result.scalar_one_or_none()
+    balance_score = 25.0 if wallet and wallet.balance_kobo > 0 else 0.0
+    score = min(100.0, (active_goals * 25.0) + balance_score)
+    return score, active_goals
+
+
+async def _score_pool_participation(user_id: UUID, db: AsyncSession) -> tuple[float, int]:
+    """Score pool participation; returns neutral zero until pool ledger integration lands."""
+    return 0.0, 0
+
+
+def _generate_insight(
     total_score: float,
     sales_score: float,
     repayment_score: float,
@@ -369,8 +350,6 @@ def _build_response(record: TrustScore, is_cached: bool) -> TrustScoreResponse:
         computed_at=record.computed_at,
         is_cached=is_cached,
     )
-
-
 
 
 

@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
+
+from pydantic import BaseModel, model_validator
 
 
 class CreditScoreOut(BaseModel):
@@ -19,13 +20,86 @@ class CreditScoreOut(BaseModel):
     class Config:
         from_attributes = True
 
+class UserProfile(BaseModel):
+    id: str
+    full_name: Optional[str] = None
+    avatar_initials: Optional[str] = None
+    trust_level: str = "bronze"
+    business_name: Optional[str] = None
 
-<<<<<<< HEAD
+    class Config:
+        from_attributes = True
+
+
+class WalletState(BaseModel):
+    balance_kobo: int = 0
+    daily_change_kobo: int = 0
+    credit_limit_kobo: Optional[int] = None
+    available_credit_kobo: Optional[int] = None
+    total_debt_kobo: int = 0
+    next_repayment_date: Optional[datetime] = None
+    repayment_amount_kobo: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CreditScoreDetail(BaseModel):
+    id: Optional[str] = None
+    user_id: Optional[str] = None
+    total_score: int = 0
+    tier: str = "Bronze"
+    calculated_at: Optional[datetime] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def map_credit_score_fields(cls, data):
+        if isinstance(data, dict):
+            mapped = dict(data)
+            mapped.setdefault("total_score", mapped.get("score", 0))
+            mapped.setdefault("tier", str(mapped.get("risk_level", "Bronze")).title())
+            return mapped
+
+        return {
+            "id": getattr(data, "id", None),
+            "user_id": getattr(data, "user_id", None),
+            "total_score": getattr(data, "score", 0),
+            "tier": str(getattr(data, "risk_level", "Bronze")).title(),
+            "calculated_at": getattr(data, "calculated_at", None),
+        }
+
+    class Config:
+        from_attributes = True
+
+
 class SalesMetricsSummary(BaseModel):
-    total_sales_kobo: int
-    transaction_count: int
-    average_transaction_kobo: int
-    vs_yesterday_percent: float
+    total_amount_kobo: int = 0
+    total_sales_kobo: int = 0
+    num_transactions: int = 0
+    transaction_count: int = 0
+    average_transaction_kobo: int = 0
+    vs_yesterday_percent: float = 0.0
+
+    @model_validator(mode="before")
+    @classmethod
+    def map_sales_metric_fields(cls, data):
+        if isinstance(data, dict):
+            mapped = dict(data)
+            mapped.setdefault("total_amount_kobo", mapped.get("total_sales_kobo", 0))
+            mapped.setdefault("num_transactions", mapped.get("transaction_count", 0))
+            mapped.setdefault("vs_yesterday_percent", 0.0)
+            return mapped
+
+        total_sales = getattr(data, "total_sales_kobo", 0)
+        transaction_count = getattr(data, "transaction_count", 0)
+        return {
+            "total_amount_kobo": total_sales,
+            "total_sales_kobo": total_sales,
+            "num_transactions": transaction_count,
+            "transaction_count": transaction_count,
+            "average_transaction_kobo": getattr(data, "average_transaction_kobo", 0),
+            "vs_yesterday_percent": 0.0,
+        }
 
     class Config:
         from_attributes = True
@@ -83,24 +157,7 @@ class DashboardSummary(BaseModel):
     community_stats: Optional[CommunityStats] = None
 
 
-# Sales Metrics Schemas
-class SalesMetricsOut(BaseModel):
-    id: str
-    user_id: str
-    date: date
-    total_sales_kobo: int
-    transaction_count: int
-    average_transaction_kobo: int
-    top_products: List[dict]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
 # Inventory Metrics Schemas
-=======
->>>>>>> 28426ae5 (ai asistance ui and update)
 class InventoryMetricsOut(BaseModel):
     """Response schema for inventory metrics."""
     id: str
@@ -144,19 +201,5 @@ class LoanMetricsOut(BaseModel):
     default_rate: float
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
-
-class DashboardSummary(BaseModel):
-    """Complete dashboard summary for a user."""
-    user_id: str
-    wallet_balance_kobo: int
-    credit_score: Optional[CreditScoreOut]
-    today_sales_kobo: int
-    active_loans_count: int
-    outstanding_kobo: int
-    inventory_health: Optional[InventoryMetricsOut]
-    
     class Config:
         from_attributes = True

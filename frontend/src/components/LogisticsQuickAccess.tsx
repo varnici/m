@@ -12,11 +12,6 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-<<<<<<< HEAD
-=======
-
-const tw = (_classes: TemplateStringsArray | string) => ({});
->>>>>>> 28426ae5 (ai asistance ui and update)
 
 interface QuickRoute {
   id: string;

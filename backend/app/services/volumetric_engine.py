@@ -196,12 +196,8 @@ class VolumetricUnitEngine:
         try:
             total_vu = sum(retailers_vu.values())
             
-<<<<<<< HEAD
-            # Check all retailers are included
-=======
             # Check all retailers are included before numeric totals so callers
             # get the most specific validation failure.
->>>>>>> 28426ae5 (ai asistance ui and update)
             if set(individual_shares.keys()) != set(retailers_vu.keys()):
                 return False, "Not all retailers included in shares"
 

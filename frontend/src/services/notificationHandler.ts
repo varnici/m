@@ -15,33 +15,8 @@ const notificationUnavailable = () => {
 
 // Configure notification behavior
 export function configureNotifications() {
-<<<<<<< HEAD
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-    } as any),
-  });
-
-  // Handle notification responses
-  const subscription = Notifications.addNotificationResponseReceivedListener(
-    (response) => {
-      console.log('Notification response:', response);
-      // Handle notification tap
-      const { goalId } = response.notification.request.content.data;
-      if (goalId) {
-        // Navigate to goal detail screen
-        // navigation.navigate('BudgetBestGoalDetail', { goalId });
-      }
-    }
-  );
-
-  return subscription;
-=======
   notificationUnavailable();
   return { remove: () => {} };
->>>>>>> 28426ae5 (ai asistance ui and update)
 }
 
 /**
@@ -73,21 +48,7 @@ export async function scheduleDailyReminder(
       repeats: true,
     };
 
-<<<<<<< HEAD
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "It's time to save 💰",
-        body: `Deposit your savings for ${goalName} now!`,
-        data: { goalId, goalName },
-        sound: 'default',
-        badge: 1,
-        categoryIdentifier: 'BUDGET_BEST_REMINDER',
-      },
-      trigger: trigger as any,
-    });
-=======
     const notificationId = `local-${goalId}-${hours}-${minutes}`;
->>>>>>> 28426ae5 (ai asistance ui and update)
 
     // Store reminder mapping
     const reminders = await getStoredReminders();
@@ -119,10 +80,6 @@ export async function cancelReminder(goalId: string) {
     const reminder = reminders[goalId];
 
     if (reminder) {
-<<<<<<< HEAD
-      await Notifications.cancelScheduledNotificationAsync(reminder.notificationId);
-=======
->>>>>>> 28426ae5 (ai asistance ui and update)
       delete reminders[goalId];
       await AsyncStorage.setItem(
         DAILY_REMINDER_KEY,
@@ -175,19 +132,7 @@ export async function syncRemindersWithBackend() {
  * Send immediate notification (for testing)
  */
 export async function sendTestNotification() {
-<<<<<<< HEAD
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Budget_Best Test',
-      body: 'This is a test notification',
-      sound: 'default',
-      badge: 1,
-    },
-    trigger: { seconds: 2 } as any,
-  });
-=======
   notificationUnavailable();
->>>>>>> 28426ae5 (ai asistance ui and update)
 }
 
 /**
@@ -210,90 +155,17 @@ export async function notifyMilestone(
     tier_up: `⬆️ Tier promoted! You reached ${target} tier.`,
   };
 
-<<<<<<< HEAD
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Milestone Reached 🏆',
-      body: messages[milestone],
-      data: { goalId, milestone },
-      sound: 'default',
-      badge: 1,
-    },
-    trigger: { seconds: 1 } as any,
-  });
-=======
   console.log('Milestone notification:', { goalId, message: messages[milestone] });
->>>>>>> 28426ae5 (ai asistance ui and update)
 }
 
 /**
  * Register background task for scheduled reminders
  */
-<<<<<<< HEAD
-TaskManager.defineTask(
-  NOTIFICATION_TASK_NAME,
-  async () => {
-    try {
-      // This runs in the background
-      const reminders = await getStoredReminders();
-
-      for (const [goalId, reminder] of Object.entries(reminders)) {
-        const { reminderTime, goalName } = reminder as any;
-
-        // Check if it's time to send reminder
-        const now = new Date();
-        const [hours, minutes] = reminderTime.split(':').map(Number);
-
-        if (
-          now.getHours() === hours &&
-          now.getMinutes() >= minutes &&
-          now.getMinutes() < minutes + 1
-        ) {
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: "It's time to save 💰",
-              body: `Deposit your savings for ${goalName} now!`,
-              data: { goalId, goalName },
-              sound: 'default',
-              badge: 1,
-            },
-            trigger: { seconds: 1 } as any,
-          });
-        }
-      }
-
-      return (TaskManager as any).TaskManagerTaskBody || 0;
-    } catch (err) {
-      console.error('Error in background reminder task:', err);
-      return (TaskManager as any).TaskManagerTaskBody || 0;
-    }
-  }
-);
-
-=======
->>>>>>> 28426ae5 (ai asistance ui and update)
 /**
  * Start background task for reminders
  */
 export async function startBackgroundReminders() {
-<<<<<<< HEAD
-  try {
-    const TM = TaskManager as any;
-    if (TM.registerTaskAsync) {
-      await TM.registerTaskAsync(NOTIFICATION_TASK_NAME, {
-        minimumInterval: 60, // Check every minute
-        stopOnTerminate: false,
-        startOnBoot: true,
-      });
-    } else {
-      console.warn('TaskManager.registerTaskAsync is not available on this platform');
-    }
-  } catch (err) {
-    console.error('Error starting background reminders:', err);
-  }
-=======
   notificationUnavailable();
->>>>>>> 28426ae5 (ai asistance ui and update)
 }
 
 /**

@@ -231,7 +231,6 @@ export async function uploadVoiceAndParse(
 export async function uploadVoice(
   file: Blob,
   fileName = 'voice-input.m4a'
-<<<<<<< HEAD
 ): Promise<{ text: string; extracted_number?: string; field_type?: string }> {
   const storeId = await getOrCreateStoreId();
   const base64 = await blobToBase64(file);
@@ -241,18 +240,4 @@ export async function uploadVoice(
     extracted_number: data.data?.quantity?.toString(),
     field_type: 'quantity',
   };
-=======
-): Promise<{ text: string; extracted_number?: number }> {
-  const form = new FormData();
-  form.append('file', file, fileName);
-
-  const res = await fetch(`${VOICE_INVENTORY_API_URL}/voice/transcribe`, {
-    method: 'POST',
-    body: form,
-  });
-
-  if (!res.ok) throw new Error('Voice upload failed');
-  const data = await res.json();
-  return { text: data.transcript || '', extracted_number: data.extracted_number };
->>>>>>> 28426ae5 (ai asistance ui and update)
 }

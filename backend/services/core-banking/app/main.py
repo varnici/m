@@ -44,7 +44,16 @@ async def attach_request_id(request: Request, call_next):
     return response
 
 
-from apscheduler.schedulers.background import BackgroundScheduler
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+except ModuleNotFoundError:
+    class BackgroundScheduler:
+        def add_job(self, *args, **kwargs):
+            return None
+
+        def start(self):
+            return None
+
 from app.tasks.daily_inventory_rollup import run_daily_inventory_rollup
 from app.tasks.savings_tasks import run_auto_sweep_process
 
@@ -68,4 +77,3 @@ def _startup() -> None:
 @app.get("/health")
 def health():
     return {"ok": True, "service": "core-banking", "env": settings.env}
-

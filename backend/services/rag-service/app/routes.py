@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-<<<<<<< HEAD
-from typing import List, Optional
-from pydantic import BaseModel
-from fastapi import APIRouter, Query
-=======
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.models.schemas import IngestRequest, IngestResponse, QueryRequest, QueryResponse, RetrievalMode
@@ -16,7 +13,6 @@ from app.services.personalization import (
     store_inventory_embeddings,
 )
 from app.services.rag_engine import engine
->>>>>>> 28426ae5 (ai asistance ui and update)
 
 router = APIRouter()
 
@@ -62,7 +58,6 @@ def personalize(req: PersonalizationRequest):
 @router.get("/inventory/suggest", response_model=RecommendationResponse)
 def suggest(user_id: str, shop_id: str, query: str):
     return get_personalized_suggestions(user_id, shop_id, query)
-<<<<<<< HEAD
 
 
 # ===================== INTELLIGENCE ENDPOINTS =====================
@@ -111,7 +106,3 @@ async def trigger_refresh():
     """
     from app.tasks.refresh_intelligence import refresh_all_intelligence
     return await refresh_all_intelligence()
-
-
-=======
->>>>>>> 28426ae5 (ai asistance ui and update)

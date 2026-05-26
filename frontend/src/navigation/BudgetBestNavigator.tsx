@@ -46,10 +46,7 @@ export function BudgetBestNavigator() {
         name="BudgetBestDeposit"
         component={BudgetBestDeposit}
         options={{
-<<<<<<< HEAD
-=======
           animation: 'slide_from_right',
->>>>>>> 28426ae5 (ai asistance ui and update)
           gestureEnabled: true,
         }}
       />
@@ -58,12 +55,9 @@ export function BudgetBestNavigator() {
       <Stack.Screen
         name="BudgetBestGoals"
         component={BudgetBestGoals}
-<<<<<<< HEAD
-=======
         options={{
           animation: 'slide_from_right',
         }}
->>>>>>> 28426ae5 (ai asistance ui and update)
       />
 
       {/* Goal Detail */}
@@ -71,10 +65,7 @@ export function BudgetBestNavigator() {
         name="BudgetBestGoalDetail"
         component={BudgetBestGoalDetail}
         options={{
-<<<<<<< HEAD
-=======
           animation: 'slide_from_right',
->>>>>>> 28426ae5 (ai asistance ui and update)
           gestureEnabled: true,
         }}
       />
@@ -83,12 +74,9 @@ export function BudgetBestNavigator() {
       <Stack.Screen
         name="BudgetBestSettings"
         component={BudgetBestSettings}
-<<<<<<< HEAD
-=======
         options={{
           animation: 'slide_from_right',
         }}
->>>>>>> 28426ae5 (ai asistance ui and update)
       />
 
       {/* Policy & Consent */}
@@ -96,10 +84,7 @@ export function BudgetBestNavigator() {
         name="BudgetBestPolicy"
         component={BudgetBestPolicy}
         options={{
-<<<<<<< HEAD
-=======
           animation: 'slide_from_right',
->>>>>>> 28426ae5 (ai asistance ui and update)
           gestureEnabled: false,
         }}
       />

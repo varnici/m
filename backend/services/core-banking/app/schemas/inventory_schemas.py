@@ -104,7 +104,7 @@ class ProductOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("id", "owner_id", "category_id", "parent_id", mode="before")
+    @field_validator("id", "owner_id", "category_id", mode="before")
     @classmethod
     def _coerce_uuid_to_str(cls, v: Any) -> Any:
         if v is not None and not isinstance(v, str):
@@ -424,6 +424,19 @@ class AIInsightsOut(BaseModel):
     recommendation: Optional[str] = None
 
 
+class GlobalRecommendation(BaseModel):
+    """Actionable recommendation shown across dashboard surfaces."""
+    id: str
+    type: str
+    title: str
+    description: str
+    impact: str
+    priority: int = 0
+    action_text: Optional[str] = None
+    action_route: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
 class LedgerEntry(BaseModel):
     """Ledger entry."""
     date: date
@@ -476,6 +489,19 @@ class SavingsSuggestion(BaseModel):
     suggested_amount_kobo: int
     goal_id: Optional[str] = None
 
+
+class SalesTransactionItemOut(BaseModel):
+    """Response schema for a sales transaction line item."""
+    id: str
+    product_id: str
+    quantity_sold: int
+    unit_price_kobo: int
+    line_total_kobo: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SalesTransactionOut(BaseModel):
     """Response schema for sales transaction."""
     id: str
@@ -483,30 +509,22 @@ class SalesTransactionOut(BaseModel):
     store_id: Optional[str]
     customer_id: Optional[str]
     customer_name: Optional[str]
-    payment_method: str
+    payment_method: Optional[str]
     total_amount_kobo: int
     discount_amount_kobo: int
     shipping_fee_kobo: int
     status: str
     order_type: str
-<<<<<<< HEAD
     shipping_address: Optional[str]
     shipping_city: Optional[str]
     shipping_state: Optional[str]
-    shipping_fee_kobo: int
-    
     notes: Optional[str]
     transaction_date: datetime
+    created_at: datetime
     items: List[SalesTransactionItemOut]
     savings_suggestion: Optional[SavingsSuggestion] = None
 
     model_config = ConfigDict(from_attributes=True)
-=======
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
 
 # ============================================================================
 # RECONCILIATION SCHEMAS
@@ -528,6 +546,8 @@ class ListingCreate(BaseModel):
     product_id: str
     price_kobo: int = Field(..., ge=0)
     available_quantity: int = Field(..., ge=0)
+    slug: Optional[str] = None
+    is_active: bool = True
 
 
 class ListingUpdate(BaseModel):
@@ -557,11 +577,17 @@ class MarketplaceProductOut(BaseModel):
     name: str
     description: Optional[str]
     brand: Optional[str]
-    price_kobo: int
-    rating: float
-    review_count: int
+    price_kobo: int = 0
+    rating: float = 0
+    review_count: int = 0
     image_url: Optional[str]
-    available_quantity: int
+    available_quantity: int = 0
+    listing_id: Optional[str] = None
+    marketplace_price_kobo: Optional[int] = None
+    marketplace_available_quantity: Optional[int] = None
+    marketplace_slug: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProductSellerInfo(BaseModel):
@@ -571,4 +597,3 @@ class ProductSellerInfo(BaseModel):
     price_kobo: int
     available_quantity: int
     seller_rating: float
->>>>>>> 28426ae5 (ai asistance ui and update)

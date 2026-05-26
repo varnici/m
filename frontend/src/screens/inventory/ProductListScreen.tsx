@@ -18,15 +18,11 @@ import { retailCategoriesData } from '@/data/retailCategories';
 import { colors } from '@/theme/colors';
 import type { Product as InventoryProduct } from '@/types/inventory';
 
-<<<<<<< HEAD
-import { Product } from '@/types/inventory';
-=======
 // ============================================================================
 // TYPES
 // ============================================================================
 
 type Product = InventoryProduct;
->>>>>>> 28426ae5 (ai asistance ui and update)
 
 interface ProductItemProps {
   product: Product;
@@ -57,16 +53,11 @@ const getCategoryIcon = (categoryId?: string) => {
 };
 
 const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps) => {
-<<<<<<< HEAD
-  const quantityOnHand = product.quantity_on_hand ?? 0;
-  const isLowStock = quantityOnHand <= product.minimum_stock_level;
-=======
   const quantityOnHand = product.total_quantity_on_hand ?? product.quantity_on_hand ?? 0;
   const reservedQuantity = product.total_reserved_quantity ?? 0;
   const availableQuantity = Math.max(0, quantityOnHand - reservedQuantity);
   const isOutOfStock = availableQuantity <= 0;
   const isLowStock = !isOutOfStock && availableQuantity <= product.minimum_stock_level;
->>>>>>> 28426ae5 (ai asistance ui and update)
   const profitPerUnit = product.selling_price_kobo - product.cost_price_kobo;
   const margin =
     product.selling_price_kobo > 0
@@ -106,15 +97,9 @@ const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps
           <Text style={[styles.productName, { textAlign: 'center' }]} numberOfLines={2}>{product.name}</Text>
         </View>
 
-<<<<<<< HEAD
-        <View className="border-t border-gray-50 pt-2 items-center">
-          <Text style={[styles.statValue, { fontSize: 14 }]}>{quantityOnHand} in stock</Text>
-          <Text style={[styles.statValueSuccess, { fontSize: 12, marginTop: 2 }]}>{profitPerUnitFormatted} profit</Text>
-=======
         <View style={styles.gridMetrics}>
           <Text style={[styles.statValue, { fontSize: 14 }]}>{availableQuantity} available</Text>
           <Text style={[styles.statValueSuccess, { fontSize: 12, marginTop: 2 }]}>{margin}% margin</Text>
->>>>>>> 28426ae5 (ai asistance ui and update)
         </View>
 
         {(isLowStock || isOutOfStock) && (
@@ -163,11 +148,7 @@ const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps
         <View style={styles.statGroup}>
           <Text style={styles.statLabel}>Available</Text>
           <Text style={[styles.statValue, isLowStock && styles.textError]}>
-<<<<<<< HEAD
-            {quantityOnHand}
-=======
             {availableQuantity}
->>>>>>> 28426ae5 (ai asistance ui and update)
           </Text>
         </View>
         
@@ -214,16 +195,6 @@ export const ProductListScreen = ({ navigation }: any) => {
     [navigation]
   );
 
-<<<<<<< HEAD
-  const renderItem = useCallback(
-    ({ item }: { item: Product }) => (
-      <ProductItem product={item} viewMode={viewMode} onPress={handleProductPress} />
-    ),
-    [handleProductPress, viewMode]
-  );
-
-=======
->>>>>>> 28426ae5 (ai asistance ui and update)
   const keyExtractor = useCallback((item: Product) => item.id, []);
 
   const inventorySummary = useMemo(() => {

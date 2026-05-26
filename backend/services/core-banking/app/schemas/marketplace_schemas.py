@@ -2,13 +2,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-<<<<<<< HEAD
-
-from pydantic import BaseModel, model_validator
-=======
-from pydantic import BaseModel, Field
 from typing import Optional
->>>>>>> 28426ae5 (ai asistance ui and update)
+
+from pydantic import BaseModel, Field
+from pydantic import model_validator
 
 
 class ProductCreate(BaseModel):

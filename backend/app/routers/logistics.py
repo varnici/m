@@ -3,19 +3,12 @@ VentureRoute Logistics API Endpoints
 FastAPI routers for clustering, routing, QR codes, and wallet management
 """
 
-<<<<<<< HEAD
-from fastapi import APIRouter, HTTPException, status, Request, Depends
+from decimal import Decimal
 from uuid import UUID, uuid4
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
-from decimal import Decimal
-from typing import Optional
-=======
-from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
->>>>>>> 28426ae5 (ai asistance ui and update)
 
 from app.database import get_db_session
 from app.models.logistics import (
@@ -33,28 +26,9 @@ from app.services.cluster_service import ClusterService
 from app.services.volumetric_engine import VolumetricUnitEngine
 from app.services.wallet_freeze_service import WalletFreezeService
 from app.services.qr_handshake_service import QRHandshakeService
-<<<<<<< HEAD
 from app.middleware.security import limiter, get_current_user
-=======
-from app.services.db_pool import get_db_pool
-from app.middleware.security import limiter
->>>>>>> 28426ae5 (ai asistance ui and update)
 
 router = APIRouter(prefix="/api/v1/logistics", tags=["logistics"])
-
-
-async def get_db_session():
-    """Yield an async DB session from the global pool."""
-    try:
-        pool = get_db_pool()
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database pool is not initialized",
-        ) from exc
-
-    async with pool.get_session() as session:
-        yield session
 
 
 # ============================================================================
@@ -507,11 +481,7 @@ async def process_qr_scan(
         qr_code_value = payload.qr_code_value or payload.qr_code_id
         
         handshake = await qr_service.process_handshake(
-<<<<<<< HEAD
-            qr_code_value=payload.qr_code_id,
-=======
             qr_code_value=qr_code_value,
->>>>>>> 28426ae5 (ai asistance ui and update)
             handshake_type=payload.handshake_type,
             scanned_by=str(user_id),
             scan_latitude=float(payload.scan_latitude) if payload.scan_latitude else None,

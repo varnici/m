@@ -114,17 +114,6 @@ const DashboardScreen = ({
     );
   }
 
-<<<<<<< HEAD
-  // Fallback to empty/default if data is missing
-  const dashboard: DashboardData = data || {
-    user: { id: user?.id || '', full_name: user?.email?.split('@')[0] || 'Guest', trust_level: 'Bronze' },
-    wallet: { balance_kobo: 0, daily_change_kobo: 0, available_credit_kobo: 0, total_debt_kobo: 0 },
-    recent_activity: [],
-    market_ticker: [],
-    intelligence: [],
-    sales_streak: { streak_days: 0, total_days: 7, points_earned: 0, next_reward_tier: 'Silver' },
-    community_stats: { total_members: 14400, active_discussions: 0, new_opportunities: 0 }
-=======
   // Default dashboard shape to prevent missing nested fields from crashing the UI
   const defaultUser = {
     full_name: user?.email?.split('@')[0] || 'Guest',
@@ -150,7 +139,6 @@ const DashboardScreen = ({
     recent_activity: [],
     market_ticker: [],
     intelligence: [],
->>>>>>> 28426ae5 (ai asistance ui and update)
   };
 
   const dashboard = {

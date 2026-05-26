@@ -5,7 +5,6 @@ from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -15,6 +14,20 @@ from app.models.wallet import Wallet
 
 security = HTTPBearer()
 logger = logging.getLogger(__name__)
+
+
+try:
+    from jose import JWTError, jwt
+except ModuleNotFoundError:
+    class JWTError(Exception):
+        """Raised when JWT support is unavailable or token validation fails."""
+
+    class _MissingJwt:
+        @staticmethod
+        def decode(*args, **kwargs):
+            raise JWTError("python-jose is required for JWT validation")
+
+    jwt = _MissingJwt()
 
 
 def _decode_user_id(token: str) -> str:
