@@ -3,18 +3,31 @@
   "compilerOptions": {
     "strict": true,
     "jsx": "react-native",
+    "jsxImportSource": "nativewind",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@assets/*": ["./assets/*"]
     }
   },
   "exclude": [
     "node_modules",
     "venv",
     "backend",
-    "**/*.js"
+    "**/*.js",
+    "babel.config.js",
+    "metro.config.js",
+    "jest.config.js",
+    "dist",
+    ".expo",
+    "web-build",
+    "__tests__",
+    "src/__tests__",
+    "src/**/__tests__",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

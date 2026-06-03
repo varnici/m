@@ -13,7 +13,7 @@ interface BriefingMetric {
 }
 
 interface AIBriefingCardProps {
-  insights: BriefingInsight[];
+  insights?: BriefingInsight[];
   metrics?: BriefingMetric[];
   updatedAt?: string;
   onFullReport?: () => void;

@@ -11,6 +11,42 @@ export const colors = {
     surface: '#F8F9FA',
     white: '#FFFFFF',
     dark: '#1A1A1A',
+    // Industrial Monolith Tokens
+    industrial: {
+      primary: '#059669',
+      // Dynamic Variants
+      light: {
+        background: '#FFFFFF',
+        surface: '#FFFFFF',
+        surfaceLow: '#F9FAFB',
+        surfaceHigh: '#F3F4F6',
+        surfaceHighest: '#E5E7EB',
+        onSurface: '#111827',
+        outline: '#D1D5DB',
+      },
+      dark: {
+        background: '#131313',
+        surface: '#131313',
+        surfaceLow: '#1C1B1B',
+        surfaceHigh: '#2A2A2A',
+        surfaceHighest: '#353534',
+        onSurface: '#E5E2E1',
+        outline: '#454652',
+      },
+      // Keep legacy for compatibility
+      background: '#131313',
+      onSurface: '#E5E2E1',
+    },
+    // Rich Vibe Tokens (Glassmorphism & Gradients)
+    rich: {
+      primary: '#6366F1', // Indigo
+      secondary: '#EC4899', // Pink
+      accent: '#8B5CF6', // Violet
+      background: '#0F172A', // Slate 900
+      glass: 'rgba(255, 255, 255, 0.1)',
+      glassBorder: 'rgba(255, 255, 255, 0.2)',
+      onSurface: '#F8FAFC',
+    }
   },
   text: {
     primary: '#1A1A1A',

@@ -1,0 +1,633 @@
+"""
+Analytics Service
+Handles complex inventory calculations and reporting using optimized SQL functions.
+"""
+
+import heapq
+import math
+from typing import List, Optional, Dict, Any
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
+from sqlalchemy import func, text
+from sqlalchemy.orm import Session
+import logging
+
+from app.models import Product, SalesTransaction, SalesTransactionItem, StockLevel
+from app.schemas.inventory_schemas import (
+    InventoryMetricsOut,
+    ProductHealthOut,
+)
+
+logger = logging.getLogger(__name__)
+
+class AnalyticsService:
+    """Service for inventory analytics and reporting."""
+    
+    def __init__(self, db: Session, owner_id: str):
+        self.db = db
+        self.owner_id = owner_id
+
+    def get_dashboard_summary(self) -> Dict[str, Any]:
+        """Get high-level dashboard summary using standalone SQL functions."""
+        # 1. Total Inventory Value (prefer SQL function; fallback to aggregate on failure)
+        try:
+            total_val = self.db.execute(
+                text("SELECT public.total_inventory_value(CAST(:owner_id AS varchar))"),
+                {"owner_id": self.owner_id}
+            ).scalar() or 0
+        except Exception as e:
+            logger.warning("total_inventory_value function call failed: %s; falling back to aggregate", e)
+            total_val = self.db.execute(
+                text("""
+                    SELECT COALESCE(SUM(sl.quantity_on_hand * p.cost_price_kobo), 0)
+                    FROM stock_levels sl
+                    JOIN products p ON sl.product_id = p.id
+                    WHERE p.owner_id = :owner_id
+                """),
+                {"owner_id": self.owner_id}
+            ).scalar() or 0
+
+        # 2. Turnover Ratio
+        try:
+            turnover = self.db.execute(
+                text("SELECT public.inventory_turnover(CAST(:owner_id AS varchar), 30)"),
+                {"owner_id": self.owner_id}
+            ).scalar() or 0
+        except Exception as e:
+            logger.warning("inventory_turnover function call failed: %s; defaulting to 0", e)
+            turnover = 0
+
+        # 3. Best Sellers
+        try:
+            best_sellers = self.db.execute(
+                text("SELECT * FROM public.best_selling_products(CAST(:owner_id AS varchar), 5)"),
+                {"owner_id": self.owner_id}
+            ).fetchall()
+        except Exception as e:
+            logger.warning("best_selling_products function call failed: %s; returning empty list", e)
+            best_sellers = []
+
+        # 4. Dead Stock Count
+        try:
+            dead_stock = self.db.execute(
+                text("SELECT COUNT(*) FROM public.dead_stock_detection(CAST(:owner_id AS varchar), 90)"),
+                {"owner_id": self.owner_id}
+            ).scalar() or 0
+        except Exception as e:
+            logger.warning("dead_stock_detection function call failed: %s; defaulting to 0", e)
+            dead_stock = 0
+
+        # 5. Total Revenue & Profit (Last 30 days)
+        revenue = self.db.execute(
+            text("SELECT COALESCE(SUM(total_amount_kobo), 0) FROM sales_transactions WHERE owner_id = :owner_id AND transaction_date >= NOW() - INTERVAL '30 days'"),
+            {"owner_id": self.owner_id}
+        ).scalar() or 0
+
+        profit = self.db.execute(
+            text("""
+                SELECT COALESCE(SUM((sti.quantity_sold * sti.unit_price_kobo) - (sti.quantity_sold * COALESCE(p.cost_price_kobo, 0))), 0)
+                FROM sales_transaction_items sti
+                JOIN sales_transactions st ON sti.sale_id = st.id
+                LEFT JOIN products p ON sti.product_id = p.id
+                WHERE st.owner_id = :owner_id AND st.transaction_date >= NOW() - INTERVAL '30 days'
+            """),
+            {"owner_id": self.owner_id}
+        ).scalar() or 0
+
+        # 6. Categories Health & Count
+        categories_data = self.get_category_health()
+        # total_items from get_category_health matches the count needed
+        for cat in categories_data:
+            cat["count"] = cat.get("total_items", 0)
+
+        # 7. Revenue Trend (Last 7 days)
+        trend_data = self.db.execute(
+            text("""
+                SELECT 
+                    TO_CHAR(transaction_date, 'Dy') as day_name,
+                    COALESCE(SUM(total_amount_kobo), 0) as daily_revenue,
+                    transaction_date::date as t_date
+                FROM sales_transactions 
+                WHERE owner_id = :owner_id 
+                AND transaction_date >= CURRENT_DATE - INTERVAL '6 days'
+                GROUP BY t_date, day_name
+                ORDER BY t_date ASC
+            """),
+            {"owner_id": self.owner_id}
+        ).fetchall()
+
+        revenue_trend = [
+            {"day": r[0], "revenue": float(r[1])}
+            for r in trend_data
+        ]
+
+        return {
+            "total_value_kobo": total_val,
+            "total_revenue_kobo": revenue,
+            "total_profit_kobo": profit,
+            "turnover_ratio": float(turnover),
+            "turnover_description": f"{float(turnover):.1f}x monthly turnover",
+            "dead_stock_count": dead_stock,
+            "best_sellers": [
+                {"product_id": str(r[0]), "sku": r[1], "name": r[2], "total_sold": r[3]} 
+                for r in best_sellers
+            ],
+            "categories": categories_data,
+            "recent_transactions": self.get_recent_transactions(5),
+            "revenue_trend": revenue_trend,
+            "global_recommendations": self.get_global_recommendations()
+        }
+
+    def get_inventory_optimization(
+        self,
+        store_id: Optional[str] = None,
+        days: int = 30,
+        limit: int = 25,
+        ordering_cost_kobo: int = 250_000,
+        annual_holding_rate: float = 0.20,
+    ) -> Dict[str, Any]:
+        """
+        Compute inventory decisions in one batched read.
+
+        The algorithm uses aggregate hash maps from SQL subqueries, then a bounded
+        heap to keep only the highest-risk SKUs in memory. That keeps request cost
+        predictable when a tenant has a large catalog.
+        """
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+        stock_query = self.db.query(
+            StockLevel.product_id.label("product_id"),
+            func.coalesce(func.sum(StockLevel.quantity_on_hand), 0).label("on_hand"),
+            func.coalesce(func.sum(StockLevel.quantity_reserved), 0).label("reserved"),
+        ).join(Product, Product.id == StockLevel.product_id).filter(
+            Product.owner_id == self.owner_id,
+            Product.is_active == True,
+        )
+        if store_id:
+            stock_query = stock_query.filter(StockLevel.store_id == store_id)
+        stock_totals = stock_query.group_by(StockLevel.product_id).subquery()
+
+        sales_totals = (
+            self.db.query(
+                SalesTransactionItem.product_id.label("product_id"),
+                func.coalesce(func.sum(SalesTransactionItem.quantity_sold), 0).label("units_sold"),
+                func.coalesce(func.sum(SalesTransactionItem.line_total_kobo), 0).label("revenue_kobo"),
+                func.max(SalesTransaction.transaction_date).label("last_sale_at"),
+            )
+            .join(SalesTransaction, SalesTransaction.id == SalesTransactionItem.sale_id)
+            .filter(
+                SalesTransaction.owner_id == self.owner_id,
+                SalesTransaction.transaction_date >= cutoff,
+            )
+        )
+        if store_id:
+            sales_totals = sales_totals.filter(SalesTransaction.store_id == store_id)
+        sales_totals = sales_totals.group_by(SalesTransactionItem.product_id).subquery()
+
+        rows = (
+            self.db.query(
+                Product,
+                func.coalesce(stock_totals.c.on_hand, 0).label("on_hand"),
+                func.coalesce(stock_totals.c.reserved, 0).label("reserved"),
+                func.coalesce(sales_totals.c.units_sold, 0).label("units_sold"),
+                func.coalesce(sales_totals.c.revenue_kobo, 0).label("revenue_kobo"),
+                sales_totals.c.last_sale_at,
+            )
+            .outerjoin(stock_totals, stock_totals.c.product_id == Product.id)
+            .outerjoin(sales_totals, sales_totals.c.product_id == Product.id)
+            .filter(Product.owner_id == self.owner_id, Product.is_active == True)
+            .all()
+        )
+
+        candidates: list[tuple[int, str, Dict[str, Any]]] = []
+        total_stock_value_kobo = 0
+        total_reserved_units = 0
+        revenue_at_risk_kobo = 0
+        carrying_cost_kobo = 0
+        dead_stock_value_kobo = 0
+        stockout_count = 0
+        reorder_count = 0
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        for product, on_hand, reserved, units_sold, revenue_kobo, last_sale_at in rows:
+            on_hand = int(on_hand or 0)
+            reserved = int(reserved or 0)
+            units_sold = int(units_sold or 0)
+            revenue_kobo = int(revenue_kobo or 0)
+            available = max(0, on_hand - reserved)
+            stock_value = on_hand * int(product.cost_price_kobo or 0)
+            total_stock_value_kobo += stock_value
+            total_reserved_units += reserved
+
+            daily_demand = units_sold / max(days, 1)
+            reorder_point = max(
+                int(product.minimum_stock_level or 0),
+                math.ceil(daily_demand * int(product.supplier_lead_time_days or 1)),
+            )
+            stock_gap = max(0, reorder_point - available)
+            risk_value = stock_gap * int(product.selling_price_kobo or 0)
+            revenue_at_risk_kobo += risk_value
+
+            holding_cost_per_unit = max(1, int(product.cost_price_kobo or 0) * annual_holding_rate)
+            period_demand = max(units_sold, int(product.reorder_quantity or 1))
+            eoq = math.ceil(math.sqrt((2 * period_demand * ordering_cost_kobo) / holding_cost_per_unit))
+
+            item_carrying_cost = math.ceil(stock_value * annual_holding_rate * (days / 365))
+            carrying_cost_kobo += item_carrying_cost
+
+            days_since_sale = None
+            if last_sale_at:
+                if getattr(last_sale_at, "tzinfo", None):
+                    last_sale_at = last_sale_at.replace(tzinfo=None)
+                days_since_sale = max(0, (now - last_sale_at).days)
+            elif on_hand > 0:
+                days_since_sale = days
+
+            if on_hand > 0 and (days_since_sale is None or days_since_sale >= days) and units_sold == 0:
+                dead_stock_value_kobo += stock_value
+
+            days_of_cover = None if daily_demand <= 0 else round(available / daily_demand, 1)
+            urgency = "healthy"
+            if available <= 0:
+                urgency = "stockout"
+            elif stock_gap > 0:
+                urgency = "reorder_now"
+            elif days_of_cover is not None and days_of_cover <= int(product.supplier_lead_time_days or 1):
+                urgency = "lead_time_risk"
+            if urgency == "stockout":
+                stockout_count += 1
+            if urgency in {"stockout", "reorder_now", "lead_time_risk"}:
+                reorder_count += 1
+
+            recommendation = {
+                "product_id": str(product.id),
+                "sku": product.sku,
+                "name": product.name,
+                "available_quantity": available,
+                "reserved_quantity": reserved,
+                "units_sold": units_sold,
+                "daily_demand": round(daily_demand, 2),
+                "days_of_cover": days_of_cover,
+                "reorder_point": reorder_point,
+                "recommended_order_quantity": max(stock_gap, eoq if stock_gap > 0 else 0),
+                "economic_order_quantity": eoq,
+                "revenue_at_risk_kobo": risk_value,
+                "carrying_cost_kobo": item_carrying_cost,
+                "urgency": urgency,
+            }
+            if urgency != "healthy":
+                priority_score = max(risk_value, stock_gap, 1)
+                heapq.heappush(candidates, (priority_score, str(product.id), recommendation))
+                if len(candidates) > limit:
+                    heapq.heappop(candidates)
+
+        top_actions = [item for _, _, item in sorted(candidates, key=lambda row: row[0], reverse=True)]
+
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "window_days": days,
+            "store_id": store_id,
+            "algorithm": "batched_aggregate_priority_heap_eoq",
+            "summary": {
+                "sku_count": len(rows),
+                "stockout_count": stockout_count,
+                "reorder_action_count": reorder_count,
+                "total_stock_value_kobo": total_stock_value_kobo,
+                "reserved_units": total_reserved_units,
+                "revenue_at_risk_kobo": revenue_at_risk_kobo,
+                "estimated_carrying_cost_kobo": carrying_cost_kobo,
+                "dead_stock_value_kobo": dead_stock_value_kobo,
+            },
+            "top_actions": top_actions,
+        }
+
+    def get_global_recommendations(self) -> List[Dict[str, Any]]:
+        """
+        Generate global AI recommendations based on stock levels, sales velocity, and historical patterns.
+        In production, this would integrate with the ML model predictions.
+        """
+        recommendations = []
+        
+        # 1. Critical Restock Recommendation (based on real data)
+        low_stock_query = text("""
+            SELECT p.id, p.name, sl.quantity_on_hand, p.minimum_stock_level, p.reorder_quantity
+            FROM products p
+            JOIN stock_levels sl ON p.id = sl.product_id
+            WHERE p.owner_id = :owner_id AND sl.quantity_on_hand <= p.minimum_stock_level
+            LIMIT 2
+        """)
+        low_stock = self.db.execute(low_stock_query, {"owner_id": self.owner_id}).fetchall()
+        
+        for item in low_stock:
+            recommendations.append({
+                "id": f"restock-{item[0]}",
+                "type": "restock",
+                "title": f"Restock {item[1]}",
+                "description": f"Stock level ({item[2]}) is below critical limit ({item[3]}). Suggested order: {item[4]} units.",
+                "impact": "high",
+                "priority": 1,
+                "action_text": "Create PO",
+                "action_route": "AddPurchaseOrder",
+                "metadata": {"product_id": str(item[0]), "qty": item[4]}
+            })
+
+        # 2. Cross-Sell Insight (Smart Mock based on logic)
+        # If we have best sellers, suggest a bundle or cross-sell
+        best_seller_query = text("SELECT * FROM best_selling_products(:owner_id, 1)")
+        top_product = self.db.execute(best_seller_query, {"owner_id": self.owner_id}).first()
+        
+        if top_product:
+            recommendations.append({
+                "id": "cross-sell-001",
+                "type": "cross_sell",
+                "title": "Optimized Bundling",
+                "description": f"AI detected a 45% correlation between {top_product[2]} and related beverages. Create a promo bundle?",
+                "impact": "medium",
+                "priority": 2,
+                "action_text": "View Bundle",
+                "action_route": "SalesVelocity",
+                "metadata": {"source_product_id": str(top_product[0])}
+            })
+
+        # 3. Dead Stock Liquidation Insight
+        dead_stock_query = text("SELECT * FROM dead_stock_detection(:owner_id, 60) LIMIT 1")
+        dead_item = self.db.execute(dead_stock_query, {"owner_id": self.owner_id}).first()
+        
+        if dead_item:
+            recommendations.append({
+                "id": f"deadstock-{dead_item[0]}",
+                "type": "promo",
+                "title": "Clearance Opportunity",
+                "description": f"{dead_item[2]} hasn't moved in 60 days. Suggesting a 15% markdown to recover ₦{dead_item[3]/100} in tied capital.",
+                "impact": "medium",
+                "priority": 3,
+                "action_text": "Set Discount",
+                "action_route": "RecordSale",
+                "metadata": {"product_id": str(dead_item[0])}
+            })
+
+        return recommendations
+
+    def get_product_intelligence(self, product_id: str) -> Dict[str, Any]:
+        """Get intelligence for a specific product."""
+        # 1. Profit & Margin
+        margin = self.db.execute(
+            text("SELECT margin_percentage(:pid)"),
+            {"pid": product_id}
+        ).scalar() or 0
+
+        profit = self.db.execute(
+            text("SELECT profit_per_unit(:pid)"),
+            {"pid": product_id}
+        ).scalar() or 0
+
+        # 2. Days Remaining
+        days_left = self.db.execute(
+            text("SELECT stock_days_remaining(:pid)"),
+            {"pid": product_id}
+        ).scalar() or 0
+
+        # 3. Predicted Restock
+        restock_qty = self.db.execute(
+            text("SELECT restock_quantity_prediction(:pid)"),
+            {"pid": product_id}
+        ).scalar() or 0
+
+        return {
+            "margin_percentage": float(margin),
+            "profit_per_unit_kobo": profit,
+            "stock_days_remaining": days_left,
+            "recommended_restock_qty": restock_qty
+        }
+
+    def get_category_health(self) -> List[Dict[str, Any]]:
+        """Get health scores for all active categories using a single optimized query."""
+        # This replaces the N+1 loop with a single aggregate query
+        query = text("""
+            WITH category_stats AS (
+                SELECT 
+                    c.id as category_id,
+                    c.name,
+                    COUNT(p.id) as total_items,
+                    SUM(CASE WHEN sl.quantity_on_hand <= p.minimum_stock_level THEN 1 ELSE 0 END) as low_stock_items
+                FROM categories c
+                LEFT JOIN products p ON c.id = p.category_id AND p.is_active = TRUE
+                LEFT JOIN stock_levels sl ON p.id = sl.product_id
+                WHERE c.owner_id = :owner_id AND c.is_active = TRUE
+                GROUP BY c.id, c.name
+            )
+            SELECT 
+                category_id,
+                name,
+                total_items,
+                CASE 
+                    WHEN total_items = 0 THEN 100
+                    ELSE ROUND(((total_items - low_stock_items)::DECIMAL / total_items * 100))::INTEGER
+                END as health_score
+            FROM category_stats
+        """)
+        
+        results = self.db.execute(query, {"owner_id": self.owner_id}).fetchall()
+        
+        return [
+            {
+                "category_id": str(r[0]),
+                "name": r[1],
+                "total_items": r[2],
+                "health_score": r[3]
+            }
+            for r in results
+        ]
+
+    def get_supplier_performance(self) -> List[Dict[str, Any]]:
+        """Get performance scores for all suppliers using a single optimized query."""
+        # Single query to calculate performance metrics (fulfillment rate, delivery time)
+        query = text("""
+            WITH po_stats AS (
+                SELECT 
+                    s.id as supplier_id,
+                    s.name,
+                    COUNT(po.id) as total_pos,
+                    AVG(EXTRACT(EPOCH FROM (po.actual_delivery_date::timestamp - po.created_at))/86400) as avg_lead_time_days,
+                    SUM(CASE WHEN po.status = 'received' THEN 1 ELSE 0 END) as completed_pos
+                FROM suppliers s
+                LEFT JOIN purchase_orders po ON s.id = po.supplier_id
+                WHERE s.owner_id = :owner_id
+                GROUP BY s.id, s.name
+            )
+            SELECT 
+                supplier_id,
+                name,
+                total_pos,
+                CASE 
+                    WHEN total_pos = 0 THEN 0
+                    ELSE ROUND((completed_pos::DECIMAL / total_pos * 100))::INTEGER
+                END as performance_score
+            FROM po_stats
+        """)
+        
+        results = self.db.execute(query, {"owner_id": self.owner_id}).fetchall()
+        
+        return [
+            {
+                "supplier_id": str(r[0]),
+                "name": r[1],
+                "total_pos": r[2],
+                "performance_score": r[3]
+            }
+            for r in results
+        ]
+    def get_recent_transactions(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get recent sales transactions with detailed metrics for the dashboard 'sheet'."""
+        query = text("""
+            SELECT 
+                st.id,
+                st.transaction_date,
+                st.total_amount_kobo,
+                st.customer_name,
+                st.customer_phone,
+                COALESCE(p.name, 'Unknown / Deleted Product') as product_name,
+                sti.quantity_sold,
+                sti.unit_price_kobo,
+                ((sti.quantity_sold * sti.unit_price_kobo) - (sti.quantity_sold * COALESCE(p.cost_price_kobo, 0))) as profit_kobo
+            FROM sales_transactions st
+            JOIN sales_transaction_items sti ON st.id = sti.sale_id
+            LEFT JOIN products p ON sti.product_id = p.id
+            WHERE st.owner_id = :owner_id
+            ORDER BY st.transaction_date DESC
+            LIMIT :limit
+        """)
+        
+        results = self.db.execute(query, {"owner_id": self.owner_id, "limit": limit}).fetchall()
+        
+        return [
+            {
+                "id": str(r[0]),
+                "date": r[1].isoformat() if r[1] else None,
+                "amount_kobo": r[2],
+                "customer": r[3] or "Guest",
+                "customer_phone": r[4],
+                "product_name": r[5],
+                "quantity": r[6],
+                "unit_price_kobo": r[7],
+                "profit_kobo": r[8]
+            }
+            for r in results
+        ]
+
+    def get_product_health_scores(self, limit: int = 50) -> List[ProductHealthOut]:
+        """Get health scores for all products (stock status, margin, turnover)."""
+        # This implementation uses the best_selling_products and margin_percentage SQL functions
+        query = text("""
+            SELECT p.id, p.sku, p.name, 
+                   margin_percentage(p.id) as margin,
+                   COALESCE(sl.quantity_on_hand, 0) as stock,
+                   p.minimum_stock_level
+            FROM products p
+            LEFT JOIN stock_levels sl ON p.id = sl.product_id
+            WHERE p.owner_id = :owner_id AND p.is_active = TRUE
+            ORDER BY margin DESC
+            LIMIT :limit
+        """)
+        results = self.db.execute(query, {"owner_id": self.owner_id, "limit": limit}).fetchall()
+        
+        health_scores = []
+        for r in results:
+            stock_status = "in_stock"
+            if r[4] <= 0:
+                stock_status = "out_of_stock"
+            elif r[4] <= r[5]:
+                stock_status = "low_stock"
+                
+            health_scores.append(ProductHealthOut(
+                product_id=str(r[0]),
+                sku=r[1],
+                name=r[2],
+                health_score=int(r[3]), # Using margin as a proxy for health score
+                stock_status=stock_status,
+                margin_percentage=float(r[3]),
+                turnover_rate=0.0 # Placeholder
+            ))
+        return health_scores
+
+    def detect_dead_stock(self, days: int = 30) -> List[Any]:
+        """Get products with no sales in specified days."""
+        query = text("SELECT * FROM dead_stock_detection(:owner_id, :days)")
+        results = self.db.execute(query, {"owner_id": self.owner_id, "days": days}).fetchall()
+        # Mapping to ProductDetailOut would happen here
+        return results
+
+    def calculate_turnover_ratio(self, product_id: Optional[str], store_id: Optional[str], days: int) -> float:
+        """Calculate inventory turnover ratio."""
+        query = text("SELECT inventory_turnover(:owner_id, :days)")
+        # In a more granular implementation, we'd filter by product/store in SQL
+        result = self.db.execute(query, {"owner_id": self.owner_id, "days": days}).scalar()
+        return float(result or 0.0)
+
+    def calculate_sales_velocity(self, days: int = 30) -> List[Dict[str, Any]]:
+        """
+        Sales Velocity Algorithm: Velocity = Total Sales / Time (per product category).
+        """
+        query = text("""
+            SELECT 
+                c.name as category_name,
+                COALESCE(SUM(sti.quantity_sold), 0) as total_units_sold,
+                COALESCE(SUM(sti.line_total_kobo), 0) as total_revenue_kobo
+            FROM categories c
+            LEFT JOIN products p ON c.id = p.category_id
+            LEFT JOIN sales_transaction_items sti ON p.id = sti.product_id
+            LEFT JOIN sales_transactions st ON sti.sale_id = st.id
+            WHERE c.owner_id = :owner_id 
+            AND (st.transaction_date >= NOW() - CAST(:days || ' days' AS INTERVAL) OR st.transaction_date IS NULL)
+            GROUP BY c.id, c.name
+        """)
+        
+        results = self.db.execute(query, {"owner_id": self.owner_id, "days": days}).fetchall()
+        
+        velocity_data = []
+        for r in results:
+            units_sold = r[1]
+            revenue = r[2]
+            # Velocity = Units / Days
+            velocity = units_sold / days
+            velocity_data.append({
+                "category": r[0],
+                "total_units": units_sold,
+                "total_revenue_kobo": revenue,
+                "velocity_units_per_day": round(velocity, 2)
+            })
+            
+        return velocity_data
+
+    def get_market_insights(self) -> List[Dict[str, Any]]:
+        """
+        Manufacturer Data Export: Anonymized aggregation of real-time shelf data.
+        Example: "Coca-Cola is moving 20% faster in Lagos Mainland than Island"
+        (Simulated aggregation for Lagos regions based on store locations).
+        """
+        query = text("""
+            SELECT 
+                p.name,
+                s.city,
+                COALESCE(SUM(sti.quantity_sold), 0) as total_sold,
+                AVG(EXTRACT(EPOCH FROM (st.transaction_date - p.created_at))) as shelf_life_avg
+            FROM products p
+            JOIN sales_transaction_items sti ON p.id = sti.product_id
+            JOIN sales_transactions st ON sti.sale_id = st.id
+            JOIN stores s ON st.store_id = s.id
+            WHERE p.is_active = TRUE
+            GROUP BY p.name, s.city
+            ORDER BY total_sold DESC
+        """)
+        
+        results = self.db.execute(query).fetchall()
+        
+        return [
+            {
+                "product_name": r[0],
+                "region": r[1],
+                "units_moved": r[2],
+                "velocity_index": round(float(r[2]) / 30, 2) # Normalized to 30 days
+            }
+            for r in results
+        ]

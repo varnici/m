@@ -39,6 +39,11 @@ def create_loan(
 
 
 def apply_repayment(db: Session, *, loan: Loan, amount_kobo: int) -> Repayment:
+    from app.services.wallet_service import process_repayment_sweep
+    
+    # Sweep the payment from the user's wallet
+    process_repayment_sweep(db, user_id=loan.user_id, amount_kobo=amount_kobo, loan_id=loan.id)
+    
     loan.repaid_kobo = min(loan.total_due_kobo, loan.repaid_kobo + amount_kobo)
     if loan.repaid_kobo >= loan.total_due_kobo:
         loan.status = "closed"
@@ -46,4 +51,5 @@ def apply_repayment(db: Session, *, loan: Loan, amount_kobo: int) -> Repayment:
     db.add(repayment)
     db.flush()
     return repayment
+
 

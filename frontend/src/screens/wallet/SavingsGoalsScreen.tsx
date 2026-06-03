@@ -1,12 +1,13 @@
 import React from 'react';
-import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Plus, Sprout, TrendingUp, Info } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const SavingsGoalsScreen = () => {
-  const navigation = useNavigation<any>();
-
+const SavingsGoalsScreen = ({
+  navigation,
+}: RootStackScreenProps<'SavingsGoals'>) => {
   const goals = [
     { title: 'New Delivery Bike', current: 240000, target: 450000, color: '#3B82F6', category: 'Equipment' },
     { title: 'Warehouse Rent Jan', current: 85000, target: 120000, color: '#10B981', category: 'Operations' },

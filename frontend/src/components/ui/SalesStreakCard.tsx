@@ -33,7 +33,7 @@ const SalesStreakCard = ({
         {/* Streak Info */}
         <View className="flex-1">
           <Text className="text-gray-900 font-bold text-base">
-            7-Day{'\n'}Sales{'\n'}Streak!
+            {streakDays}-Day{'\n'}Sales{'\n'}Streak!
           </Text>
           <Text className="text-emerald-500 text-xs mt-1">
             +{pointsEarned} pts earned

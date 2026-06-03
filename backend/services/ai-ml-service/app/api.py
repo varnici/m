@@ -4,6 +4,13 @@ from fastapi import APIRouter
 
 from app.services.risk_scoring import RiskScoreRequest, RiskScoreResponse, score_risk
 from app.services.price_intelligence import PriceIntelRequest, PriceIntelResponse, recommend_price
+from app.services.inventory_ai import (
+    TranscriptionResponse, 
+    VisionScanResponse, 
+    transcribe_inventory, 
+    scan_shelf_vision
+)
+from fastapi import File, UploadFile
 
 router = APIRouter()
 
@@ -16,4 +23,16 @@ def risk_score(payload: RiskScoreRequest):
 @router.post("/pricing/recommend", response_model=PriceIntelResponse)
 def pricing(payload: PriceIntelRequest):
     return recommend_price(payload)
+
+
+@router.post("/inventory/transcribe", response_model=TranscriptionResponse)
+async def transcribe(file: UploadFile = File(...)):
+    content = await file.read()
+    return transcribe_inventory(content)
+
+
+@router.post("/inventory/vision-scan", response_model=VisionScanResponse)
+async def vision_scan(file: UploadFile = File(...)):
+    content = await file.read()
+    return scan_shelf_vision(content)
 

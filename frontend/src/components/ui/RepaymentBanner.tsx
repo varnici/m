@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { AlertTriangle } from 'lucide-react-native';
+import { TriangleAlert } from 'lucide-react-native';
 
 interface RepaymentBannerProps {
   daysUntilDue: number;
@@ -33,7 +33,7 @@ const RepaymentBanner = ({
     >
       {/* Warning Icon */}
       <View className="w-10 h-10 rounded-full bg-red-200 items-center justify-center mr-3">
-        <AlertTriangle size={20} color="#EF4444" />
+        <TriangleAlert size={20} color="#EF4444" />
       </View>
 
       {/* Info */}

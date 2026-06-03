@@ -1,24 +1,37 @@
 import React from 'react';
-import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ArrowUpCircle, Send, ArrowDownCircle, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import ActivityItem from '@/components/ui/ActivityItem';
-import BottomNavBar from '@/components/ui/BottomNavBar';
-import { WalletData } from '@/data/mockData';
+import { useAuth } from '@/context/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { walletService } from '@/services/walletService';
 
-const getActivityIcon = (type: string) => {
-  if (type === 'Credit') {
-    return <View className="w-10 h-10 rounded-full bg-emerald-50 items-center justify-center"><Text>💚</Text></View>;
-  } else if (type === 'Debit') {
-    return <View className="w-10 h-10 rounded-full bg-blue-50 items-center justify-center"><Text>🔄</Text></View>;
+const WalletScreen = ({ navigation }: RootStackScreenProps<'Wallet'>) => {
+  const { user } = useAuth();
+
+  const { data: wallet, isLoading } = useQuery({
+    queryKey: ['wallet', user?.id],
+    queryFn: () => walletService.getWalletDetails(user!.id),
+    enabled: !!user?.id,
+  });
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-background-page items-center justify-center">
+        <Text className="text-ventureroot-green font-bold">Loading wallet...</Text>
+      </View>
+    );
   }
-  return <View className="w-10 h-10 rounded-full bg-orange-50 items-center justify-center"><Text>💰</Text></View>;
-};
 
-const WalletScreen = () => {
-  const navigation = useNavigation<any>();
-
+  // Fallback data
+  const walletData = wallet || {
+    balance_kobo: 0,
+    account_number: 'VR-W-XXXXX',
+    recent_transactions: []
+  };
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />
@@ -30,12 +43,10 @@ const WalletScreen = () => {
               <ChevronLeft color="white" size={24} />
            </TouchableOpacity>
            <Text className="text-white/70 text-xs font-medium">VentureRoot Wallet</Text>
-           <Text className="text-white/70 text-[10px] font-mono">VR-W-00284</Text>
+           <Text className="text-white/70 text-[10px] font-mono">{walletData.account_number}</Text>
         </View>
 
-         <Text className="text-white text-center text-4xl font-black mb-8">
-           ₦{WalletData.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-         </Text>
+        <Text className="text-white text-center text-4xl font-black mb-8">₦{(walletData.balance_kobo / 100).toLocaleString()}</Text>
 
         <View className="flex-row justify-between px-6">
            {[
@@ -75,14 +86,22 @@ const WalletScreen = () => {
            </View>
 
            <View className="bg-white rounded-2xl px-4 border border-gray-100 shadow-sm">
-             {WalletData.recentTransactions.map((item, index) => (
+             {walletData.recent_transactions.map((item, index) => (
                 <ActivityItem
-                  key={item.id}
-                  title={item.title}
-                  subtitle={item.date}
-                  amount={item.amount}
-                  type={item.type.toLowerCase() as any}
-                  icon={getActivityIcon(item.type)}
+                  key={index}
+                  title={item.description}
+                  subtitle={new Date(item.created_at).toLocaleDateString()}
+                  amount={item.amount_kobo / 100}
+                  type={item.type === 'sale' || item.type === 'deposit' || item.type === 'loan' ? 'credit' : 'debit'}
+                  icon={
+                    <View className={`w-10 h-10 rounded-full items-center justify-center ${
+                      item.type === 'sale' ? 'bg-emerald-50' : 
+                      item.type === 'loan' ? 'bg-orange-50' : 
+                      'bg-blue-50'
+                    }`}>
+                      <Text>{item.type === 'sale' ? '💚' : item.type === 'loan' ? '💰' : '🔄'}</Text>
+                    </View>
+                  }
                 />
              ))}
            </View>
@@ -90,7 +109,6 @@ const WalletScreen = () => {
         <View className="h-20" />
       </ScrollView>
 
-      <BottomNavBar activeScreen="Wallet" />
     </SafeAreaView>
   );
 };

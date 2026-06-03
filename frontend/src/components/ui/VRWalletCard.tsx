@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Eye, EyeOff, ArrowUp, Send, ArrowDown, MoreHorizontal } from 'lucide-react-native';
+import { Eye, EyeOff, ArrowUp, Send, ArrowDown, Ellipsis } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
 interface WalletAction {
@@ -46,7 +46,7 @@ const VRWalletCard = ({
       label: 'Withdraw',
     },
     {
-      icon: <MoreHorizontal size={20} color={colors.ventureroot.green} />,
+      icon: <Ellipsis size={20} color={colors.ventureroot.green} />,
       label: 'More',
     },
   ];
@@ -66,7 +66,7 @@ const VRWalletCard = ({
             VR Wallet · {walletId}
           </Text>
           <View className="ml-1 opacity-50">
-            <MoreHorizontal size={12} color="white" />
+            <Ellipsis size={12} color="white" />
           </View>
         </View>
         <TouchableOpacity

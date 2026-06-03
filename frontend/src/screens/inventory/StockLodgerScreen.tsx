@@ -1,18 +1,19 @@
 import React from 'react';
-import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, ArrowUpRight, ArrowDownLeft, Filter, Download } from 'lucide-react-native';
-import { colors } from '@/theme/colors';
+import { View, Text, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import type { RootStackScreenProps } from '@/navigation/types';
+import { ChevronLeft, ArrowUpRight, Filter, Download } from 'lucide-react-native';
+import { useInventoryLedger } from '@/hooks/useInventory';
+import { format } from 'date-fns';
 
-const StockLodgerScreen = () => {
-  const navigation = useNavigation<any>();
+const StockLodgerScreen = ({
+  navigation,
+}: RootStackScreenProps<'StockLodger'>) => {
+  const { data: ledger, isLoading } = useInventoryLedger();
 
-  const movements = [
-    { id: 1, type: 'IN', title: 'Indomie 70g · Restock', subtitle: 'Dangote Warehouse', qty: '+4,000 units', date: 'Today, 08:30 AM', color: '#10B981' },
-    { id: 2, type: 'OUT', title: 'Bulk Sale · Lagos Market', subtitle: 'Buyer: ShopRite Lekki', qty: '-1,200 units', date: 'Today, 11:45 AM', color: '#3B82F6' },
-    { id: 3, type: 'OUT', title: 'Damage Write-off', subtitle: 'Water damage during rain', qty: '-15 units', date: 'Yesterday, 4:20 PM', color: '#EF4444' },
-    { id: 4, type: 'IN', title: 'Peak Milk · Restock', subtitle: 'Friesland Warehouse', qty: '+500 units', date: 'Dec 12, 2024', color: '#10B981' },
-  ];
+  const totalRevenue = (ledger || []).reduce((acc, curr) => acc + curr.revenue_kobo, 0);
+  const totalProfit = (ledger || []).reduce((acc, curr) => acc + curr.profit_kobo, 0);
+  const totalUnits = (ledger || []).reduce((acc, curr) => acc + curr.quantity, 0);
 
   return (
     <SafeAreaView className="flex-1 bg-background-page">
@@ -35,16 +36,16 @@ const StockLodgerScreen = () => {
         {/* Totals Row */}
         <View className="flex-row gap-2">
            <View className="bg-white/10 px-4 py-2 rounded-xl flex-1 items-center border border-white/10">
-              <Text className="text-white/60 text-[8px] font-bold uppercase">Total In</Text>
-              <Text className="text-white font-bold text-sm">+5,820</Text>
+              <Text className="text-white/60 text-[8px] font-bold uppercase">Total Units</Text>
+              <Text className="text-white font-bold text-sm">{totalUnits.toLocaleString()}</Text>
            </View>
            <View className="bg-white/10 px-4 py-2 rounded-xl flex-1 items-center border border-white/10">
-              <Text className="text-white/60 text-[8px] font-bold uppercase">Total Out</Text>
-              <Text className="text-white font-bold text-sm">-1,415</Text>
+              <Text className="text-white/60 text-[8px] font-bold uppercase">Revenue</Text>
+              <Text className="text-white font-bold text-sm">₦{(totalRevenue / 100).toLocaleString()}</Text>
            </View>
            <View className="bg-white/10 px-4 py-2 rounded-xl flex-1 items-center border border-white/10">
-              <Text className="text-white/60 text-[8px] font-bold uppercase">Net Diff</Text>
-              <Text className="text-emerald-400 font-bold text-sm">+4,405</Text>
+              <Text className="text-white/60 text-[8px] font-bold uppercase">Profit</Text>
+              <Text className="text-emerald-400 font-bold text-sm">₦{(totalProfit / 100).toLocaleString()}</Text>
            </View>
         </View>
       </View>
@@ -61,25 +62,43 @@ const StockLodgerScreen = () => {
 
         {/* Ledger List */}
         <View className="px-4 pb-10">
-           {movements.map((m, idx) => (
-              <View key={idx} className="bg-white rounded-2xl p-4 mb-3 border border-gray-100 shadow-sm flex-row items-center">
-                 <View className="w-10 h-10 rounded-full bg-slate-50 items-center justify-center mr-3">
-                    {m.type === 'IN' ? (
-                       <ArrowDownLeft size={20} color="#10B981" />
-                    ) : (
-                       <ArrowUpRight size={20} color={m.color} />
-                    )}
-                 </View>
-                 <View className="flex-1">
-                    <Text className="text-gray-900 font-bold text-sm">{m.title}</Text>
-                    <Text className="text-gray-400 text-[10px]">{m.subtitle}</Text>
-                 </View>
-                 <View className="items-end">
-                    <Text className="font-black text-sm" style={{ color: m.type === 'IN' ? '#10B981' : '#111827' }}>{m.qty}</Text>
-                    <Text className="text-gray-400 text-[10px] mt-0.5">{m.date}</Text>
-                 </View>
-              </View>
-           ))}
+           {isLoading ? (
+             <ActivityIndicator size="large" color="#10B981" style={{ marginTop: 40 }} />
+           ) : (ledger || []).length === 0 ? (
+             <View className="items-center justify-center mt-20">
+               <Text className="text-gray-400">No transactions recorded yet.</Text>
+             </View>
+           ) : (ledger || []).map((m, idx) => (
+                <View key={`${m.id}-${idx}`} className="bg-white rounded-2xl p-4 mb-3 border border-gray-100 shadow-sm">
+                  <View className="flex-row items-center mb-2">
+                     <View className="w-8 h-8 rounded-full bg-slate-50 items-center justify-center mr-3">
+                        <ArrowUpRight size={16} color="#3B82F6" />
+                     </View>
+                     <View className="flex-1">
+                        <Text className="text-gray-900 font-bold text-sm">{m.product_name}</Text>
+                        <Text className="text-gray-400 text-[10px]">Customer: {m.customer_name || m.customer_id || 'Guest'}</Text>
+                     </View>
+                     <View className="items-end">
+                        <Text className="font-black text-sm text-gray-900">-{m.quantity} units</Text>
+                        <Text className="text-gray-400 text-[10px]">{format(new Date(m.transaction_date), 'MMM d, HH:mm')}</Text>
+                     </View>
+                  </View>
+                  <View className="flex-row justify-between pt-2 border-t border-gray-50">
+                     <View>
+                        <Text className="text-gray-400 text-[8px] uppercase font-bold">Revenue</Text>
+                        <Text className="text-gray-900 text-xs font-bold">₦{(m.revenue_kobo / 100).toLocaleString()}</Text>
+                     </View>
+                     <View>
+                        <Text className="text-gray-400 text-[8px] uppercase font-bold">Cost</Text>
+                        <Text className="text-gray-900 text-xs font-bold">₦{(m.cost_price_kobo / 100).toLocaleString()}</Text>
+                     </View>
+                     <View className="items-end">
+                        <Text className="text-gray-400 text-[8px] uppercase font-bold">Profit</Text>
+                        <Text className="text-emerald-600 text-xs font-bold">₦{(m.profit_kobo / 100).toLocaleString()}</Text>
+                     </View>
+                  </View>
+                </View>
+             ))}
         </View>
       </ScrollView>
     </SafeAreaView>

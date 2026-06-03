@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity, TextInput } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, StatusBar, TouchableOpacity, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Info, Landmark, ShieldCheck } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const ApplyLoanScreen = () => {
-  const navigation = useNavigation<any>();
+const ApplyLoanScreen = ({
+  navigation,
+}: RootStackScreenProps<'ApplyLoan'>) => {
   const [amount, setAmount] = useState('120000');
   const [purpose, setPurpose] = useState('Inventory Restock');
 
@@ -106,7 +108,13 @@ const ApplyLoanScreen = () => {
         {/* Submit */}
         <TouchableOpacity 
           className="bg-ventureroot-green py-4 rounded-xl items-center shadow-lg mb-10"
-          onPress={() => navigation.navigate('ContractViewer')}
+          onPress={() => {
+            const parsedAmount = parseInt(amount.replace(/,/g, ''), 10) || 0;
+            navigation.navigate('ContractViewer', {
+              amount: parsedAmount,
+              purpose: purpose || 'Inventory Restock',
+            });
+          }}
         >
            <Text className="text-white font-bold text-base">Review Contract →</Text>
         </TouchableOpacity>

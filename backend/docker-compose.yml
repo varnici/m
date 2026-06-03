@@ -1,75 +1,210 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgis/postgis:16-3.4
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-ventureroot}
-      POSTGRES_USER: ${POSTGRES_USER:-ventureroot}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ventureroot}
-    # Avoid host port conflicts; access from other services via `postgres:5432`
+      POSTGRES_DB: ventureroot
+      POSTGRES_USER: ventureroot
+      POSTGRES_PASSWORD: ventureroot
+    ports:
+      - "5433:5432"
     volumes:
       - vr_postgres_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ventureroot -d ventureroot && psql -U ventureroot -d ventureroot -c 'SELECT 1;'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
 
   redis:
-    image: redis:7
-    # Avoid host port conflicts; access from other services via `redis:6379`
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   core-banking:
     build:
       context: ./services/core-banking
+      dockerfile: Dockerfile
+    environment:
+      PYTHONUNBUFFERED: '1'
     env_file:
-      - ./.env
+      - .env
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
-      - "8081:8001"
+      - "8001:8001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
 
   ai-ml-service:
     build:
       context: ./services/ai-ml-service
+      dockerfile: Dockerfile
+    environment:
+      PYTHONUNBUFFERED: '1'
     env_file:
-      - ./.env
+      - .env
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
-      - "8082:8002"
+      - "8002:8002"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8002/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '3'
+          memory: 2G
+        reservations:
+          cpus: '2'
+          memory: 1G
 
   rag-service:
     build:
       context: ./services/rag-service
+      dockerfile: Dockerfile
+      args:
+        INSTALL_RAG_OPTIONAL: "false"
+    environment:
+      PYTHONUNBUFFERED: '1'
     env_file:
-      - ./.env
+      - .env
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
-      - "8083:8003"
+      - "8003:8003"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8003/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.5'
+          memory: 1536M
+        reservations:
+          cpus: '1.5'
+          memory: 768M
 
   ussd-service:
     build:
       context: ./services/ussd-service
+      dockerfile: Dockerfile
+    environment:
+      PYTHONUNBUFFERED: '1'
     env_file:
-      - ./.env
+      - .env
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
-      - "8084:8004"
+      - "8004:8004"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8004/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 512M
+        reservations:
+          cpus: '1'
+          memory: 256M
 
   api-gateway:
     build:
       context: ./services/api-gateway
+      dockerfile: Dockerfile
+    environment:
+      PYTHONUNBUFFERED: '1'
     env_file:
-      - ./.env
+      - .env
     depends_on:
-      - core-banking
-      - ai-ml-service
-      - rag-service
-      - ussd-service
+      core-banking:
+        condition: service_healthy
+      ai-ml-service:
+        condition: service_healthy
+      rag-service:
+        condition: service_healthy
+      ussd-service:
+        condition: service_healthy
     ports:
       - "8080:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
 
 volumes:
   vr_postgres_data:
-
+    driver: local

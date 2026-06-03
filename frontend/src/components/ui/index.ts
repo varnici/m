@@ -8,3 +8,5 @@ export { default as IntelligenceCard } from './IntelligenceCard';
 export { default as CommunityCard } from './CommunityCard';
 export { default as ActivityItem } from './ActivityItem';
 export { default as RepaymentBanner } from './RepaymentBanner';
+export { default as BottomTabBar } from './BottomTabBar';
+export { default as ScreenHeader } from './ScreenHeader';

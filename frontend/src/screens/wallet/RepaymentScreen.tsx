@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Wallet, Landmark, CheckCircle2 } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-const RepaymentScreen = () => {
-  const navigation = useNavigation<any>();
+const RepaymentScreen = ({
+  navigation,
+}: RootStackScreenProps<'Repayment'>) => {
   const [paymentSource, setPaymentSource] = useState('wallet');
 
   return (

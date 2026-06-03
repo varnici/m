@@ -1,11 +1,14 @@
 import React from 'react';
-import { View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronLeft, Info, TrendingUp, Sliders, Shield } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
+import ScreenHeader from '@/components/ui/ScreenHeader';
 
-const CreditDashboardScreen = () => {
-  const navigation = useNavigation<any>();
+const CreditDashboardScreen = ({
+  navigation,
+}: RootStackScreenProps<'CreditDashboard'>) => {
   const drivers = [
     { name: 'Sales Velocity', weight: '35%', status: 'Strong', color: '#10B981', value: 85 },
     { name: 'Repayment Consistency', weight: '30%', status: 'Perfect', color: '#10B981', value: 100 },
@@ -17,15 +20,10 @@ const CreditDashboardScreen = () => {
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
-      <View className="bg-ventureroot-green pt-12 pb-6 px-4">
-        <View className="flex-row items-center mb-4">
-           <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
-              <ChevronLeft color="white" size={24} />
-           </TouchableOpacity>
-           <Text className="text-white text-xl font-bold">Score Breakdown</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Score Breakdown"
+        navigation={navigation}
+      />
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Main Score Card */}
@@ -110,6 +108,7 @@ const CreditDashboardScreen = () => {
             </View>
             <ChevronLeft size={20} color="white" opacity={0.5} style={{ transform: [{ rotate: '180deg'}] }} />
         </TouchableOpacity>
+        <View className="h-20" />
       </ScrollView>
     </SafeAreaView>
   );

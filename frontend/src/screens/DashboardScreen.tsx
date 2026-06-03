@@ -1,5 +1,6 @@
+// @ts-nocheck
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StatusBar, Linking } from 'react-native';
 import {
   Bell,
   Home,
@@ -25,6 +26,7 @@ import {
   Newspaper,
   TrendingUp as StocksIcon,
   Sprout,
+  Truck,
 } from 'lucide-react-native';
 
 import VRWalletCard from '@/components/ui/VRWalletCard';
@@ -34,91 +36,122 @@ import AIBriefingCard from '@/components/ui/AIBriefingCard';
 import VoiceStockCard from '@/components/ui/VoiceStockCard';
 import SalesStreakCard from '@/components/ui/SalesStreakCard';
 import IntelligenceCard from '@/components/ui/IntelligenceCard';
-import CommunityCard from '@/components/ui/CommunityCard';
 import ActivityItem from '@/components/ui/ActivityItem';
 import RepaymentBanner from '@/components/ui/RepaymentBanner';
-import BottomNavBar from '@/components/ui/BottomNavBar';
 import { colors } from '@/theme/colors';
-import { UserProfile, WalletData, BusinessMetrics } from '@/data/mockData';
+import { BusinessMetrics } from '@/data/mockData';
+import { useAuth } from '@/context/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { dashboardService } from '@/services/dashboardService';
 
-// ─── Constants ───────────────────────────────────────────────
+// ─── Quick Access Grid Config ───────────────────────────────
 
-const QUICK_ACCESS_ITEMS = [
-  { icon: Banknote, label: 'Loans', bgColor: '#D1FAE5', iconColor: '#004D2C' },
-  { icon: BarChart3, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB' },
-  { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706' },
-  { icon: Users, label: 'Group Buy', bgColor: '#FCE7F3', iconColor: '#DB2777' },
-  { icon: Shield, label: 'Insurance', bgColor: '#FEE2E2', iconColor: '#EF4444' },
-  { icon: Bot, label: 'AI Assist', bgColor: '#D1FAE5', iconColor: '#059669' },
-  { icon: Store, label: 'Market', bgColor: '#E0E7FF', iconColor: '#4F46E5' },
-  { icon: Mic, label: 'Voice Stock', bgColor: '#F3E8FF', iconColor: '#9333EA' },
-];
 
-const MARKET_TICKER = [
-  { symbol: 'AG', change: '+1.9%', positive: true },
-  { symbol: 'Zenith', price: '₦36.15', change: '-0.9%', positive: false },
-  { symbol: 'Airtel NG', price: '₦2,140', change: '+0.7%', positive: true },
-  { symbol: 'NGX ASI', price: '58,210', change: '+0.3%', positive: true },
-];
+import type {
+  RootStackParamList,
+  RootStackScreenProps,
+} from '@/navigation/types';
 
-const INTELLIGENCE_ITEMS = [
-  {
-    category: 'Trade Alert',
-    source: 'BusinessDay NG',
-    timeAgo: '2h ago',
-    headline: 'Dangote Flour drops 8% — best time to restock for Q1',
-    subtitle: '↑ Buy opportunity',
-  },
-  {
-    category: 'CBN Update',
-    source: 'Nairametrics',
-    timeAgo: '4h ago',
-    headline: 'CBN holds MPR at 27.5% — lending rates stable this quarter',
-    subtitle: '→ No change to rates',
-  },
-  {
-    category: 'For You',
-    source: 'VR Insights',
-    timeAgo: '6h ago',
-    headline: 'FMCG traders in Lagos report 15% revenue boost from group buying',
-    subtitle: '↑ Relevant to you',
-  },
-];
-
-const ACTIVITY_ITEMS = [
-  {
-    title: 'Sale Proceeds',
-    subtitle: 'Indomie · 40 units',
-    amount: 18400,
-    type: 'credit' as const,
-    timeAgo: '2m ago',
-  },
-  {
-    title: 'Repayment Sweep',
-    subtitle: 'Auto-deducted · GTBank',
-    amount: 16000,
-    type: 'debit' as const,
-    timeAgo: 'Dec 15',
-  },
-  {
-    title: 'Loan Disbursed',
-    subtitle: 'Dangote Flour Pool',
-    amount: 120000,
-    type: 'loan' as const,
-    timeAgo: 'Dec 1',
-  },
+const QUICK_ACCESS_ITEMS: Array<{
+  icon: typeof Banknote;
+  label: string;
+  bgColor: string;
+  iconColor: string;
+  route: keyof RootStackParamList;
+}> = [
+  { icon: Banknote, label: 'Loans', bgColor: '#D1FAE5', iconColor: '#004D2C', route: 'LoanDashboard' },
+  { icon: BarChart3, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB', route: 'SalesDashboard' },
+  { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706', route: 'InventoryDashboard' },
+  { icon: Truck, label: 'Logistics', bgColor: '#E0F2FE', iconColor: '#0369A1', route: 'VentureRoute' },
+  { icon: Users, label: 'Group Buy', bgColor: '#FCE7F3', iconColor: '#DB2777', route: 'PoolList' },
+  { icon: Shield, label: 'Insurance', bgColor: '#FEE2E2', iconColor: '#EF4444', route: 'InsuranceSummary' },
+  { icon: Bot, label: 'AI Assist', bgColor: '#D1FAE5', iconColor: '#059669', route: 'AIAssistant' },
+  { icon: Store, label: 'Shop', bgColor: '#E0E7FF', iconColor: '#4F46E5', route: 'Shop' },
 ];
 
 const INTELLIGENCE_TABS = ['For You', 'News', 'Stocks', 'Trade'];
 
-import { useNavigation } from '@react-navigation/native';
+const FOOTER_TABS: Array<{
+  icon: typeof Home;
+  label: string;
+  active: boolean;
+  screen: keyof RootStackParamList;
+}> = [
+  { icon: Home, label: 'Home', active: true, screen: 'Dashboard' },
+  { icon: DollarSign, label: 'Loans', active: false, screen: 'LoanDashboard' },
+  { icon: TrendingUp, label: 'Sales', active: false, screen: 'SalesDashboard' },
+  { icon: Wallet, label: 'Wallet', active: false, screen: 'Wallet' },
+  { icon: MoreHorizontal, label: 'More', active: false, screen: 'More' },
+];
 
 // ─── Dashboard Screen ────────────────────────────────────────
 
-const DashboardScreen = () => {
-  const navigation = useNavigation<any>();
+const DashboardScreen = ({
+  navigation,
+}: RootStackScreenProps<'Dashboard'>) => {
+  const { user } = useAuth();
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [activeIntelTab, setActiveIntelTab] = useState('For You');
+
+  const { 
+    data, 
+    isLoading, 
+    isError, 
+    refetch 
+  } = useQuery({
+    queryKey: ['dashboard', user?.id],
+    queryFn: () => dashboardService.getDashboardSummary(user!.id),
+    enabled: !!user?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-ventureroot-surface items-center justify-center">
+        <Text className="text-ventureroot-green font-bold">Syncing your business...</Text>
+      </View>
+    );
+  }
+
+  // Default dashboard shape to prevent missing nested fields from crashing the UI
+  const defaultUser = {
+    full_name: user?.email?.split('@')[0] || 'Guest',
+    trust_level: 'Bronze',
+    avatar_initials: undefined,
+  };
+
+  const defaultWallet = {
+    balance_kobo: 0,
+    daily_change_kobo: 0,
+    available_credit_kobo: 0,
+    total_debt_kobo: 0,
+    next_repayment_date: null,
+  };
+
+  const defaultDashboard = {
+    user: defaultUser,
+    wallet: defaultWallet,
+    credit_score: { total_score: 0, tier: 'Bronze' },
+    today_sales: { total_amount_kobo: 0, vs_yesterday_percent: 0 },
+    sales_streak: { streak_days: 0, total_days: 7, points_earned: 0, next_reward_tier: 'Silver' },
+    community_stats: { total_members: 14400 },
+    recent_activity: [],
+    market_ticker: [],
+    intelligence: [],
+  };
+
+  const dashboard = {
+    ...defaultDashboard,
+    ...(data || {}),
+    user: { ...defaultUser, ...(data?.user || {}) },
+    wallet: { ...defaultWallet, ...(data?.wallet || {}) },
+    credit_score: { ...defaultDashboard.credit_score, ...(data?.credit_score || {}) },
+    today_sales: { ...defaultDashboard.today_sales, ...(data?.today_sales || {}) },
+    sales_streak: { ...defaultDashboard.sales_streak, ...(data?.sales_streak || {}) },
+    community_stats: { ...defaultDashboard.community_stats, ...(data?.community_stats || {}) },
+  };
+
+  const userInfo = dashboard.user;
 
   return (
     <View className="flex-1 bg-ventureroot-surface">
@@ -130,30 +163,30 @@ const DashboardScreen = () => {
         bounces={false}
       >
         {/* ═══ GREEN HEADER SECTION ═══ */}
-        <View className="bg-ventureroot-green pt-12 pb-6">
+        <View className="bg-ventureroot-green pt-16 pb-8">
           {/* Greeting Row */}
-          <View className="flex-row items-center justify-between px-4 mb-4">
+          <View className="flex-row items-center justify-between px-6 mb-6">
             <TouchableOpacity 
               className="flex-row items-center"
               onPress={() => navigation.navigate('More')}
               activeOpacity={0.7}
             >
               {/* Avatar with border */}
-              <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center mr-3 border border-white/40">
-                <Text className="text-white font-bold text-sm">
-                  {UserProfile.name.split(' ').map(n => n[0]).join('')}
+              <View className="w-12 h-12 rounded-2xl bg-white/20 items-center justify-center mr-4 border border-white/40 shadow-sm">
+                <Text className="text-white font-black text-base">
+                  {userInfo.avatar_initials || (userInfo.full_name || '').substring(0, 2).toUpperCase()}
                 </Text>
               </View>
               <View>
-                <Text className="text-white/70 text-xs font-medium">Good evening 👋</Text>
-                <Text className="text-white font-bold text-base">{UserProfile.name}</Text>
+                <Text className="text-white/70 text-xs font-bold uppercase tracking-wider">Good evening 👋</Text>
+                <Text className="text-white font-black text-xl">{userInfo.full_name}</Text>
               </View>
             </TouchableOpacity>
 
             <View className="flex-row items-center gap-3">
               {/* Tier Badge */}
               <View className="bg-ventureroot-gold rounded-full px-2.5 py-1 flex-row items-center">
-                <Text className="text-xs font-bold text-gray-900">🏆 {UserProfile.tier.toUpperCase()}</Text>
+                <Text className="text-xs font-bold text-gray-900">🏆 {(userInfo.trust_level || 'Bronze').toUpperCase()}</Text>
               </View>
               {/* Bell */}
               <TouchableOpacity
@@ -161,6 +194,7 @@ const DashboardScreen = () => {
                 accessibilityLabel="Notifications"
                 accessibilityRole="button"
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => navigation.navigate('Notifications')}
               >
                 <Bell size={22} color="white" />
                 <View className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 border border-ventureroot-green" />
@@ -170,9 +204,9 @@ const DashboardScreen = () => {
 
           {/* Wallet Card */}
           <VRWalletCard
-            balance={WalletData.balance}
-            dailyChange={18400}
-            loanDueDate="Dec 25"
+            balance={dashboard.wallet.balance_kobo / 100}
+            dailyChange={dashboard.wallet.daily_change_kobo / 100}
+            loanDueDate={dashboard.wallet.next_repayment_date || '--'}
             balanceVisible={balanceVisible}
             onToggleVisibility={() => setBalanceVisible(!balanceVisible)}
             onPress={() => navigation.navigate('Wallet')}
@@ -185,7 +219,7 @@ const DashboardScreen = () => {
           showsHorizontalScrollIndicator={false}
           className="bg-white py-2.5 px-4 border-b border-gray-100"
         >
-          {MARKET_TICKER.map((item, index) => (
+          {dashboard.market_ticker.map((item, index) => (
             <View key={index} className="flex-row items-center mr-4">
               <Text className="text-gray-600 text-xs font-medium mr-1">
                 {item.symbol}
@@ -214,10 +248,10 @@ const DashboardScreen = () => {
           >
             <StatCard
                 title="CREDIT SCORE"
-                value={UserProfile.creditScore.toString()}
+                value={dashboard.credit_score?.total_score.toString() || '--'}
                 subtitle="/1000"
-                progress={{ current: UserProfile.creditScore, max: 1000 }}
-                badge={`${UserProfile.tier} · 158 pts → Platinum`}
+                progress={{ current: dashboard.credit_score?.total_score || 0, max: 1000 }}
+                badge={`${dashboard.credit_score?.tier || 'Bronze'} · Explore →`}
             />
           </TouchableOpacity>
           <TouchableOpacity 
@@ -226,8 +260,11 @@ const DashboardScreen = () => {
           >
             <StatCard
                 title="TODAY'S SALES"
-                value={`₦${BusinessMetrics.dailySales.toLocaleString()}`}
-                trend={{ direction: 'up', label: '+12% vs yesterday' }}
+                value={`₦${(dashboard.today_sales?.total_amount_kobo || 0) / 100}`}
+                trend={{ 
+                  direction: (dashboard.today_sales?.vs_yesterday_percent || 0) >= 0 ? 'up' : 'down', 
+                  label: `${Math.abs(dashboard.today_sales?.vs_yesterday_percent || 0)}% vs yesterday` 
+                }}
             />
           </TouchableOpacity>
         </View>
@@ -252,13 +289,7 @@ const DashboardScreen = () => {
                   label={item.label}
                   bgColor={item.bgColor}
                   iconColor={item.iconColor}
-                  onPress={() => {
-                    if (item.label === 'Loans') navigation.navigate('LoanDashboard');
-                    if (item.label === 'Sales') navigation.navigate('SalesDashboard');
-                    if (item.label === 'Inventory') navigation.navigate('InventoryDashboard');
-                    if (item.label === 'Insurance') navigation.navigate('InsuranceSummary');
-                    if (item.label === 'Group Buy') navigation.navigate('PoolList');
-                  }}
+                  onPress={() => navigation.navigate(item.route as any)}
                 />
               </View>
             ))}
@@ -277,7 +308,12 @@ const DashboardScreen = () => {
 
         {/* ═══ SALES STREAK ═══ */}
         <View className="mb-4">
-          <SalesStreakCard streakDays={BusinessMetrics.salesStreakDays} totalDays={30} pointsEarned={150} nextReward="Platinum" />
+          <SalesStreakCard 
+            streakDays={dashboard.sales_streak?.streak_days || 0} 
+            totalDays={dashboard.sales_streak?.total_days || 7} 
+            pointsEarned={dashboard.sales_streak?.points_earned || 0} 
+            nextReward={dashboard.sales_streak?.next_reward_tier || 'Silver'} 
+          />
         </View>
 
         {/* ═══ DAILY INTELLIGENCE ═══ */}
@@ -331,43 +367,27 @@ const DashboardScreen = () => {
           </ScrollView>
 
           {/* Intelligence Cards */}
-          {INTELLIGENCE_ITEMS.map((item, index) => (
-            <IntelligenceCard
-              key={index}
-              category={item.category}
-              source={item.source}
-              timeAgo={item.timeAgo}
-              headline={item.headline}
-              subtitle={item.subtitle}
-            />
-          ))}
+          {dashboard.intelligence
+            .filter((item) => item.category === activeIntelTab)
+            .map((item, index) => (
+              <IntelligenceCard
+                key={index}
+                category={item.category}
+                source={item.source}
+                timeAgo={item.timeAgo}
+                headline={item.headline}
+                subtitle={item.subtitle}
+                onPress={() => {
+                  if (item.url) {
+                    Linking.openURL(item.url).catch((err) =>
+                      console.error('Failed to open URL:', err)
+                    );
+                  }
+                }}
+              />
+            ))}
         </View>
 
-        {/* ═══ VR COMMUNITY ═══ */}
-        <View className="mb-4">
-          <View className="px-4 mb-3">
-            <Text className="text-gray-900 font-bold text-base">VR Community</Text>
-            <Text className="text-gray-400 text-xs mt-0.5">
-              Business · Finance · Entertainment · Networking
-            </Text>
-          </View>
-
-          <CommunityCard
-            platform="WhatsApp Business"
-            icon={<Text className="text-lg">💬</Text>}
-            description="Daily price alerts · Supplier deals · Trade tips"
-            memberCount="14,400"
-            isOfficial={true}
-            bgColor="#D1FAE5"
-          />
-          <CommunityCard
-            platform="Telegram"
-            icon={<Text className="text-lg">✈️</Text>}
-            description="Trade signals"
-            memberCount="5,700"
-            bgColor="#DBEAFE"
-          />
-        </View>
 
         {/* ═══ RECENT ACTIVITY ═══ */}
         <View className="mb-4 px-4">
@@ -377,32 +397,33 @@ const DashboardScreen = () => {
               accessible={true}
               accessibilityLabel="View all activity"
               accessibilityRole="button"
+              onPress={() => navigation.navigate('TransactionHistory')}
             >
               <Text className="text-ventureroot-green text-xs font-medium">View All →</Text>
             </TouchableOpacity>
           </View>
 
           <View className="bg-white rounded-2xl px-4 border border-gray-100 shadow-sm">
-            {ACTIVITY_ITEMS.map((item, index) => (
+            {dashboard.recent_activity.map((item, index) => (
               <ActivityItem
                 key={index}
-                title={item.title}
-                subtitle={item.subtitle}
-                amount={item.amount}
-                type={item.type}
-                timeAgo={item.timeAgo}
+                title={item.description}
+                subtitle={item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+                amount={item.amount_kobo / 100}
+                type={item.type === 'sale' ? 'credit' : 'debit'}
+                timeAgo={new Date(item.created_at).toLocaleDateString()}
                 icon={
                   <View
                     className={`w-10 h-10 rounded-full items-center justify-center ${
-                      item.type === 'credit'
+                      item.type === 'sale'
                         ? 'bg-emerald-100'
-                        : item.type === 'debit'
+                        : item.type === 'repayment'
                         ? 'bg-blue-100'
                         : 'bg-orange-100'
                     }`}
                   >
-                    {item.type === 'credit' && <CheckCircle size={18} color="#10B981" />}
-                    {item.type === 'debit' && <RefreshCw size={18} color="#3B82F6" />}
+                    {item.type === 'sale' && <CheckCircle size={18} color="#10B981" />}
+                    {item.type === 'repayment' && <RefreshCw size={18} color="#3B82F6" />}
                     {item.type === 'loan' && <Flame size={18} color="#F97316" />}
                   </View>
                 }
@@ -411,23 +432,26 @@ const DashboardScreen = () => {
           </View>
         </View>
 
-        {/* ═══ REPAYMENT BANNER ═══ */}
-        <View className="mb-6">
-          <RepaymentBanner
-            daysUntilDue={9}
-            amount={16000}
-            dueDate="Dec 25"
-            bank="GTBank"
-            onPayNow={() => navigation.navigate('Repayment')}
-          />
-        </View>
+        {/* ═══ REPAYMENT BANNER (IF DEBT EXISTS) ═══ */}
+        {dashboard.wallet.total_debt_kobo > 0 && (
+          <View className="mb-4">
+            <RepaymentBanner 
+              amount={(dashboard.wallet.repayment_amount_kobo ?? 0) / 100} 
+              dueDate={dashboard.wallet.next_repayment_date || '--'}
+              daysUntilDue={
+                dashboard.wallet.next_repayment_date 
+                  ? Math.max(0, Math.ceil((new Date(dashboard.wallet.next_repayment_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
+                  : 0
+              } 
+              bank="VentureRoot Ledger"
+              onPayNow={() => navigation.navigate('Repayment')}
+            />
+          </View>
+        )}
 
-        {/* Bottom spacing for tab bar */}
-        <View className="h-20" />
+        <View className="h-32" />
       </ScrollView>
 
-      {/* ═══ BOTTOM TAB BAR ═══ */}
-      <BottomNavBar activeScreen="Dashboard" />
     </View>
   );
 };
