@@ -64,6 +64,8 @@ class ProductCreate(BaseModel):
     requires_lot_tracking: bool = Field(default=False)
     nafdac_number: Optional[str] = None
     image_url: Optional[str] = None
+    quantity_on_hand: Optional[int] = Field(default=None, ge=0)
+    store_id: Optional[str] = None
 
 
 class ProductUpdate(BaseModel):
@@ -151,10 +153,14 @@ class StockLevelOut(BaseModel):
 class StockMovementCreate(BaseModel):
     """Schema for creating a stock movement."""
     product_id: str
-    store_id: str
+    store_id: Optional[str] = None
+    from_store_id: Optional[str] = None
+    to_store_id: Optional[str] = None
     quantity: int = Field(...)
-    movement_type: str = Field(..., pattern=r"^(purchase|sale|adjustment|transfer|loss|return)$")
+    movement_type: str = Field(..., pattern=r"^(purchase|sale|adjustment|transfer|loss|return|damage)$")
+    input_method: Optional[str] = "manual"
     reference_id: Optional[str] = None
+    reference_type: Optional[str] = None
     notes: Optional[str] = None
 
     @field_validator("quantity")
@@ -169,9 +175,12 @@ class StockMovementOut(BaseModel):
     """Response schema for stock movement."""
     id: str
     product_id: str
-    store_id: str
+    store_id: Optional[str] = None
+    from_store_id: Optional[str] = None
+    to_store_id: Optional[str] = None
     quantity: int
     movement_type: str
+    input_method: Optional[str] = None
     reference_id: Optional[str]
     notes: Optional[str]
     created_at: datetime

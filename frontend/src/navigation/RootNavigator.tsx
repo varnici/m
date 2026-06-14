@@ -24,6 +24,7 @@ import NotificationsScreen from '@/screens/more/NotificationsScreen';
 import AccountDetailsScreen from '@/screens/more/AccountDetailsScreen';
 
 import InventoryDashboardScreen from '@/screens/inventory/InventoryDashboardScreen';
+import InventoryManagerScreen from '@/screens/inventory/InventoryManagerScreen';
 import StockLodgerScreen from '@/screens/inventory/StockLodgerScreen';
 import VoiceStockScreen from '@/screens/inventory/VoiceStockScreen';
 import ScanShelveScreen from '@/screens/inventory/ScanShelveScreen';
@@ -131,6 +132,7 @@ const RootNavigator = () => {
           <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} />
 
           <Stack.Screen name="InventoryDashboard" component={InventoryDashboardScreen} />
+          <Stack.Screen name="InventoryManager" component={InventoryManagerScreen} />
           <Stack.Screen name="StockLodger" component={StockLodgerScreen} />
           <Stack.Screen name="VoiceStock" component={VoiceStockScreen} />
           <Stack.Screen name="ScanShelve" component={ScanShelveScreen} />

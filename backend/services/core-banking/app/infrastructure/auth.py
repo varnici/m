@@ -64,7 +64,9 @@ def _decode_user_id(token: str) -> str:
 
 def get_current_user_id(
     request: Request,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(
+        HTTPBearer(auto_error=False)
+    ),
     db: Session = Depends(get_db),
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
 ) -> str:
@@ -74,12 +76,18 @@ def get_current_user_id(
     """
     try:
         user_id: Optional[str] = None
-        
+
         if settings.env == "dev" and x_user_id:
             user_id = x_user_id
             logger.debug("Using user_id from X-User-Id header: %s", user_id)
-        
+
         if not user_id:
+            if not credentials:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
             user_id = _decode_user_id(credentials.credentials)
 
         if not settings.auth_auto_sync_users:

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Button, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 interface BarcodeScannerProps {
@@ -10,29 +10,31 @@ export default function BarcodeScanner({ onBarcodeScanned }: BarcodeScannerProps
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
 
-  const handleCameraPermission = async () => {
-    if (!permission?.granted) {
-      await requestPermission();
-    }
-  };
-
-  const handleBarcode = useCallback((scannedData: any) => {
-    if (isScanning) return; // Prevent multiple scans
-    setIsScanning(true);
-    const barcode = scannedData.data;
-    onBarcodeScanned(barcode);
-    setTimeout(() => setIsScanning(false), 1000);
-  }, [isScanning, onBarcodeScanned]);
+  const handleBarcode = useCallback(
+    (scannedData: { data?: string }) => {
+      if (isScanning || !scannedData?.data) return;
+      setIsScanning(true);
+      onBarcodeScanned(scannedData.data);
+      setTimeout(() => setIsScanning(false), 900);
+    },
+    [isScanning, onBarcodeScanned]
+  );
 
   if (!permission) {
-    return <Text>Camera permission pending...</Text>;
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.message}>Checking camera…</Text>
+      </View>
+    );
   }
 
   if (!permission.granted) {
     return (
-      <View style={styles.container}>
-        <Text>Camera access required for barcode scanning</Text>
-        <Button title="Grant Permission" onPress={handleCameraPermission} />
+      <View style={styles.centered}>
+        <Text style={styles.message}>Camera access is needed to scan products</Text>
+        <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission}>
+          <Text style={styles.permissionBtnText}>Allow camera</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -43,12 +45,9 @@ export default function BarcodeScanner({ onBarcodeScanned }: BarcodeScannerProps
         style={styles.camera}
         onBarcodeScanned={handleBarcode}
         barcodeScannerSettings={{
-          barcodeTypes: ['ean13', 'ean8', 'qr', 'code128', 'code39'],
+          barcodeTypes: ['ean13', 'ean8', 'qr', 'code128', 'code39', 'upc_a'],
         }}
       />
-      <Text style={styles.scannerText}>
-        {isScanning ? 'Processing...' : 'Point camera at barcode'}
-      </Text>
     </View>
   );
 }
@@ -56,19 +55,33 @@ export default function BarcodeScanner({ onBarcodeScanned }: BarcodeScannerProps
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   camera: {
     flex: 1,
     width: '100%',
   },
-  scannerText: {
-    position: 'absolute',
-    bottom: 20,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#0f172a',
+  },
+  message: {
     color: '#fff',
-    padding: 10,
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  permissionBtn: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  permissionBtnText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 15,
   },
 });

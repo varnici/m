@@ -38,10 +38,22 @@ export class BaseService {
     }
 
     const url = `${this.config.baseURL}${endpoint}`;
+    // Check if we are connected to a shared business workspace
+    let activeUserId = session.user.id;
+    try {
+      const { default: AsyncStorage } = require('@react-native-async-storage/async-storage');
+      const sharedOwnerId = await AsyncStorage.getItem('shared_business_owner_id');
+      if (sharedOwnerId) {
+        activeUserId = sharedOwnerId;
+      }
+    } catch (err) {
+      console.warn('Failed to load shared_business_owner_id from AsyncStorage:', err);
+    }
+
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
-      'X-User-Id': session.user.id,
+      'X-User-Id': activeUserId,
       ...options.headers,
     };
 
@@ -90,17 +102,36 @@ export class BaseService {
 }
 
 function resolveApiBaseUrl(): string {
-  const configured = process.env.EXPO_PUBLIC_API_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, '');
-
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:8080';
-  }
-
   const debuggerHost =
     (Constants.expoConfig?.hostUri || (Constants as any).manifest?.debuggerHost || '')
       .split(':')[0]
       .trim();
+
+  const configured = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (configured) {
+    const normalized = configured.replace(/\/+$/, '');
+    // In dev, a stale LAN IP in .env breaks the app after network changes; prefer Expo's host.
+    if (__DEV__ && debuggerHost) {
+      try {
+        const host = new URL(normalized).hostname;
+        if (
+          host !== debuggerHost &&
+          host !== 'localhost' &&
+          host !== '10.0.2.2' &&
+          host !== '127.0.0.1'
+        ) {
+          return `http://${debuggerHost}:8080`;
+        }
+      } catch {
+        // keep configured value
+      }
+    }
+    return normalized;
+  }
+
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:8080';
+  }
 
   if (debuggerHost) {
     return `http://${debuggerHost}:8080`;

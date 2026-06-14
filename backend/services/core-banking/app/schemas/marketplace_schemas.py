@@ -13,6 +13,12 @@ class ProductCreate(BaseModel):
     name: str = Field(..., min_length=1)
     sku: str = Field(..., min_length=1)
     description: Optional[str] = None
+    category: Optional[str] = None
+    unit_price_kobo: Optional[int] = Field(default=0, ge=0)
+    estate: Optional[str] = None
+    city: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 class ProductOut(BaseModel):

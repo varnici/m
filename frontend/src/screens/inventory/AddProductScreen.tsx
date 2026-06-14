@@ -8,9 +8,11 @@ import { useCreateProduct } from '@/hooks/useInventory';
 import Toast from 'react-native-toast-message';
 import { retailCategoriesData } from '@/data/retailCategories';
 
-const AddProductScreen = ({ navigation }: RootStackScreenProps<'AddProduct'>) => {
+const AddProductScreen = ({ navigation, route }: RootStackScreenProps<'AddProduct'>) => {
+  const scannedBarcode = route.params?.barcode ?? '';
   const [name, setName] = useState('');
-  const [sku, setSku] = useState('');
+  const [sku, setSku] = useState(scannedBarcode ? `BC-${scannedBarcode.slice(-8)}` : '');
+  const [barcode, setBarcode] = useState(scannedBarcode);
   const [description, setDescription] = useState('');
   const [costPrice, setCostPrice] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
@@ -58,6 +60,7 @@ const AddProductScreen = ({ navigation }: RootStackScreenProps<'AddProduct'>) =>
       category_id: selectedSubCategory || selectedCategory,
       name: name.trim(),
       sku: formattedSku,
+      barcode: barcode.trim() || undefined,
       description: description.trim(),
       cost_price_kobo: costKobo,
       selling_price_kobo: sellingKobo,
@@ -186,6 +189,17 @@ const AddProductScreen = ({ navigation }: RootStackScreenProps<'AddProduct'>) =>
                 className="bg-gray-50 p-4 rounded-2xl border border-gray-100 text-gray-900"
               />
             </View>
+
+            {scannedBarcode ? (
+              <View className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3">
+                <Text className="text-indigo-800 text-xs font-bold mb-1">Scanned barcode</Text>
+                <TextInput
+                  value={barcode}
+                  onChangeText={setBarcode}
+                  className="bg-white p-3 rounded-xl border border-indigo-100 text-gray-900 font-mono text-sm"
+                />
+              </View>
+            ) : null}
 
             <View>
               <Text className="text-gray-400 text-[10px] font-bold uppercase mb-1 ml-1">Description</Text>

@@ -15,6 +15,7 @@ from sqlalchemy import or_, and_, func
 
 from app.infrastructure.database import get_db
 from app.infrastructure.auth import get_current_user_id
+from app.infrastructure.cache import get_cache, set_cache, invalidate_cache_pattern
 from app.services.inventory_service_v2 import InventoryServiceV2
 from app.services.inventory_outbox_service import InventoryOutboxService
 from app.services.analytics_service import AnalyticsService
@@ -113,7 +114,9 @@ def create_store(
 ):
     """Create a new store/warehouse location."""
     service = ProductService(db, owner_id)
-    return service.create_store(payload)
+    result = service.create_store(payload)
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
 
 @router.get("/stores", response_model=List[StoreOut])
 def list_stores(
@@ -121,8 +124,15 @@ def list_stores(
     owner_id: str = Depends(get_current_user_id),
 ):
     """List all stores for the current user."""
+    cache_key = f"inventory:cache:{owner_id}:stores:list"
+    cached = get_cache(cache_key)
+    if cached is not None:
+        return [StoreOut.model_validate(s) for s in cached]
+
     service = ProductService(db, owner_id)
-    return service.get_all_stores()
+    stores = service.get_all_stores()
+    set_cache(cache_key, [s.model_dump() for s in stores], ttl=600)
+    return stores
 
 @router.get("/stores/{store_id}", response_model=StoreOut)
 def get_store(
@@ -131,8 +141,15 @@ def get_store(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get details of a specific store."""
+    cache_key = f"inventory:cache:{owner_id}:store:detail:{store_id}"
+    cached = get_cache(cache_key)
+    if cached is not None:
+        return StoreOut.model_validate(cached)
+
     service = ProductService(db, owner_id)
-    return service.get_store_by_id(store_id)
+    store = service.get_store_by_id(store_id)
+    set_cache(cache_key, store.model_dump(), ttl=600)
+    return store
 
 @router.put("/stores/{store_id}", response_model=StoreOut)
 def update_store(
@@ -143,7 +160,9 @@ def update_store(
 ):
     """Update store details."""
     service = ProductService(db, owner_id)
-    return service.update_store(store_id, payload)
+    result = service.update_store(store_id, payload)
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
 
 # ============================================================================
 # CATEGORY ENDPOINTS
@@ -157,7 +176,9 @@ def create_category(
 ):
     """Create a product category."""
     service = ProductService(db, owner_id)
-    return service.create_category(payload)
+    result = service.create_category(payload)
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
 
 @router.get("/categories", response_model=List[CategoryOut])
 def list_categories(
@@ -165,8 +186,15 @@ def list_categories(
     owner_id: str = Depends(get_current_user_id),
 ):
     """List all product categories."""
+    cache_key = f"inventory:cache:{owner_id}:categories:list"
+    cached = get_cache(cache_key)
+    if cached is not None:
+        return [CategoryOut.model_validate(c) for c in cached]
+
     service = ProductService(db, owner_id)
-    return service.get_all_categories()
+    categories = service.get_all_categories()
+    set_cache(cache_key, [c.model_dump() for c in categories], ttl=600)
+    return categories
 
 # ============================================================================
 # PRODUCT ENDPOINTS
@@ -181,7 +209,9 @@ def create_product(
     """Create a new product in the catalog."""
     try:
         service = ProductService(db, owner_id)
-        return service.create_product(payload)
+        result = service.create_product(payload)
+        invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+        return result
     except HTTPException:
         raise
     except ValueError as exc:
@@ -202,8 +232,16 @@ def list_products(
     owner_id: str = Depends(get_current_user_id),
 ):
     """List products with pagination and filtering."""
+    cache_key = f"inventory:cache:{owner_id}:products:list:{skip}:{limit}:{category_id or ''}:{search or ''}:{store_id or ''}"
+    cached = get_cache(cache_key)
+    if cached is not None:
+        response.headers["X-Total-Count"] = str(cached.get("total", 0))
+        return [ProductOut.model_validate(p) for p in cached.get("products", [])]
+
     service = ProductService(db, owner_id)
     products, total_count = service.list_products(skip, limit, category_id, search, store_id)
+    products_serialized = [p.model_dump() for p in products]
+    set_cache(cache_key, {"products": products_serialized, "total": total_count}, ttl=300)
     response.headers["X-Total-Count"] = str(total_count)
     return products
 
@@ -214,8 +252,15 @@ def search_by_barcode(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Search product by barcode or QR code."""
+    cache_key = f"inventory:cache:{owner_id}:product:barcode:{barcode}"
+    cached = get_cache(cache_key)
+    if cached is not None:
+        return ProductOut.model_validate(cached)
+
     service = ProductService(db, owner_id)
-    return service.get_product_by_barcode(barcode)
+    product = service.get_product_by_barcode(barcode)
+    set_cache(cache_key, product.model_dump(), ttl=300)
+    return product
 
 @router.get("/products/{product_id}", response_model=ProductDetailOut)
 def get_product(
@@ -225,8 +270,15 @@ def get_product(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get detailed product information including stock and prices."""
+    cache_key = f"inventory:cache:{owner_id}:product:detail:{product_id}:{store_id or ''}"
+    cached = get_cache(cache_key)
+    if cached is not None:
+        return ProductDetailOut.model_validate(cached)
+
     service = ProductService(db, owner_id)
-    return service.get_product_detail(product_id, store_id)
+    detail = service.get_product_detail(product_id, store_id)
+    set_cache(cache_key, detail.model_dump(), ttl=300)
+    return detail
 
 @router.put("/products/{product_id}", response_model=ProductOut)
 def update_product(
@@ -237,7 +289,9 @@ def update_product(
 ):
     """Update product information."""
     service = ProductService(db, owner_id)
-    return service.update_product(product_id, payload)
+    result = service.update_product(product_id, payload)
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
 
 @router.delete("/products/{product_id}", status_code=204)
 def delete_product(
@@ -248,6 +302,7 @@ def delete_product(
     """Soft-delete a product (mark as inactive)."""
     service = ProductService(db, owner_id)
     service.delete_product(product_id)
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
 
 # ============================================================================
 # MARKETPLACE ENDPOINTS
@@ -386,7 +441,9 @@ def create_sale(
     """Record a sale and trigger stock depletion."""
     service = SalesService(db, owner_id)
     try:
-        return service.create_sales_transaction(payload)
+        result = service.create_sales_transaction(payload)
+        invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+        return result
     except HTTPException:
         raise
     except ValueError as exc:
@@ -414,7 +471,9 @@ def update_sale(
 ):
     """Update a sale transaction and adjust stock levels."""
     service = SalesService(db, owner_id)
-    return service.update_sales_transaction(tx_id, payload)
+    result = service.update_sales_transaction(tx_id, payload)
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
 
 @router.get("/analytics/ledger", response_model=List[LedgerEntry])
 def get_inventory_analytics_ledger(
@@ -439,7 +498,9 @@ def record_movement(
 ):
     """Record manual stock movement (adjustment, damage, etc)."""
     service = StockService(db, owner_id)
-    return service.record_stock_movement(payload)
+    result = service.record_stock_movement(payload)
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
 
 @router.post("/stock/transfer", response_model=StockMovementOut, status_code=201)
 def transfer_stock(
@@ -463,12 +524,14 @@ def transfer_stock(
         )
 
     service = StockService(db, owner_id)
-    return service.transfer_stock(
+    result = service.transfer_stock(
         resolved_from_store_id,
         resolved_to_store_id,
         resolved_product_id,
         resolved_quantity,
     )
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
 
 @router.get("/stock/movements", response_model=List[StockMovementOut])
 def list_stock_movements(
@@ -499,7 +562,9 @@ def create_reservation(
 ):
     """Reserve stock for a future transaction."""
     service = StockService(db, owner_id)
-    return service.reserve_stock(payload)
+    result = service.reserve_stock(payload)
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
 
 @router.get("/stock/reservations", response_model=List[StockReservationOut])
 def list_stock_reservations(
@@ -534,7 +599,9 @@ def release_stock_reservation(
 ):
     """Release an active reservation fully or partially."""
     service = StockService(db, owner_id)
-    return service.release_stock_reservation(reservation_id, payload)
+    result = service.release_stock_reservation(reservation_id, payload)
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
 
 @router.post("/stock/reservations/{reservation_id}/commit", response_model=StockReservationOut)
 def commit_reservation(
@@ -545,7 +612,9 @@ def commit_reservation(
 ):
     """Fulfill/Commit a stock reservation."""
     service = StockService(db, owner_id)
-    return service.commit_stock_reservation(reservation_id, payload)
+    result = service.commit_stock_reservation(reservation_id, payload)
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
 
 @router.get("/stock", response_model=List[StockLevelOut])
 def get_stock_levels(
@@ -555,8 +624,15 @@ def get_stock_levels(
     owner_id: str = Depends(get_current_user_id),
 ):
     """Get stock levels across stores."""
+    cache_key = f"inventory:cache:{owner_id}:stock:levels:{store_id or ''}:{status or ''}"
+    cached = get_cache(cache_key)
+    if cached is not None:
+        return [StockLevelOut.model_validate(l) for l in cached]
+
     service = StockService(db, owner_id)
-    return service.get_stock_levels(store_id, status)
+    levels = service.get_stock_levels(store_id, status)
+    set_cache(cache_key, [l.model_dump() for l in levels], ttl=300)
+    return levels
 
 @router.post("/analytics/transform")
 def transform_inventory_stock(
@@ -755,7 +831,9 @@ def receive_purchase_order(
 ):
     """Mark purchase order as received and update stock."""
     service = OrderService(db, owner_id)
-    return service.receive_purchase_order(po_id, items)
+    result = service.receive_purchase_order(po_id, items)
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
 
 # ============================================================================
 # ANALYTICS & INSIGHTS ENDPOINTS

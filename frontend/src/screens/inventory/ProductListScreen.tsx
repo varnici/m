@@ -16,6 +16,7 @@ import { useProducts } from '@/hooks/useInventory';
 import { Ionicons } from '@expo/vector-icons';
 import { retailCategoriesData } from '@/data/retailCategories';
 import { colors } from '@/theme/colors';
+import { InventoryQuickActions } from '@/components/inventory/InventoryQuickActions';
 import type { Product as InventoryProduct } from '@/types/inventory';
 
 // ============================================================================
@@ -234,8 +235,24 @@ export const ProductListScreen = ({ navigation }: any) => {
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name="cube-outline" size={48} color="#D1D5DB" />
-        <Text style={styles.emptyText}>No products found</Text>
-        <Text style={styles.emptySubtext}>Add products or adjust your search filters.</Text>
+        <Text style={styles.emptyText}>No products yet</Text>
+        <Text style={styles.emptySubtext}>
+          Scan a barcode or use voice to add stock — fastest for market runs.
+        </Text>
+        <View style={styles.emptyActions}>
+          <TouchableOpacity
+            style={styles.emptyActionBtn}
+            onPress={() => navigation.navigate('ScanShelve')}
+          >
+            <Text style={styles.emptyActionText}>Scan</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.emptyActionBtn, styles.emptyActionVoice]}
+            onPress={() => navigation.navigate('VoiceStock')}
+          >
+            <Text style={styles.emptyActionText}>Voice</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }, [isLoading, isError, error, refetch]);
@@ -244,8 +261,8 @@ export const ProductListScreen = ({ navigation }: any) => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View className="flex-1">
-          <Text style={styles.headerEyebrow}>Inventory Control</Text>
-          <Text style={styles.headerTitle}>Product Catalogue</Text>
+          <Text style={styles.headerEyebrow}>Products</Text>
+          <Text style={styles.headerTitle}>Your catalog</Text>
         </View>
         <View className="flex-row items-center gap-3">
           <TouchableOpacity 
@@ -270,6 +287,12 @@ export const ProductListScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
       </View>
+
+      <InventoryQuickActions
+        compact
+        onScan={() => navigation.navigate('ScanShelve')}
+        onVoice={() => navigation.navigate('VoiceStock')}
+      />
 
       <View style={styles.summaryBand}>
         <View style={styles.summaryItem}>
@@ -595,6 +618,25 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 13,
     paddingHorizontal: 24,
+  },
+  emptyActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  emptyActionBtn: {
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  emptyActionVoice: {
+    backgroundColor: colors.ventureroot.green,
+  },
+  emptyActionText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 14,
   },
   errorText: {
     textAlign: 'center',

@@ -5,7 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { inventoryService } from '@/services/inventoryService';
+import { inventoryWorkerService } from '@/services/inventoryWorkerService';
 import Toast from 'react-native-toast-message';
 import { inventoryKeys } from './inventoryKeys';
 
@@ -21,7 +21,7 @@ export function useProducts(
   return useQuery({
     queryKey: inventoryKeys.productList(skip, limit, categoryId, search),
     queryFn: () =>
-      inventoryService.getProducts(skip, limit, categoryId, search),
+      inventoryWorkerService.getProducts(skip, limit, categoryId, search),
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 30, // 30 minutes
   });
@@ -37,7 +37,7 @@ export function useProductDetail(
 ) {
   return useQuery({
     queryKey: inventoryKeys.productDetail(productId ?? '', storeId),
-    queryFn: () => inventoryService.getProductDetail(productId ?? '', storeId),
+    queryFn: () => inventoryWorkerService.getProductDetail(productId ?? '', storeId),
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 60,
     enabled: enabled && !!productId,
@@ -52,7 +52,7 @@ export function useSearchByBarcode() {
 
   const query = useQuery({
     queryKey: ['barcode-search', barcode],
-    queryFn: () => inventoryService.searchByBarcode(barcode),
+    queryFn: () => inventoryWorkerService.searchByBarcode(barcode),
     enabled: barcode.length > 0,
     staleTime: Infinity,
   });
@@ -71,7 +71,7 @@ export function useCreateProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: any) => inventoryService.createProduct(data),
+    mutationFn: (data: any) => inventoryWorkerService.createProduct(data),
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: inventoryKeys.products() });
       Toast.show({
@@ -98,7 +98,7 @@ export function useUpdateProduct(productId: string) {
 
   return useMutation({
     mutationFn: (data: any) =>
-      inventoryService.updateProduct(productId, data),
+      inventoryWorkerService.updateProduct(productId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: inventoryKeys.productDetail(productId),
@@ -126,7 +126,7 @@ export function useDeleteProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (productId: string) => inventoryService.deleteProduct(productId),
+    mutationFn: (productId: string) => inventoryWorkerService.deleteProduct(productId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: inventoryKeys.products() });
       Toast.show({

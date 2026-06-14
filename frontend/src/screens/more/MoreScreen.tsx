@@ -60,13 +60,13 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
     {
       title: 'Operations',
       items: [
-        { label: 'Inventory', caption: 'Stock dashboard and alerts', icon: Boxes, color: '#D97706', route: 'InventoryDashboard' },
+        { label: 'Inventory', caption: 'Stock dashboard and alerts', icon: Boxes, color: '#D97706', route: 'InventoryManager' },
         { label: 'Products', caption: 'View and manage products', icon: PackageSearch, color: '#7C3AED', route: 'ProductList' },
         { label: 'Low Stock Alerts', caption: 'Critical restock list', icon: Shield, color: '#EF4444', route: 'LowStockAlerts' },
         { label: 'Purchase Orders', caption: 'Supplier ordering workflow', icon: FileText, color: '#0891B2', route: 'PurchaseOrders' },
         { label: 'Add Supplier', caption: 'Create supplier records', icon: Store, color: '#0F766E', route: 'AddSupplier' },
-        { label: 'Voice Stock', caption: 'Record stock by voice', icon: Mic, color: '#059669', route: 'VoiceStock' },
-        { label: 'Scan Shelve', caption: 'Camera-led shelf checks', icon: Camera, color: '#4F46E5', route: 'ScanShelve' },
+        { label: 'Scan stock in', caption: 'Point camera at barcode', icon: Camera, color: '#4F46E5', route: 'ScanShelve' },
+        { label: 'Voice stock in', caption: 'Hold button & speak', icon: Mic, color: '#059669', route: 'VoiceStock' },
         { label: 'AI Insights', caption: 'Inventory recommendations', icon: Bot, color: '#16A34A', route: 'AIInsights' },
         { label: 'AI Assistant', caption: 'Ask the business intelligence agent', icon: Bot, color: '#059669', route: 'AIAssistant' },
         { label: 'Sales', caption: 'Daily sales and velocity', icon: TrendingUp, color: '#2563EB', route: 'SalesDashboard' },

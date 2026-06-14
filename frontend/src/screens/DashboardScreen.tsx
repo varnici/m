@@ -61,7 +61,7 @@ const QUICK_ACCESS_ITEMS: Array<{
 }> = [
   { icon: Banknote, label: 'Loans', bgColor: '#D1FAE5', iconColor: '#004D2C', route: 'LoanDashboard' },
   { icon: BarChart3, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB', route: 'SalesDashboard' },
-  { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706', route: 'InventoryDashboard' },
+  { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706', route: 'InventoryManager' },
   { icon: Truck, label: 'Logistics', bgColor: '#E0F2FE', iconColor: '#0369A1', route: 'VentureRoute' },
   { icon: Users, label: 'Group Buy', bgColor: '#FCE7F3', iconColor: '#DB2777', route: 'PoolList' },
   { icon: Shield, label: 'Insurance', bgColor: '#FEE2E2', iconColor: '#EF4444', route: 'InsuranceSummary' },
@@ -303,7 +303,10 @@ const DashboardScreen = ({
 
         {/* ═══ VOICE STOCK ENTRY ═══ */}
         <View className="mb-4">
-          <VoiceStockCard />
+          <VoiceStockCard
+            onVoice={() => navigation.navigate('VoiceStock')}
+            onScan={() => navigation.navigate('ScanShelve')}
+          />
         </View>
 
         {/* ═══ SALES STREAK ═══ */}

@@ -40,8 +40,11 @@ def validate_hs256_jwt(token: str, *, secret: str, issuer: str | None = None, au
     except ValueError as e:
         raise JWTValidationError("Malformed JWT") from e
 
-    header = json.loads(_b64url_decode(header_b64))
-    payload: dict[str, Any] = json.loads(_b64url_decode(payload_b64))
+    try:
+        header = json.loads(_b64url_decode(header_b64))
+        payload: dict[str, Any] = json.loads(_b64url_decode(payload_b64))
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as e:
+        raise JWTValidationError("Malformed JWT payload") from e
 
     if header.get("alg") != "HS256":
         raise JWTValidationError("Unsupported alg")

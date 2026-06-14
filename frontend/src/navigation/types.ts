@@ -75,6 +75,7 @@ export type RootStackParamList = {
   
   // App Stack Screens (Accessible after onboarding)
   InventoryDashboard: undefined;
+  InventoryManager: undefined;
   StockLodger: undefined;
   VoiceStock: undefined;
   ScanShelve: undefined;
@@ -86,7 +87,7 @@ export type RootStackParamList = {
   ProductList: undefined;
   LowStockAlerts: { storeId?: string };
   ProductDetail: { productId: string };
-  AddProduct: undefined;
+  AddProduct: { barcode?: string } | undefined;
   EditProduct: { productId: string };
   PurchaseOrders: undefined;
   AddPurchaseOrder: { productId?: string; qty?: number };

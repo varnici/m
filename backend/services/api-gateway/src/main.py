@@ -48,16 +48,22 @@ def require_auth(
     authorization: Optional[str] = Header(None),
     x_user_id: Optional[str] = Header(None),
 ) -> str:
+    # Dev: mobile sends Supabase RS256 JWTs; gateway only validates HS256 dev tokens.
+    # Trust X-User-Id from the authenticated app when present.
+    if settings.env == "dev" and x_user_id:
+        return x_user_id
+
     if not authorization or not authorization.lower().startswith("bearer "):
-        if settings.env == "dev" and x_user_id:
-            return x_user_id
         raise HTTPException(status_code=401, detail="Missing bearer token")
     token = authorization.split(" ", 1)[1].strip()
     try:
-        claims = validate_hs256_jwt(token, secret=settings.jwt_secret, issuer=settings.jwt_issuer, audience=settings.jwt_audience)
+        claims = validate_hs256_jwt(
+            token,
+            secret=settings.jwt_secret,
+            issuer=settings.jwt_issuer,
+            audience=settings.jwt_audience,
+        )
     except JWTValidationError as e:
-        if settings.env == "dev" and x_user_id:
-            return x_user_id
         raise HTTPException(status_code=401, detail=str(e))
     return claims.sub
 

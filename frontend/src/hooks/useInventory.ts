@@ -10,4 +10,5 @@ export * from './useStock';
 export * from './useSuppliers';
 export * from './usePurchaseOrders';
 export * from './useAnalytics';
+export * from './useInventoryRealtime';
 export * from './useVoiceVision';
