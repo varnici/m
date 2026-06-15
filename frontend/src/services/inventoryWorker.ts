@@ -175,7 +175,7 @@ export class InventoryWorker {
         errorInstance.message,
         errorInstance.stack,
         typeof errorInstance === 'object' ? { ...errorInstance } : errorInstance,
-      ]);
+      ] as WorkerResponse);
     }
   }
 

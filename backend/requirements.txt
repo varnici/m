@@ -8,6 +8,7 @@ slowapi==0.1.9
 
 # Database & Storage
 sqlalchemy==2.0.19        # Fixed typo: was "sqqlalchemy"
+asyncpg>=0.29.0
 psycopg2-binary>=2.9.9
 redis==4.5.4
 supabase==2.7.4
@@ -18,7 +19,7 @@ faster-whisper==1.0.3
 spacy>=3.7.4
 numpy>=1.26.4
 soundfile==0.12.1
-chromadb==0.4.0           # Added for RAG engine
+chromadb>=0.5.0           # 0.4.x required pydantic<2, 0.5+ supports pydantic v2
 
 # Task Scheduling & Background Jobs
 apscheduler==3.10.4

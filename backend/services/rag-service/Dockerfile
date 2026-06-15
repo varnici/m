@@ -7,16 +7,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 
 # Install Python dependencies with cache
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir --upgrade pip setuptools wheel
+    pip install --upgrade pip setuptools wheel
 
 COPY requirements.txt .
 COPY requirements-optional.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir -r requirements.txt
+    pip install -r requirements.txt
 
 ARG INSTALL_RAG_OPTIONAL=false
 RUN if [ "$INSTALL_RAG_OPTIONAL" = "true" ]; then \
-      pip install --no-cache-dir -r requirements-optional.txt; \
+      pip install -r requirements-optional.txt; \
     fi
 
 COPY app ./app

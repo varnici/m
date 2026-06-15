@@ -21,7 +21,6 @@ export class VoiceInventoryParser {
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
-        shouldRouteThroughReceiverIOS: false,
       });
 
       // Start the recording with High Quality configuration

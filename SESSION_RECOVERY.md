@@ -98,8 +98,8 @@
 2. Set `inventory_domain_enabled=true`, keep `inventory_domain_enforce=false` for shadow validation.
 3. Monitor logs and outbox volume.
 4. Enable `inventory_domain_enforce=true` only after validation window.
-
-## Global Architecture Track Update (Phase 3 + Phase 4 Start, 2026-04-20)
+k Update (Phase 3 + Phase 4 Start, 2026-04-20)
+## Global Architecture Trac
 
 ### Completed in Phase 3 (Reservations)
 - Added `InventoryReservationModel` in `backend/services/core-banking/app/models/inventory_domain.py`.
