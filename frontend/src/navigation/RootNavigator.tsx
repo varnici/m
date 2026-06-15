@@ -76,6 +76,18 @@ import CartScreen from '@/screens/shop/CartScreen';
 import CheckoutScreen from '@/screens/shop/CheckoutScreen';
 import ShopProductDetailScreen from '@/screens/shop/ShopProductDetailScreen';
 import VentureRouteScreen from '@/screens/VentureRouteScreen';
+import Worker95Navigator from '@/navigation/Worker95Navigator';
+import WorkerDashboardScreen from '@/screens/worker/WorkerDashboardScreen';
+import InvestmentMarketplaceScreen from '@/screens/worker/InvestmentMarketplaceScreen';
+import SavingsLaunchpadScreen from '@/screens/worker/SavingsLaunchpadScreen';
+import FinancialLedgerScreen from '@/screens/worker/FinancialLedgerScreen';
+import Worker95WelcomeScreen from '@/screens/worker/Worker95WelcomeScreen';
+import Worker95OnboardingScreen from '@/screens/worker/Worker95OnboardingScreen';
+import Worker95BusinessDetailScreen from '@/screens/worker/Worker95BusinessDetailScreen';
+import Worker95InvestConfirmScreen from '@/screens/worker/Worker95InvestConfirmScreen';
+import Worker95SalaryConfigScreen from '@/screens/worker/Worker95SalaryConfigScreen';
+import Worker95ProfileScreen from '@/screens/worker/Worker95ProfileScreen';
+import Worker95DividendsScreen from '@/screens/worker/Worker95DividendsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -187,6 +199,20 @@ const RootNavigator = () => {
           <Stack.Screen name="Checkout" component={CheckoutScreen} />
           <Stack.Screen name="ShopProductDetail" component={ShopProductDetailScreen} />
           <Stack.Screen name="VentureRoute" component={VentureRouteScreen} />
+
+          {/* Layer 1 — 9-5 Worker Module (full stack) */}
+          <Stack.Screen name="Worker95Module" component={Worker95Navigator} />
+          <Stack.Screen name="Worker95Welcome" component={Worker95WelcomeScreen} />
+          <Stack.Screen name="Worker95Onboarding" component={Worker95OnboardingScreen} />
+          <Stack.Screen name="Worker95Dashboard" component={WorkerDashboardScreen} />
+          <Stack.Screen name="Worker95Marketplace" component={InvestmentMarketplaceScreen} />
+          <Stack.Screen name="Worker95BusinessDetail" component={Worker95BusinessDetailScreen} />
+          <Stack.Screen name="Worker95InvestConfirm" component={Worker95InvestConfirmScreen} />
+          <Stack.Screen name="Worker95Savings" component={SavingsLaunchpadScreen} />
+          <Stack.Screen name="Worker95SalaryConfig" component={Worker95SalaryConfigScreen} />
+          <Stack.Screen name="Worker95Ledger" component={FinancialLedgerScreen} />
+          <Stack.Screen name="Worker95Profile" component={Worker95ProfileScreen} />
+          <Stack.Screen name="Worker95Dividends" component={Worker95DividendsScreen} />
 
           <Stack.Screen name="PINSetup" component={PINSetupScreen} />
           <Stack.Screen name="PatternSetup" component={PatternSetupScreen} />

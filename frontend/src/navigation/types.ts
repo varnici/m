@@ -135,6 +135,20 @@ export type RootStackParamList = {
   Notifications: undefined;
   AccountDetails: undefined;
   TransactionHistory: undefined;
+
+  // Layer 1 — 9-5 Worker Module
+  Worker95Module: undefined;
+  Worker95Welcome: undefined;
+  Worker95Onboarding: undefined;
+  Worker95Dashboard: undefined;
+  Worker95Marketplace: undefined;
+  Worker95BusinessDetail: { item: any };
+  Worker95InvestConfirm: { item: any };
+  Worker95Savings: undefined;
+  Worker95SalaryConfig: undefined;
+  Worker95Ledger: undefined;
+  Worker95Profile: undefined;
+  Worker95Dividends: undefined;
 };
 
 export type RootStackNavigation = NavigationProp<RootStackParamList>;

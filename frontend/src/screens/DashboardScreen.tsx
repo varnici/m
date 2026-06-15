@@ -27,6 +27,7 @@ import {
   TrendingUp as StocksIcon,
   Sprout,
   Truck,
+  Briefcase,
 } from 'lucide-react-native';
 
 import VRWalletCard from '@/components/ui/VRWalletCard';
@@ -63,6 +64,7 @@ const QUICK_ACCESS_ITEMS: Array<{
   { icon: BarChart3, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB', route: 'SalesDashboard' },
   { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706', route: 'InventoryManager' },
   { icon: Truck, label: 'Logistics', bgColor: '#E0F2FE', iconColor: '#0369A1', route: 'VentureRoute' },
+  { icon: Briefcase, label: '9-5 Worker', bgColor: '#EDE9FE', iconColor: '#7C3AED', route: 'Worker95Module' },
   { icon: Users, label: 'Group Buy', bgColor: '#FCE7F3', iconColor: '#DB2777', route: 'PoolList' },
   { icon: Shield, label: 'Insurance', bgColor: '#FEE2E2', iconColor: '#EF4444', route: 'InsuranceSummary' },
   { icon: Bot, label: 'AI Assist', bgColor: '#D1FAE5', iconColor: '#059669', route: 'AIAssistant' },
