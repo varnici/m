@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "6ce5feaa-14ed-4985-9099-0a3c4c576e2e"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.smartdvi.ventureroot",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

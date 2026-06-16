@@ -26,6 +26,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "extra": {
+      "eas": {
+        "projectId": "6ce5feaa-14ed-4985-9099-0a3c4c576e2e"
+      }
+    },
     "plugins": [
       [
         "@rnmapbox/maps",

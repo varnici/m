@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "start": "cd frontend && npx expo start",
+    "start:tunnel": "cd frontend && npx expo start --tunnel",
+    "android": "cd frontend && npx expo start --android",
+    "ios": "cd frontend && npx expo start --ios",
+    "web": "cd frontend && npx expo start --web"
   },
   "dependencies": {
     "expo": "~55.0.6",
