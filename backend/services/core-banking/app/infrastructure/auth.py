@@ -100,8 +100,8 @@ def get_current_user_id(
             try:
                 user = User(
                     id=user_id,
-                    phone=f"sync_{user_id[:8]}",  # Dummy unique phone
-                    category="business_owner",
+                    phone=f"sync_{user_id[:8]}",
+                    category="personal",
                 )
                 db.add(user)
 

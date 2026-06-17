@@ -29,9 +29,10 @@ CATEGORY_RISK_SCORES = {
     'nine_to_five': 75,
     'business_owner': 70,
     'retail': 65,
-    'wholesale': 60,
-    'manufacturing': 55,
-    'services': 50,
+    'distributor': 60,
+    'manufactural': 55,
+    'logistics': 60,
+    'artisan': 65,
 }
 
 # Score ranges for tier assignment

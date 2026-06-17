@@ -66,6 +66,9 @@ class ProductCreate(BaseModel):
     image_url: Optional[str] = None
     quantity_on_hand: Optional[int] = Field(default=None, ge=0)
     store_id: Optional[str] = None
+    expenses_kobo: int = Field(default=0, ge=0)
+    quantity_sold: int = Field(default=0, ge=0)
+    quantity_on_credit: int = Field(default=0, ge=0)
 
 
 class ProductUpdate(BaseModel):
@@ -79,6 +82,9 @@ class ProductUpdate(BaseModel):
     reorder_quantity: Optional[int] = None
     image_url: Optional[str] = None
     is_active: Optional[bool] = None
+    expenses_kobo: Optional[int] = None
+    quantity_sold: Optional[int] = None
+    quantity_on_credit: Optional[int] = None
 
 
 class ProductOut(BaseModel):
@@ -102,6 +108,9 @@ class ProductOut(BaseModel):
     is_active: bool
     rating: float
     review_count: int
+    expenses_kobo: int = 0
+    quantity_sold: int = 0
+    quantity_on_credit: int = 0
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

@@ -21,7 +21,7 @@ class User(Base):
     email: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     full_name: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    # personal | nine_to_five | business_owner
+    # retail | nine_to_five | personal | distributor | manufactural | logistics | artisan
     category: Mapped[str] = mapped_column(String, nullable=False, default="personal")
 
     # Business profile fields

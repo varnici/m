@@ -3,10 +3,11 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import desc, select, func
 
 from app.infrastructure.database import db_session
+from app.infrastructure.auth import get_current_user_id
 from app.models.credit_score import CreditScore
 from app.models.inventory_metrics import InventoryMetrics
 from app.models.loan_metrics import LoanMetrics
@@ -28,11 +29,9 @@ router = APIRouter()
 
 
 @router.get("/{user_id}/dashboard", response_model=DashboardSummary)
-def get_dashboard_summary(user_id: str):
-    """
-    Get complete dashboard summary for a user.
-    Includes user profile, wallet state, credit score, today's sales, and recent activity.
-    """
+def get_dashboard_summary(user_id: str, _auth_user: str = Depends(get_current_user_id)):
+    if user_id != _auth_user:
+        raise HTTPException(status_code=403, detail="Access denied")
     with db_session() as db:
         # Get user profile
         user = db.get(User, user_id)
@@ -198,7 +197,7 @@ def get_dashboard_summary(user_id: str):
 
 
 @router.get("/{user_id}/sales-metrics", response_model=List[SalesMetricsOut])
-def get_sales_metrics(user_id: str, limit: int = 30):
+def get_sales_metrics(user_id: str, limit: int = 30, _auth_user: str = Depends(get_current_user_id)):
     """
     Get sales metrics for a user.
     Returns last N days of sales metrics (default 30 days).
@@ -220,7 +219,7 @@ def get_sales_metrics(user_id: str, limit: int = 30):
 
 
 @router.get("/{user_id}/inventory-metrics", response_model=List[InventoryMetricsOut])
-def get_inventory_metrics(user_id: str, limit: int = 30):
+def get_inventory_metrics(user_id: str, limit: int = 30, _auth_user: str = Depends(get_current_user_id)):
     """
     Get inventory metrics for a user.
     Returns last N days of inventory metrics (default 30 days).
@@ -242,7 +241,7 @@ def get_inventory_metrics(user_id: str, limit: int = 30):
 
 
 @router.get("/{user_id}/loan-metrics", response_model=List[LoanMetricsOut])
-def get_loan_metrics(user_id: str, limit: int = 30):
+def get_loan_metrics(user_id: str, limit: int = 30, _auth_user: str = Depends(get_current_user_id)):
     """
     Get loan metrics for a user.
     Returns last N days of loan metrics (default 30 days).
@@ -264,7 +263,7 @@ def get_loan_metrics(user_id: str, limit: int = 30):
 
 
 @router.get("/{user_id}/credit-score", response_model=CreditScoreOut)
-def get_credit_score(user_id: str):
+def get_credit_score(user_id: str, _auth_user: str = Depends(get_current_user_id)):
     """
     Get the latest credit score for a user.
     """
@@ -288,7 +287,7 @@ def get_credit_score(user_id: str):
 
 
 @router.get("/{user_id}/credit-scores", response_model=List[CreditScoreOut])
-def get_credit_score_history(user_id: str, limit: int = 10):
+def get_credit_score_history(user_id: str, limit: int = 10, _auth_user: str = Depends(get_current_user_id)):
     """
     Get credit score history for a user.
     Returns last N credit score calculations (default 10).

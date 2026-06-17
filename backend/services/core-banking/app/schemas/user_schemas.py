@@ -11,7 +11,7 @@ class UserCreate(BaseModel):
     phone: str = Field(..., min_length=10)
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
-    category: str = Field(default="personal", pattern=r"^(personal|nine_to_five|business_owner)$")
+    category: str = Field(default="personal", pattern=r"^(retail|nine_to_five|personal|distributor|manufactural|logistics|artisan|business_owner)$")
     
     # Business profile fields
     business_name: Optional[str] = None

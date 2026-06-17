@@ -8,7 +8,7 @@ from typing import Optional
 
 class SaleCreate(BaseModel):
     """Schema for creating a sale."""
-    user_id: str
+    user_id: Optional[str] = None
     product_sku: str = Field(..., min_length=1)
     quantity: int = Field(..., ge=1)
     unit_price_kobo: int = Field(..., ge=0)

@@ -103,6 +103,11 @@ class Product(Base):
     rating: Mapped[float] = mapped_column(Float, default=5.0)
     review_count: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Business tracking fields (expenses, sales, credit)
+    expenses_kobo: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    quantity_sold: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    quantity_on_credit: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
     # Marketplace compatibility fields
     unit_price_kobo: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     estate: Mapped[str | None] = mapped_column(String, nullable=True)

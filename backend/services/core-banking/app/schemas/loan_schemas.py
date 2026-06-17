@@ -8,7 +8,7 @@ from typing import Optional
 
 class LoanCreate(BaseModel):
     """Schema for creating a loan."""
-    user_id: str
+    user_id: Optional[str] = None
     principal_kobo: int = Field(..., ge=0)
     service_fee_kobo: int = Field(default=0, ge=0)
     product_sku: str = Field(..., min_length=1)

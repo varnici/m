@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     artisans, dashboard, loans, marketplace, sales, transport, users, wallet,
     inventory, analytics, ai, savings, automation, credit, transactions,
-    worker_module,
+    worker_module, shopfront, velocity, product_savings,
 )
 from app.api.v1.endpoints.clusters import router as clusters_router
 
@@ -25,4 +25,7 @@ api_router.include_router(inventory.router, prefix="/inventory", tags=["inventor
 api_router.include_router(analytics.router, prefix="/inventory-analytics", tags=["inventory-analytics"])
 api_router.include_router(ai.router, prefix="/inventory-ai", tags=["inventory-ai"])
 api_router.include_router(worker_module.router, prefix="/worker", tags=["worker-module"])
+api_router.include_router(shopfront.router, prefix="/shopfront", tags=["shopfront"])
+api_router.include_router(velocity.router, prefix="/velocity", tags=["velocity"])
+api_router.include_router(product_savings.router, prefix="/product-savings", tags=["product-savings"])
 

@@ -12,12 +12,13 @@ import os
 from decimal import Decimal
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, func, update
+from sqlalchemy import select, func, update, text
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database import db_session
+from app.infrastructure.auth import get_current_user_id
 
 router = APIRouter()
 
@@ -118,37 +119,58 @@ class WebhookAckOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 def _fetch_profile(db: Session, user_id: str) -> dict:
-    row = db.execute(
-        "SELECT id, full_name, bvn_verified, virtual_account_number, virtual_account_bank "
-        "FROM public.profiles WHERE id = :uid",
-        {"uid": user_id},
-    ).mappings().one_or_none()
+    try:
+        row = db.execute(
+            text(
+                "SELECT id, full_name, bvn_verified, virtual_account_number, virtual_account_bank "
+                "FROM public.profiles WHERE id = :uid"
+            ),
+            {"uid": user_id},
+        ).mappings().one_or_none()
+    except Exception:
+        row = None
     if row is None:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        return {
+            "id": user_id,
+            "full_name": None,
+            "bvn_verified": False,
+            "virtual_account_number": None,
+            "virtual_account_bank": None,
+        }
     return dict(row)
 
 
 def _fetch_savings_plans(db: Session, user_id: str) -> list[dict]:
-    rows = db.execute(
-        "SELECT id, target_name, target_amount, current_balance, automated_rule, "
-        "rule_amount, is_achieved FROM public.savings_plans WHERE user_id = :uid",
-        {"uid": user_id},
-    ).mappings().all()
-    return [dict(r) for r in rows]
+    try:
+        rows = db.execute(
+            text(
+                "SELECT id, target_name, target_amount, current_balance, automated_rule, "
+                "rule_amount, is_achieved FROM public.savings_plans WHERE user_id = :uid"
+            ),
+            {"uid": user_id},
+        ).mappings().all()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
 
 
 def _fetch_investments(db: Session, user_id: str) -> list[dict]:
-    rows = db.execute(
-        "SELECT i.id, i.cluster_id, bc.business_name, i.principal_amount, "
-        "i.dividends_earned, i.status, i.created_at, "
-        "COALESCE(cs.projected_monthly_roi, 0) AS projected_monthly_roi "
-        "FROM public.investments i "
-        "JOIN public.business_clusters bc ON bc.id = i.cluster_id "
-        "LEFT JOIN public.cluster_snapshots cs ON cs.cluster_id = i.cluster_id "
-        "WHERE i.investor_id = :uid AND i.status = 'active'",
-        {"uid": user_id},
-    ).mappings().all()
-    return [dict(r) for r in rows]
+    try:
+        rows = db.execute(
+            text(
+                "SELECT i.id, i.cluster_id, bc.business_name, i.principal_amount, "
+                "i.dividends_earned, i.status, i.created_at, "
+                "COALESCE(cs.projected_monthly_roi, 0) AS projected_monthly_roi "
+                "FROM public.investments i "
+                "JOIN public.business_clusters bc ON bc.id = i.cluster_id "
+                "LEFT JOIN public.cluster_snapshots cs ON cs.cluster_id = i.cluster_id "
+                "WHERE i.investor_id = :uid AND i.status = 'active'"
+            ),
+            {"uid": user_id},
+        ).mappings().all()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +178,7 @@ def _fetch_investments(db: Session, user_id: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 @router.get("/dashboard/summary", response_model=DashboardSummaryOut)
-def get_dashboard_summary(user_id: str = Query(..., description="Authenticated user UUID")):
+def get_dashboard_summary(user_id: str = Depends(get_current_user_id)):
     with db_session() as db:
         profile = _fetch_profile(db, user_id)
         plans_raw = _fetch_savings_plans(db, user_id)
@@ -236,7 +258,7 @@ def get_top10_marketplace(
 
         sql += " ORDER BY cs.rolling_30_day_turnover DESC LIMIT 10"
 
-        rows = db.execute(sql, params).mappings().all()
+        rows = db.execute(text(sql), params).mappings().all()
 
         return [
             MarketplaceItemOut(
@@ -258,15 +280,18 @@ def get_top10_marketplace(
 # ---------------------------------------------------------------------------
 
 @router.post("/savings/configure-rules", response_model=ConfigureRulesOut)
-def configure_savings_rules(payload: ConfigureRulesIn):
+def configure_savings_rules(payload: ConfigureRulesIn, user_id: str = Depends(get_current_user_id)):
     with db_session() as db:
         result = db.execute(
-            "UPDATE public.savings_plans SET automated_rule = :rule, rule_amount = :amount "
-            "WHERE id = :plan_id RETURNING id",
+            text(
+                "UPDATE public.savings_plans SET automated_rule = :rule, rule_amount = :amount "
+                "WHERE id = :plan_id AND user_id = :uid RETURNING id"
+            ),
             {
                 "rule": payload.automated_rule,
                 "amount": payload.rule_amount,
                 "plan_id": payload.plan_id,
+                "uid": user_id,
             },
         ).mappings().one_or_none()
 
@@ -310,7 +335,7 @@ async def payments_webhook(
 
     with db_session() as db:
         profile_row = db.execute(
-            "SELECT id FROM public.profiles WHERE virtual_account_number = :acct",
+            text("SELECT id FROM public.profiles WHERE virtual_account_number = :acct"),
             {"acct": payload.destination_account},
         ).mappings().one_or_none()
 
@@ -327,17 +352,21 @@ async def payments_webhook(
 
         # Atomically credit the first non-achieved savings plan, else wallet
         plan_row = db.execute(
-            "SELECT id FROM public.savings_plans "
-            "WHERE user_id = :uid AND is_achieved = FALSE "
-            "ORDER BY created_at ASC LIMIT 1",
+            text(
+                "SELECT id FROM public.savings_plans "
+                "WHERE user_id = :uid AND is_achieved = FALSE "
+                "ORDER BY created_at ASC LIMIT 1"
+            ),
             {"uid": user_id},
         ).mappings().one_or_none()
 
         if plan_row:
             db.execute(
-                "UPDATE public.savings_plans "
-                "SET current_balance = current_balance + :amt "
-                "WHERE id = :plan_id",
+                text(
+                    "UPDATE public.savings_plans "
+                    "SET current_balance = current_balance + :amt "
+                    "WHERE id = :plan_id"
+                ),
                 {"amt": amount_naira, "plan_id": str(plan_row["id"])},
             )
             target_table = "savings_plan"

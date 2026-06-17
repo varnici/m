@@ -109,6 +109,116 @@ async def proxy_inventory(path: str, request: Request, _sub: str = Depends(requi
     return await _proxy(request, settings.core_banking_url, f"v1/inventory/{path}")
 
 
+@app.api_route("/v1/wallet/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_wallet(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/wallet/{path}")
+
+
+@app.api_route("/v1/wallet", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_wallet_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/wallet")
+
+
+@app.api_route("/v1/loans/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_loans(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/loans/{path}")
+
+
+@app.api_route("/v1/loans", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_loans_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/loans")
+
+
+@app.api_route("/v1/clusters/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_clusters(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/clusters/{path}")
+
+
+@app.api_route("/v1/clusters", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_clusters_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/clusters")
+
+
+@app.api_route("/v1/worker/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_worker(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/worker/{path}")
+
+
+@app.api_route("/v1/worker", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_worker_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/worker")
+
+
+@app.api_route("/v1/users/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_users(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/users/{path}")
+
+
+@app.api_route("/v1/users", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_users_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/users")
+
+
+@app.api_route("/v1/budget-best/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_budget_best(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/budget-best/{path}")
+
+
+@app.api_route("/v1/budget-best", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_budget_best_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/budget-best")
+
+
+@app.api_route("/v1/transactions/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_transactions(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/transactions/{path}")
+
+
+@app.api_route("/v1/transactions", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_transactions_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/transactions")
+
+
+@app.api_route("/v1/marketplace/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_marketplace(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/marketplace/{path}")
+
+
+@app.api_route("/v1/marketplace", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_marketplace_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/marketplace")
+
+
+@app.api_route("/v1/shopfront/me", methods=["GET"], include_in_schema=False)
+async def proxy_shopfront_me(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/shopfront/me")
+
+
+@app.api_route("/v1/shopfront/{path:path}", methods=["GET", "POST"], include_in_schema=False)
+async def proxy_shopfront(path: str, request: Request):
+    return await _proxy(request, settings.core_banking_url, f"v1/shopfront/{path}")
+
+
+@app.api_route("/v1/velocity/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_velocity(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/velocity/{path}")
+
+
+@app.api_route("/v1/velocity", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_velocity_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/velocity")
+
+
+@app.api_route("/v1/product-savings/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_product_savings(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/product-savings/{path}")
+
+
+@app.api_route("/v1/product-savings", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_product_savings_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/product-savings")
+
+
 @app.api_route("/v1/ai/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
 async def proxy_ai(path: str, request: Request, _sub: str = Depends(require_auth)):
     return await _proxy(request, settings.ai_ml_url, f"v1/{path}")
