@@ -36,6 +36,7 @@ import QuickAccessIcon from '@/components/ui/QuickAccessIcon';
 import AIBriefingCard from '@/components/ui/AIBriefingCard';
 import VoiceStockCard from '@/components/ui/VoiceStockCard';
 import SalesStreakCard from '@/components/ui/SalesStreakCard';
+import VelocityScoreCard from '@/components/ui/VelocityScoreCard';
 import IntelligenceCard from '@/components/ui/IntelligenceCard';
 import ActivityItem from '@/components/ui/ActivityItem';
 import RepaymentBanner from '@/components/ui/RepaymentBanner';
@@ -319,6 +320,11 @@ const DashboardScreen = ({
             pointsEarned={dashboard.sales_streak?.points_earned || 0} 
             nextReward={dashboard.sales_streak?.next_reward_tier || 'Silver'} 
           />
+        </View>
+
+        {/* ═══ SALES VELOCITY SCORE ═══ */}
+        <View className="mb-4 px-4">
+          <VelocityScoreCard onPress={() => navigation.navigate('SalesVelocity')} />
         </View>
 
         {/* ═══ DAILY INTELLIGENCE ═══ */}

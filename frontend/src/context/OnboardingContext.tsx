@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { useUserProfileStore } from '@/store/userProfileStore';
+import type { AccountTypeId } from '@/config/accountTypes';
 
 export type RetailOnboardingData = {
   // Screen 1: User Type
@@ -98,8 +100,13 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
 
       if (profileError) throw profileError;
 
+      if (data.accountType) {
+        useUserProfileStore.getState().setAccountType(data.accountType as AccountTypeId);
+      }
+
       const businessPayload = {
         owner_id: user.id,
+        account_type: data.accountType,
         name: data.businessName,
         trading_name: data.tradingName,
         years_in_operation: data.yearsInOperation,

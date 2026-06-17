@@ -33,13 +33,13 @@ export interface LoanDetails {
 }
 
 export class WalletService extends BaseService {
-  async getWalletDetails(userId: string): Promise<WalletDetails> {
-    const response = await this.fetchWithAuth(`/v1/wallet/${userId}`);
+  async getWalletDetails(_userId?: string): Promise<WalletDetails> {
+    const response = await this.fetchWithAuth(`/v1/wallet`);
     return response.json();
   }
 
-  async topUpWallet(userId: string, amountKobo: number): Promise<void> {
-    await this.fetchWithAuth(`/v1/wallet/${userId}/topup`, {
+  async topUpWallet(_userId: string, amountKobo: number): Promise<void> {
+    await this.fetchWithAuth(`/v1/wallet/topup`, {
       method: 'POST',
       body: JSON.stringify({ amount_kobo: amountKobo }),
     });
@@ -73,16 +73,15 @@ export interface LoanDashboardData {
 }
 
 export class LoanService extends BaseService {
-  async getLoanDashboard(userId: string): Promise<LoanDashboardData> {
-    const response = await this.fetchWithAuth(`/v1/loans/${userId}/dashboard`);
+  async getLoanDashboard(_userId?: string): Promise<LoanDashboardData> {
+    const response = await this.fetchWithAuth(`/v1/loans/dashboard`);
     return response.json();
   }
 
-  async createLoan(userId: string, productSku: string, productQty: number, principalKobo: number): Promise<any> {
+  async createLoan(_userId: string, productSku: string, productQty: number, principalKobo: number): Promise<any> {
     const response = await this.fetchWithAuth(`/v1/loans`, {
       method: 'POST',
       body: JSON.stringify({
-        user_id: userId,
         product_sku: productSku,
         product_qty: productQty,
         principal_kobo: principalKobo,

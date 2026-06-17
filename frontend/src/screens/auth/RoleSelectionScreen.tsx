@@ -5,25 +5,21 @@ import type { RootStackScreenProps } from '@/navigation/types';
 import { ChevronDown, ChevronLeft, Check } from 'lucide-react-native';
 import { colors, spacing } from '@/theme/colors';
 import { CleanCard, CleanButton, CleanText } from '@/components/ui/CleanComponents';
-
-const ACCOUNT_TYPES = [
-  'Retail Business Owner',
-  'Personal',
-  'Distributor',
-  'Manufacturer',
-  'Logistics/Transportation Company',
-  'Artisan',
-];
+import { getEnabledTypes, type AccountTypeId } from '@/config/accountTypes';
+import { useUserProfileStore } from '@/store/userProfileStore';
 
 const RoleSelectionScreen = ({
   navigation,
 }: RootStackScreenProps<'RoleSelection'>) => {
-  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const enabledTypes = getEnabledTypes();
+  const setAccountType = useUserProfileStore((s) => s.setAccountType);
+  const [selectedType, setSelectedType] = useState<AccountTypeId | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const handleContinue = () => {
     if (!selectedType) return;
-    navigation.navigate('BVNVerification');
+    setAccountType(selectedType);
+    navigation.navigate('Main' as any);
   };
 
   return (
@@ -59,7 +55,7 @@ const RoleSelectionScreen = ({
           >
             <CleanCard style={styles.dropdownTrigger}>
               <CleanText style={{ color: selectedType ? colors.text.primary : colors.text.muted }}>
-                {selectedType || 'Select Account Type'}
+                {selectedType ? enabledTypes.find((t) => t.id === selectedType)?.label : 'Select Account Type'}
               </CleanText>
               <ChevronDown size={20} color={colors.text.secondary} />
             </CleanCard>
@@ -67,19 +63,19 @@ const RoleSelectionScreen = ({
 
           {isDropdownOpen && (
             <CleanCard style={styles.dropdownMenu}>
-              {ACCOUNT_TYPES.map((type) => (
+              {enabledTypes.map((type) => (
                 <TouchableOpacity
-                  key={type}
+                  key={type.id}
                   onPress={() => {
-                    setSelectedType(type);
+                    setSelectedType(type.id);
                     setIsDropdownOpen(false);
                   }}
                   style={styles.dropdownItem}
                   accessibilityRole="radio"
-                  accessibilityState={{ checked: selectedType === type }}
+                  accessibilityState={{ checked: selectedType === type.id }}
                 >
-                  <CleanText style={{ flex: 1 }}>{type}</CleanText>
-                  {selectedType === type && <Check size={18} color={colors.ventureroot.green} />}
+                  <CleanText style={{ flex: 1 }}>{type.label}</CleanText>
+                  {selectedType === type.id && <Check size={18} color={colors.ventureroot.green} />}
                 </TouchableOpacity>
               ))}
             </CleanCard>

@@ -3,12 +3,16 @@ import { ActivityIndicator, AppState, AppStateStatus, View } from 'react-native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from './types';
 import { useSecurityStore } from '@/store/securityStore';
+import { useUserProfileStore } from '@/store/userProfileStore';
 import { useAuth } from '@/context/AuthContext';
 import { colors } from '@/theme/colors';
 
 import AuthNavigator from './AuthNavigator';
 import OnboardingNavigator from './OnboardingNavigator';
 import MainTabNavigator from './MainTabNavigator';
+import WorkerTabNavigator from './WorkerTabNavigator';
+import ComingSoonScreen from '@/screens/ComingSoonScreen';
+import RoleSelectionScreen from '@/screens/auth/RoleSelectionScreen';
 
 import SecurityLockScreen from '@/screens/auth/SecurityLockScreen';
 import PINSetupScreen from '@/screens/auth/PINSetupScreen';
@@ -76,13 +80,10 @@ import CartScreen from '@/screens/shop/CartScreen';
 import CheckoutScreen from '@/screens/shop/CheckoutScreen';
 import ShopProductDetailScreen from '@/screens/shop/ShopProductDetailScreen';
 import VentureRouteScreen from '@/screens/VentureRouteScreen';
+import ShopfrontScreen from '@/screens/shopfront/ShopfrontScreen';
+import ProductSavingsScreen from '@/screens/savings/ProductSavingsScreen';
 import Worker95Navigator from '@/navigation/Worker95Navigator';
-import WorkerDashboardScreen from '@/screens/worker/WorkerDashboardScreen';
-import InvestmentMarketplaceScreen from '@/screens/worker/InvestmentMarketplaceScreen';
-import SavingsLaunchpadScreen from '@/screens/worker/SavingsLaunchpadScreen';
 import FinancialLedgerScreen from '@/screens/worker/FinancialLedgerScreen';
-import Worker95WelcomeScreen from '@/screens/worker/Worker95WelcomeScreen';
-import Worker95OnboardingScreen from '@/screens/worker/Worker95OnboardingScreen';
 import Worker95BusinessDetailScreen from '@/screens/worker/Worker95BusinessDetailScreen';
 import Worker95InvestConfirmScreen from '@/screens/worker/Worker95InvestConfirmScreen';
 import Worker95SalaryConfigScreen from '@/screens/worker/Worker95SalaryConfigScreen';
@@ -91,9 +92,21 @@ import Worker95DividendsScreen from '@/screens/worker/Worker95DividendsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+function resolveMainScreen(accountType: string | null) {
+  switch (accountType) {
+    case 'retail':
+      return MainTabNavigator;
+    case 'nine_to_five':
+      return WorkerTabNavigator;
+    default:
+      return ComingSoonScreen;
+  }
+}
+
 const RootNavigator = () => {
   const { session, isLoading: authLoading } = useAuth();
   const { isLocked, securityType, setIsLocked } = useSecurityStore();
+  const accountType = useUserProfileStore((s) => s.accountType);
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
@@ -129,9 +142,14 @@ const RootNavigator = () => {
         <Stack.Screen name="SecurityLock" component={SecurityLockScreen} options={{ animation: 'fade' }} />
       ) : !session ? (
         <Stack.Screen name="Auth" component={AuthNavigator} />
+      ) : !accountType ? (
+        <>
+          <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+          <Stack.Screen name="Main" component={resolveMainScreen(accountType)} />
+        </>
       ) : (
         <>
-          <Stack.Screen name="Main" component={MainTabNavigator} />
+          <Stack.Screen name="Main" component={resolveMainScreen(accountType)} />
           <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
 
           <Stack.Screen name="Dashboard" component={DashboardScreen} />
@@ -199,16 +217,13 @@ const RootNavigator = () => {
           <Stack.Screen name="Checkout" component={CheckoutScreen} />
           <Stack.Screen name="ShopProductDetail" component={ShopProductDetailScreen} />
           <Stack.Screen name="VentureRoute" component={VentureRouteScreen} />
+          <Stack.Screen name="Shopfront" component={ShopfrontScreen} />
+          <Stack.Screen name="ProductSavings" component={ProductSavingsScreen} />
 
-          {/* Layer 1 — 9-5 Worker Module (full stack) */}
+          {/* Worker95 detail screens (pushed from WorkerTabNavigator) */}
           <Stack.Screen name="Worker95Module" component={Worker95Navigator} />
-          <Stack.Screen name="Worker95Welcome" component={Worker95WelcomeScreen} />
-          <Stack.Screen name="Worker95Onboarding" component={Worker95OnboardingScreen} />
-          <Stack.Screen name="Worker95Dashboard" component={WorkerDashboardScreen} />
-          <Stack.Screen name="Worker95Marketplace" component={InvestmentMarketplaceScreen} />
           <Stack.Screen name="Worker95BusinessDetail" component={Worker95BusinessDetailScreen} />
           <Stack.Screen name="Worker95InvestConfirm" component={Worker95InvestConfirmScreen} />
-          <Stack.Screen name="Worker95Savings" component={SavingsLaunchpadScreen} />
           <Stack.Screen name="Worker95SalaryConfig" component={Worker95SalaryConfigScreen} />
           <Stack.Screen name="Worker95Ledger" component={FinancialLedgerScreen} />
           <Stack.Screen name="Worker95Profile" component={Worker95ProfileScreen} />

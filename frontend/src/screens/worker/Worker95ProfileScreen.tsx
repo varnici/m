@@ -67,7 +67,7 @@ export default function Worker95ProfileScreen({
           style: 'destructive',
           onPress: () => {
             clearCache();
-            navigation.navigate('Worker95Welcome');
+            navigation.navigate('WorkerHome' as any);
           },
         },
       ]
@@ -108,7 +108,7 @@ export default function Worker95ProfileScreen({
           icon: TrendingUp,
           label: 'Investment Preferences',
           desc: 'Risk appetite & category filters',
-          onPress: () => navigation.navigate('Worker95Marketplace'),
+          onPress: () => navigation.navigate('WorkerMarketplace' as any),
           color: '#3B82F6',
           bg: '#DBEAFE',
         },

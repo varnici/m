@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { RootStackParamList } from '@/navigation/types';
+import { useUserProfileStore } from '@/store/userProfileStore';
+import type { AccountTypeId } from '@/config/accountTypes';
 
 export interface AuthSnapshot {
   user: any | null;
@@ -16,16 +18,15 @@ export const resolveAuthSnapshot = async (): Promise<AuthSnapshot> => {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return { 
-      user: null, 
-      profile: null, 
-      business: null, 
+    return {
+      user: null,
+      profile: null,
+      business: null,
       error: userError?.message || 'No user',
-      nextRoute: 'Login'
+      nextRoute: 'Login',
     };
   }
 
-  // Fetch all required data in a single parallel block
   const [profileRes, businessRes] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
     supabase.from('businesses').select('*').eq('owner_id', user.id).maybeSingle(),
@@ -35,29 +36,23 @@ export const resolveAuthSnapshot = async (): Promise<AuthSnapshot> => {
   const profile = profileRes.data ?? null;
   const error = profileRes.error?.message || businessRes.error?.message || null;
 
-  // Determine route based on existing data
   let nextRoute: keyof RootStackParamList = 'RoleSelection';
+
   if (business?.onboarding_completed_at) {
+    const storedType = useUserProfileStore.getState().accountType;
+    if (business.account_type && !storedType) {
+      useUserProfileStore.getState().setAccountType(business.account_type as AccountTypeId);
+    }
     nextRoute = 'Main';
   } else if (business) {
-    // If business exists but onboarding not done, maybe redirect to a specific step?
-    // For now, keep it simple
     nextRoute = 'RoleSelection';
   }
 
-  return {
-    user,
-    profile,
-    business,
-    error,
-    nextRoute
-  };
+  return { user, profile, business, error, nextRoute };
 };
 
-// Deprecated: Keeping for backward compatibility but redirecting to new logic
 export const fetchPostLoginData = async () => {
-  const snapshot = await resolveAuthSnapshot();
-  return snapshot;
+  return resolveAuthSnapshot();
 };
 
 export const getPostAuthRoute = async (): Promise<keyof RootStackParamList> => {

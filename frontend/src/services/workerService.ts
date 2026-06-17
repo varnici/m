@@ -80,19 +80,23 @@ export interface LedgerEntry {
 // ---------------------------------------------------------------------------
 
 class WorkerService extends BaseService {
-  async getDashboardSummary(userId: string): Promise<WorkerDashboardSummary> {
-    return this.get<WorkerDashboardSummary>(
-      `${BASE}/dashboard/summary?user_id=${encodeURIComponent(userId)}`
-    );
+  async getDashboardSummary(_userId?: string): Promise<WorkerDashboardSummary> {
+    const response = await this.fetchWithAuth(`${BASE}/dashboard/summary`);
+    return response.json();
   }
 
   async getMarketplaceTop10(category?: string): Promise<MarketplaceItem[]> {
     const qs = category && category !== 'All' ? `?category=${encodeURIComponent(category)}` : '';
-    return this.get<MarketplaceItem[]>(`${BASE}/marketplace/top-10${qs}`);
+    const response = await this.fetchWithAuth(`${BASE}/marketplace/top-10${qs}`);
+    return response.json();
   }
 
   async configureSavingsRules(payload: ConfigureRulesPayload): Promise<ConfigureRulesResponse> {
-    return this.post<ConfigureRulesResponse>(`${BASE}/savings/configure-rules`, payload);
+    const response = await this.fetchWithAuth(`${BASE}/savings/configure-rules`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.json();
   }
 
   // Ledger is constructed client-side from dashboard data in offline-first mode

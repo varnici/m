@@ -37,7 +37,8 @@
         {
           "RNMapboxMapsDownloadToken": "sk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbGV4YW1wbGUifQ.example"
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

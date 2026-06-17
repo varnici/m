@@ -39,6 +39,14 @@ export type MainTabParamList = {
   More: undefined;
 };
 
+export type WorkerTabParamList = {
+  WorkerHome: undefined;
+  WorkerMarketplace: undefined;
+  WorkerSavings: undefined;
+  Wallet: undefined;
+  More: undefined;
+};
+
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Onboarding: NavigatorScreenParams<OnboardingStackParamList>;
@@ -126,6 +134,8 @@ export type RootStackParamList = {
   Cart: undefined;
   Checkout: { totalKobo: number };
   ShopProductDetail: { product: any };
+  Shopfront: undefined;
+  ProductSavings: undefined;
   Settings: undefined;
   Profile: undefined;
   SecuritySettings: undefined;
@@ -136,15 +146,10 @@ export type RootStackParamList = {
   AccountDetails: undefined;
   TransactionHistory: undefined;
 
-  // Layer 1 — 9-5 Worker Module
+  // Worker95 detail screens (pushed from WorkerTabNavigator)
   Worker95Module: undefined;
-  Worker95Welcome: undefined;
-  Worker95Onboarding: undefined;
-  Worker95Dashboard: undefined;
-  Worker95Marketplace: undefined;
   Worker95BusinessDetail: { item: any };
   Worker95InvestConfirm: { item: any };
-  Worker95Savings: undefined;
   Worker95SalaryConfig: undefined;
   Worker95Ledger: undefined;
   Worker95Profile: undefined;

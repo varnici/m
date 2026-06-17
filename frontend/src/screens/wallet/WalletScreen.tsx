@@ -27,11 +27,13 @@ const WalletScreen = ({ navigation }: RootStackScreenProps<'Wallet'>) => {
   }
 
   // Fallback data
-  const walletData = wallet || {
+  const walletData = {
     balance_kobo: 0,
     account_number: 'VR-W-XXXXX',
-    recent_transactions: []
+    recent_transactions: [],
+    ...wallet,
   };
+  if (!walletData.recent_transactions) walletData.recent_transactions = [];
   return (
     <SafeAreaView className="flex-1 bg-background-page">
       <StatusBar barStyle="light-content" />

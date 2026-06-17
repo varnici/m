@@ -29,6 +29,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { workerService } from '@/services/workerService';
 import { useWorkerStore, selectActivePlans, selectActiveInvestments } from '@/store/workerStore';
+import VelocityScoreCard from '@/components/ui/VelocityScoreCard';
 import type { RootStackScreenProps } from '@/navigation/types';
 
 const fmt = (n: number) =>
@@ -41,7 +42,8 @@ export default function WorkerDashboardScreen({
   navigation,
 }: RootStackScreenProps<'Worker95Dashboard'>) {
   const { user } = useAuth();
-  const { setSummary, setLedgerEntries } = useWorkerStore();
+  const setSummary = useWorkerStore((s) => s.setSummary);
+  const setLedgerEntries = useWorkerStore((s) => s.setLedgerEntries);
   const summary = useWorkerStore((s) => s.summary);
   const plans = useWorkerStore(selectActivePlans);
   const investments = useWorkerStore(selectActiveInvestments);
@@ -135,6 +137,11 @@ export default function WorkerDashboardScreen({
           </View>
         </LinearGradient>
 
+        {/* ── Sales Velocity Score ── */}
+        <View style={styles.section}>
+          <VelocityScoreCard onPress={() => navigation.navigate('SalesVelocity')} />
+        </View>
+
         {/* ── Virtual Account Funding Block ── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Fund Your Portfolio</Text>
@@ -164,7 +171,7 @@ export default function WorkerDashboardScreen({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Active Investments</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Worker95Marketplace')}>
+            <TouchableOpacity onPress={() => navigation.navigate('WorkerMarketplace' as any)}>
               <Text style={styles.seeAll}>Explore +</Text>
             </TouchableOpacity>
           </View>
@@ -175,7 +182,7 @@ export default function WorkerDashboardScreen({
               <Text style={styles.emptyText}>No active investments yet.</Text>
               <TouchableOpacity
                 style={styles.emptyAction}
-                onPress={() => navigation.navigate('Worker95Marketplace')}
+                onPress={() => navigation.navigate('WorkerMarketplace' as any)}
               >
                 <Text style={styles.emptyActionText}>Browse Marketplace</Text>
               </TouchableOpacity>
@@ -211,7 +218,7 @@ export default function WorkerDashboardScreen({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Business Savings Targets</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Worker95Savings')}>
+            <TouchableOpacity onPress={() => navigation.navigate('WorkerSavings' as any)}>
               <Text style={styles.seeAll}>Manage</Text>
             </TouchableOpacity>
           </View>
@@ -222,7 +229,7 @@ export default function WorkerDashboardScreen({
               <Text style={styles.emptyText}>No savings targets set yet.</Text>
               <TouchableOpacity
                 style={styles.emptyAction}
-                onPress={() => navigation.navigate('Worker95Savings')}
+                onPress={() => navigation.navigate('WorkerSavings' as any)}
               >
                 <Text style={styles.emptyActionText}>Create a Target</Text>
               </TouchableOpacity>

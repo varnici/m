@@ -98,13 +98,18 @@ export const selectNetPortfolio = (s: WorkerState) =>
 export const selectMonthlyDividends = (s: WorkerState) =>
   s.summary?.cumulative_monthly_dividends ?? 0;
 
-export const selectVirtualAccount = (s: WorkerState) => ({
-  number: s.summary?.virtual_account_number ?? null,
-  bank: s.summary?.virtual_account_bank ?? null,
-});
+const EMPTY_ACCOUNT = { number: null as string | null, bank: null as string | null };
+
+export const selectVirtualAccount = (s: WorkerState) =>
+  s.summary
+    ? { number: s.summary.virtual_account_number, bank: s.summary.virtual_account_bank }
+    : EMPTY_ACCOUNT;
+
+const EMPTY_PLANS: WorkerSavingsPlan[] = [];
+const EMPTY_INVESTMENTS: WorkerInvestment[] = [];
 
 export const selectActivePlans = (s: WorkerState): WorkerSavingsPlan[] =>
-  s.summary?.active_savings_plans ?? [];
+  s.summary?.active_savings_plans ?? EMPTY_PLANS;
 
 export const selectActiveInvestments = (s: WorkerState): WorkerInvestment[] =>
-  s.summary?.active_investments ?? [];
+  s.summary?.active_investments ?? EMPTY_INVESTMENTS;
