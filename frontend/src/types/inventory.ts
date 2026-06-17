@@ -57,6 +57,9 @@ export interface Product {
   supplier_lead_time_days?: number;
   quantity_on_hand?: number;
   store_id?: string;
+  expenses_kobo: number;
+  quantity_sold: number;
+  quantity_on_credit: number;
   is_active: boolean;
   total_quantity_on_hand: number;
   total_reserved_quantity: number;

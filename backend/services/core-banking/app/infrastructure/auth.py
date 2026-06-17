@@ -129,6 +129,33 @@ def get_current_user_id(
         )
 
 
+def get_actor_id(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(
+        HTTPBearer(auto_error=False)
+    ),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+) -> str:
+    """
+    Returns the REAL person performing the action (from JWT).
+    When staff uses a shared workspace, X-User-Id = owner but JWT = staff.
+    Falls back to X-User-Id in dev mode if no JWT.
+    """
+    if credentials:
+        try:
+            return _decode_user_id(credentials.credentials)
+        except HTTPException:
+            pass
+
+    if settings.env == "dev" and x_user_id:
+        return x_user_id
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 def get_current_user_id_optional(
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(

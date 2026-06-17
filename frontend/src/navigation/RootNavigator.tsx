@@ -45,6 +45,7 @@ import AddSupplierScreen from '@/screens/inventory/AddSupplierScreen';
 import PurchaseOrderDetailScreen from '@/screens/inventory/PurchaseOrderDetailScreen';
 import InventoryReconciliationScreen from '@/screens/inventory/InventoryReconciliationScreen';
 import LowStockAlertsScreen from '@/screens/inventory/LowStockAlertsScreen';
+import StaffActivityScreen from '@/screens/inventory/StaffActivityScreen';
 
 import BudgetBestDashboard from '@/screens/budget_best/BudgetBestDashboard';
 import BudgetBestDeposit from '@/screens/budget_best/BudgetBestDeposit';
@@ -179,6 +180,7 @@ const RootNavigator = () => {
           <Stack.Screen name="AIAssistant" component={AIAssistantScreen} />
           <Stack.Screen name="InventoryReconciliation" component={InventoryReconciliationScreen} />
           <Stack.Screen name="LowStockAlerts" component={LowStockAlertsScreen} />
+          <Stack.Screen name="StaffActivity" component={StaffActivityScreen} />
 
           <Stack.Screen name="BudgetBestDashboard" component={BudgetBestDashboard} />
           <Stack.Screen name="BudgetBestDeposit" component={BudgetBestDeposit} />

@@ -8,13 +8,13 @@ from datetime import date, datetime
 from decimal import Decimal
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Body, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Body, Response, Request
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
 
 from app.infrastructure.database import get_db
-from app.infrastructure.auth import get_current_user_id
+from app.infrastructure.auth import get_current_user_id, get_actor_id
 from app.infrastructure.cache import get_cache, set_cache, invalidate_cache_pattern
 from app.services.inventory_service_v2 import InventoryServiceV2
 from app.services.inventory_outbox_service import InventoryOutboxService
@@ -71,10 +71,14 @@ from app.schemas.inventory_schemas import (
     SalesTransactionOut,
     SalesTransactionItemCreate,
     ReconciliationResult,
-    ProductSellerInfo
+    ProductSellerInfo,
+    ActivityLogOut,
+    StaffSummaryOut,
+    SalesIntegrityReportOut,
 )
-from app.models import Product, StockLevel, Store, InventorySnapshot, PurchaseOrder, InventoryReservationModel
+from app.models import Product, StockLevel, Store, InventorySnapshot, PurchaseOrder, InventoryReservationModel, ActivityLog
 from app.models.user import User
+from app.services.activity_log_service import ActivityLogService, SalesIntegrityService
 
 router = APIRouter(tags=["inventory"])
 logger = logging.getLogger(__name__)
@@ -203,13 +207,34 @@ def list_categories(
 @router.post("/products", response_model=ProductOut, status_code=201)
 def create_product(
     payload: ProductCreate,
+    request: Request,
     db: Session = Depends(get_db),
     owner_id: str = Depends(get_current_user_id),
+    actor_id: str = Depends(get_actor_id),
 ):
     """Create a new product in the catalog."""
     try:
         service = ProductService(db, owner_id)
         result = service.create_product(payload)
+
+        activity = ActivityLogService(db, owner_id)
+        activity.log(
+            actor_id=actor_id,
+            action="create",
+            entity_type="product",
+            entity_id=result.id,
+            entity_name=result.name,
+            details={
+                "cost_price": payload.cost_price_kobo,
+                "selling_price": payload.selling_price_kobo,
+                "quantity": payload.quantity_on_hand,
+                "expenses": payload.expenses_kobo,
+                "on_credit": payload.quantity_on_credit,
+            },
+            ip_address=request.client.host if request.client else None,
+        )
+        db.commit()
+
         invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
         return result
     except HTTPException:
@@ -284,24 +309,57 @@ def get_product(
 def update_product(
     product_id: str,
     payload: ProductUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     owner_id: str = Depends(get_current_user_id),
+    actor_id: str = Depends(get_actor_id),
 ):
     """Update product information."""
     service = ProductService(db, owner_id)
     result = service.update_product(product_id, payload)
+
+    activity = ActivityLogService(db, owner_id)
+    changed_fields = payload.model_dump(exclude_unset=True)
+    activity.log(
+        actor_id=actor_id,
+        action="update",
+        entity_type="product",
+        entity_id=product_id,
+        entity_name=result.name,
+        details={"changed_fields": changed_fields},
+        ip_address=request.client.host if request.client else None,
+    )
+    db.commit()
+
     invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
     return result
 
 @router.delete("/products/{product_id}", status_code=204)
 def delete_product(
     product_id: str,
+    request: Request,
     db: Session = Depends(get_db),
     owner_id: str = Depends(get_current_user_id),
+    actor_id: str = Depends(get_actor_id),
 ):
     """Soft-delete a product (mark as inactive)."""
+    product = db.query(Product).filter(Product.id == product_id, Product.owner_id == owner_id).first()
+    product_name = product.name if product else "Unknown"
+
     service = ProductService(db, owner_id)
     service.delete_product(product_id)
+
+    activity = ActivityLogService(db, owner_id)
+    activity.log(
+        actor_id=actor_id,
+        action="delete",
+        entity_type="product",
+        entity_id=product_id,
+        entity_name=product_name,
+        ip_address=request.client.host if request.client else None,
+    )
+    db.commit()
+
     invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
 
 # ============================================================================
@@ -975,3 +1033,53 @@ def scan_shelf_vision(
 
     service = InventoryServiceV2(db, owner_id)
     return service.process_vision_scan(resolved_image_base64, resolved_store_id)
+
+
+# ============================================================================
+# ACTIVITY LOG & STAFF TRACKING ENDPOINTS
+# ============================================================================
+
+@router.get("/activity-log", response_model=List[ActivityLogOut])
+def get_activity_log(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    actor_id: Optional[str] = Query(None),
+    action: Optional[str] = Query(None),
+    entity_type: Optional[str] = Query(None),
+    days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Get activity log for the business. Only the business owner can view all staff activity."""
+    service = ActivityLogService(db, owner_id)
+    return service.get_activity_log(skip, limit, actor_id, action, entity_type, days)
+
+
+@router.get("/staff-summary", response_model=List[StaffSummaryOut])
+def get_staff_summary(
+    days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Get summary of all staff activity. Shows who did what and when."""
+    service = ActivityLogService(db, owner_id)
+    return service.get_staff_summary(days)
+
+
+# ============================================================================
+# SALES INTEGRITY ENDPOINTS
+# ============================================================================
+
+@router.get("/analytics/sales-integrity", response_model=SalesIntegrityReportOut)
+def get_sales_integrity(
+    days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """
+    Compute sales integrity report. Cross-validates sales data against
+    stock movements to detect manipulation, ghost sales, excessive credit,
+    and anomalous patterns.
+    """
+    service = SalesIntegrityService(db, owner_id)
+    return service.compute_integrity_report(days)

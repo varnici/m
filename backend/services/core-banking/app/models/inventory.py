@@ -312,6 +312,32 @@ class SalesTransactionItem(Base):
     product = relationship("Product")
 
 
+class ActivityLog(Base):
+    """Immutable audit trail for all inventory mutations.
+    Captures WHO (actor_id) did WHAT (action) to WHICH entity,
+    under WHOSE business (owner_id), with before/after snapshots.
+    """
+    __tablename__ = "activity_logs"
+    __table_args__ = (
+        Index("ix_activity_logs_owner_created", "owner_id", "created_at"),
+        Index("ix_activity_logs_actor", "actor_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
+    owner_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    actor_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    action: Mapped[str] = mapped_column(String, nullable=False)  # create, update, delete, stock_adjust, sale, credit_given, credit_paid
+    entity_type: Mapped[str] = mapped_column(String, nullable=False)  # product, stock, sale, purchase_order
+    entity_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    entity_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string with before/after
+    ip_address: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    owner = relationship("User", foreign_keys=[owner_id])
+
+
 class InventorySnapshot(Base):
     __tablename__ = "inventory_snapshots"
 

@@ -615,3 +615,63 @@ class ProductSellerInfo(BaseModel):
     price_kobo: int
     available_quantity: int
     seller_rating: float
+
+
+# ============================================================================
+# ACTIVITY LOG SCHEMAS
+# ============================================================================
+
+class ActivityLogOut(BaseModel):
+    """Response schema for activity log entry."""
+    id: str
+    actor_id: Optional[str]
+    actor_name: str
+    action: str
+    entity_type: str
+    entity_id: Optional[str]
+    entity_name: Optional[str]
+    details: Optional[Dict[str, Any]] = None
+    ip_address: Optional[str] = None
+    is_owner: bool = False
+    created_at: str
+
+class StaffSummaryOut(BaseModel):
+    """Summary of staff activity."""
+    actor_id: str
+    actor_name: str
+    is_owner: bool = False
+    total_actions: int
+    last_active: Optional[str] = None
+    actions_breakdown: Dict[str, int] = {}
+
+
+# ============================================================================
+# SALES INTEGRITY SCHEMAS
+# ============================================================================
+
+class IntegrityFlagOut(BaseModel):
+    """A single integrity flag on a product."""
+    type: str
+    severity: str
+    message: str
+
+class ProductIntegrityOut(BaseModel):
+    """Integrity score for a single product."""
+    product_id: str
+    product_name: str
+    sku: str
+    integrity_score: int
+    quantity_on_hand: int
+    quantity_sold: int
+    quantity_on_credit: int
+    flags: List[IntegrityFlagOut] = []
+
+class SalesIntegrityReportOut(BaseModel):
+    """Overall sales integrity report."""
+    overall_score: int
+    risk_level: str
+    total_products_checked: int
+    flagged_products: int = 0
+    critical_flags: int = 0
+    total_flags: int = 0
+    product_scores: List[ProductIntegrityOut] = []

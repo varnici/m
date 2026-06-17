@@ -52,6 +52,7 @@ export interface ManualFormFields {
   expenses: string;
   sold: string;
   reorderLevel: string;
+  onCredit: string;
 }
 
 const EMPTY_FORM: ManualFormFields = {
@@ -64,6 +65,7 @@ const EMPTY_FORM: ManualFormFields = {
   expenses: '',
   sold: '0',
   reorderLevel: '10',
+  onCredit: '0',
 };
 
 // ---------------------------------------------------------------------------

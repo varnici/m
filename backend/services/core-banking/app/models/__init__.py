@@ -4,9 +4,9 @@ from app.models.loan import Loan
 from app.models.repayment import Repayment
 from app.models.marketplace import Listing
 from app.models.inventory import (
-    Store, Category, Product, Supplier, StockLevel, 
-    StockMovement, PurchaseOrder, PurchaseOrderItem, SalesTransaction, 
-    SalesTransactionItem, InventorySnapshot
+    Store, Category, Product, Supplier, StockLevel,
+    StockMovement, PurchaseOrder, PurchaseOrderItem, SalesTransaction,
+    SalesTransactionItem, InventorySnapshot, ActivityLog
 )
 from app.models.inventory_domain import (
     InventoryLedgerEntryModel,
@@ -35,7 +35,8 @@ from app.models.product_savings import ProductSavingsGoal, ProductSavingsDeposit
 __all__ = [
     "User", "Wallet", "Loan", "Repayment", "Product", "Listing",
     "Store", "Category", "Supplier", "StockLevel", "StockMovement",
-    "PurchaseOrder", "PurchaseOrderItem", "SalesTransaction", "SalesTransactionItem", "InventorySnapshot",
+    "PurchaseOrder", "PurchaseOrderItem", "SalesTransaction", "SalesTransactionItem",
+    "InventorySnapshot", "ActivityLog",
     "InventoryLedgerEntryModel", "InventoryIdempotencyKeyModel", "DomainOutboxMessageModel", "InventoryReservationModel",
     "SavingsGoal", "SavingsTransaction", "SavingsStreak",
     "Artisan", "ArtisanBooking", "ArtisanRating", "DriverProfile",

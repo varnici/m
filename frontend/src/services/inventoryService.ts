@@ -536,7 +536,39 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
+  // ========================================================================
+  // ACTIVITY LOG & STAFF TRACKING
+  // ========================================================================
 
+  async getActivityLog(
+    skip: number = 0,
+    limit: number = 50,
+    actorId?: string,
+    action?: string,
+    entityType?: string,
+    days: number = 30,
+  ): Promise<any[]> {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+      days: days.toString(),
+      ...(actorId && { actor_id: actorId }),
+      ...(action && { action }),
+      ...(entityType && { entity_type: entityType }),
+    });
+    const response = await this.fetchWithAuth(`/v1/inventory/activity-log?${params}`);
+    return response.json();
+  }
+
+  async getStaffSummary(days: number = 30): Promise<any[]> {
+    const response = await this.fetchWithAuth(`/v1/inventory/staff-summary?days=${days}`);
+    return response.json();
+  }
+
+  async getSalesIntegrity(days: number = 30): Promise<any> {
+    const response = await this.fetchWithAuth(`/v1/inventory/analytics/sales-integrity?days=${days}`);
+    return response.json();
+  }
 }
 
 export const inventoryService = new InventoryService();

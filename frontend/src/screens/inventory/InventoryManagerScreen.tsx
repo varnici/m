@@ -34,6 +34,7 @@ import {
   Activity,
   Layers,
   ArrowUpDown,
+  Shield,
 } from 'lucide-react-native';
 
 import { colors } from '@/theme/colors';
@@ -147,17 +148,27 @@ export default function InventoryManagerScreen({ navigation }: any) {
     }
   }, [productsPage, skip]);
 
-  // Computed metrics calculations (memoised)
   const computedMetrics = useMemo(() => {
     const totalItems = productsList.length;
     let stockValue = 0;
     let outOfStockCount = 0;
     let lowStockCount = 0;
+    let totalSold = 0;
+    let totalActualProfit = 0;
+    let totalCreditOutstanding = 0;
 
     productsList.forEach((p) => {
       const qty = p.total_quantity_on_hand ?? p.quantity_on_hand ?? 0;
       const cost = (p.cost_price_kobo ?? 0) / 100;
+      const sell = (p.selling_price_kobo ?? 0) / 100;
+      const expenses = (p.expenses_kobo ?? 0) / 100;
+      const sold = p.quantity_sold ?? 0;
+      const onCredit = p.quantity_on_credit ?? 0;
+
       stockValue += qty * cost;
+      totalSold += sold;
+      totalActualProfit += (sell - cost) * sold - expenses;
+      totalCreditOutstanding += sell * onCredit;
 
       if (qty <= 0) {
         outOfStockCount++;
@@ -170,8 +181,9 @@ export default function InventoryManagerScreen({ navigation }: any) {
       totalItems,
       stockValue,
       alertsCount: outOfStockCount + lowStockCount,
-      unitsSold: dashboardData?.sales_velocity_30d ?? 0,
-      actualProfit: (dashboardData?.total_profit_kobo ?? 0) / 100,
+      unitsSold: totalSold || (dashboardData?.sales_velocity_30d ?? 0),
+      actualProfit: totalActualProfit || ((dashboardData?.total_profit_kobo ?? 0) / 100),
+      creditOutstanding: totalCreditOutstanding,
     };
   }, [productsList, dashboardData]);
 
@@ -230,7 +242,10 @@ export default function InventoryManagerScreen({ navigation }: any) {
 
     const costKobo = Math.round(parseFloat(form.costPrice) * 100);
     const sellKobo = Math.round(parseFloat(form.sellPrice) * 100);
+    const expensesKobo = Math.round(parseFloat(form.expenses || '0') * 100);
     const qty = parseInt(form.quantity, 10);
+    const sold = parseInt(form.sold || '0', 10);
+    const onCredit = parseInt(form.onCredit || '0', 10);
     const reorder = parseInt(form.reorderLevel, 10) || 10;
 
     if (isNaN(costKobo) || isNaN(sellKobo) || isNaN(qty)) {
@@ -242,6 +257,33 @@ export default function InventoryManagerScreen({ navigation }: any) {
       return;
     }
 
+    if (costKobo < 0 || sellKobo < 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid prices',
+        text2: 'Prices cannot be negative.',
+      });
+      return;
+    }
+
+    if (onCredit > qty) {
+      Toast.show({
+        type: 'error',
+        text1: 'Credit exceeds stock',
+        text2: 'Items on credit cannot exceed total quantity.',
+      });
+      return;
+    }
+
+    if (sold < 0 || onCredit < 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid quantity',
+        text2: 'Sold and credit quantities cannot be negative.',
+      });
+      return;
+    }
+
     const payload = {
       name: form.name.trim(),
       sku: `PRD-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
@@ -249,7 +291,10 @@ export default function InventoryManagerScreen({ navigation }: any) {
       selling_price_kobo: sellKobo,
       quantity_on_hand: qty,
       minimum_stock_level: reorder,
-      unit_of_measure: form.pack.toLowerCase(),
+      unit_of_measure: form.pack.trim() || 'Piece',
+      expenses_kobo: expensesKobo,
+      quantity_sold: sold,
+      quantity_on_credit: onCredit,
       is_active: true,
     };
 
@@ -376,13 +421,20 @@ export default function InventoryManagerScreen({ navigation }: any) {
 
   // --- CSV Export ---
   const handleExportCSV = () => {
-    const headers = 'SKU,Product Name,Category,Quantity,Cost Price,Selling Price,Total Cost Value\n';
+    const headers = 'SKU,Product Name,Category,Quantity,Pack,Cost Price (₦),Selling Price (₦),Expenses (₦),Sold,On Credit,Expected Profit (₦),Actual Profit (₦),Credit Outstanding (₦),Status\n';
     const rows = productsList
       .map((p) => {
         const qty = p.total_quantity_on_hand ?? p.quantity_on_hand ?? 0;
         const cost = (p.cost_price_kobo ?? 0) / 100;
         const sell = (p.selling_price_kobo ?? 0) / 100;
-        return `"${p.sku}","${p.name.replace(/"/g, '""')}","${p.category_id || 'General'}",${qty},${cost},${sell},${qty * cost}`;
+        const expenses = (p.expenses_kobo ?? 0) / 100;
+        const sold = p.quantity_sold ?? 0;
+        const onCredit = p.quantity_on_credit ?? 0;
+        const expectedProfit = (sell - cost) * qty - expenses;
+        const actualProfit = (sell - cost) * sold - expenses;
+        const creditOwed = sell * onCredit;
+        const status = qty <= 0 ? 'Out of Stock' : qty <= (p.minimum_stock_level ?? 10) ? 'Low Stock' : 'In Stock';
+        return `"${p.sku}","${p.name.replace(/"/g, '""')}","${p.category_id || 'General'}",${qty},"${p.unit_of_measure || 'Piece'}",${cost.toFixed(2)},${sell.toFixed(2)},${expenses.toFixed(2)},${sold},${onCredit},${expectedProfit.toFixed(2)},${actualProfit.toFixed(2)},${creditOwed.toFixed(2)},"${status}"`;
       })
       .join('\n');
 
@@ -453,7 +505,14 @@ export default function InventoryManagerScreen({ navigation }: any) {
         </View>
 
         <View style={styles.headerActionRow}>
-          <TouchableOpacity style={styles.headerBtn} onPress={handleExportCSV} accessibilityLabel="Export CSV">
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => navigation.navigate('StaffActivity')}
+            accessibilityLabel="Staff Activity & Sales Integrity"
+          >
+            <Shield size={20} color="#004D2C" />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.headerBtn, { marginLeft: 8 }]} onPress={handleExportCSV} accessibilityLabel="Export CSV">
             <Download size={20} color="#004D2C" />
           </TouchableOpacity>
           <TouchableOpacity
@@ -472,30 +531,39 @@ export default function InventoryManagerScreen({ navigation }: any) {
           <View style={styles.metricCard}>
             <Package size={18} color="#004D2C" />
             <Text style={styles.metricValue}>{computedMetrics.totalItems}</Text>
-            <Text style={styles.metricLabel}>Total Items</Text>
+            <Text style={styles.metricLabel}>Total Products</Text>
           </View>
           <View style={styles.metricCard}>
             <Activity size={18} color="#FFCC00" />
-            <Text style={styles.metricValue}>₦{computedMetrics.stockValue.toLocaleString()}</Text>
+            <Text style={styles.metricValue}>₦{Math.round(computedMetrics.stockValue).toLocaleString()}</Text>
             <Text style={styles.metricLabel}>Stock Value</Text>
           </View>
           <View style={styles.metricCard}>
             <Layers size={18} color="#10B981" />
-            <Text style={styles.metricValue}>{computedMetrics.unitsSold}</Text>
-            <Text style={styles.metricLabel}>Units Sold</Text>
+            <Text style={styles.metricValue}>{computedMetrics.unitsSold.toLocaleString()}</Text>
+            <Text style={styles.metricLabel}>Total Sold</Text>
           </View>
           <View style={styles.metricCard}>
-            <Activity size={18} color="#10B981" />
-            <Text style={[styles.metricValue, { color: '#10B981' }]}>
-              ₦{computedMetrics.actualProfit.toLocaleString()}
+            <Activity size={18} color={computedMetrics.actualProfit >= 0 ? '#10B981' : '#A32D2D'} />
+            <Text style={[styles.metricValue, { color: computedMetrics.actualProfit >= 0 ? '#10B981' : '#A32D2D' }]}>
+              ₦{Math.round(computedMetrics.actualProfit).toLocaleString()}
             </Text>
             <Text style={styles.metricLabel}>Actual Profit</Text>
           </View>
+          {computedMetrics.creditOutstanding > 0 && (
+            <View style={[styles.metricCard, styles.creditMetricCard]}>
+              <AlertTriangle size={18} color="#BA7517" />
+              <Text style={[styles.metricValue, { color: '#BA7517' }]}>
+                ₦{Math.round(computedMetrics.creditOutstanding).toLocaleString()}
+              </Text>
+              <Text style={styles.metricLabel}>Credit Owed</Text>
+            </View>
+          )}
           {computedMetrics.alertsCount > 0 && (
             <View style={[styles.metricCard, styles.alertMetricCard]}>
               <AlertTriangle size={18} color="#A32D2D" />
               <Text style={[styles.metricValue, { color: '#A32D2D' }]}>{computedMetrics.alertsCount}</Text>
-              <Text style={styles.metricLabel}>Restock Alerts</Text>
+              <Text style={styles.metricLabel}>Low / Out Stock</Text>
             </View>
           )}
         </ScrollView>
@@ -526,6 +594,39 @@ export default function InventoryManagerScreen({ navigation }: any) {
                 onChangeText={(val) => setField('name', val)}
               />
               <View style={styles.formRow}>
+                <View style={[styles.rowInput, styles.categoryPickerWrap]}>
+                  <Text style={styles.fieldLabel}>Category</Text>
+                  <View style={styles.categoryChips}>
+                    {['Food & Drinks', 'Electronics', 'Clothing', 'Health & Beauty', 'Household', 'Stationery', 'Other'].map((cat) => (
+                      <TouchableOpacity
+                        key={cat}
+                        style={[styles.categoryChip, form.category === cat && styles.categoryChipActive]}
+                        onPress={() => setField('category', form.category === cat ? '' : cat)}
+                      >
+                        <Text style={[styles.categoryChipText, form.category === cat && styles.categoryChipTextActive]}>
+                          {cat}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+              <View style={styles.formRow}>
+                <TextInput
+                  style={[styles.inputField, styles.rowInput]}
+                  placeholder="Quantity *"
+                  keyboardType="number-pad"
+                  value={form.quantity}
+                  onChangeText={(val) => setField('quantity', val)}
+                />
+                <TextInput
+                  style={[styles.inputField, styles.rowInput]}
+                  placeholder="Pack / Unit (e.g. Box, Dozen)"
+                  value={form.pack}
+                  onChangeText={(val) => setField('pack', val)}
+                />
+              </View>
+              <View style={styles.formRow}>
                 <TextInput
                   style={[styles.inputField, styles.rowInput]}
                   placeholder="Cost Price (₦) *"
@@ -535,41 +636,106 @@ export default function InventoryManagerScreen({ navigation }: any) {
                 />
                 <TextInput
                   style={[styles.inputField, styles.rowInput]}
-                  placeholder="Sell Price (₦) *"
+                  placeholder="Selling Price (₦) *"
                   keyboardType="decimal-pad"
                   value={form.sellPrice}
                   onChangeText={(val) => setField('sellPrice', val)}
                 />
               </View>
               <View style={styles.formRow}>
+                <View style={styles.rowInput}>
+                  <TextInput
+                    style={styles.inputField}
+                    placeholder="Expenses (₦)"
+                    keyboardType="decimal-pad"
+                    value={form.expenses}
+                    onChangeText={(val) => setField('expenses', val)}
+                  />
+                  <Text style={styles.fieldHint}>Transport, storage, etc.</Text>
+                </View>
                 <TextInput
                   style={[styles.inputField, styles.rowInput]}
-                  placeholder="Qty On Hand *"
+                  placeholder="Quantity Sold"
                   keyboardType="number-pad"
-                  value={form.quantity}
-                  onChangeText={(val) => setField('quantity', val)}
-                />
-                <TextInput
-                  style={[styles.inputField, styles.rowInput]}
-                  placeholder="Pack Unit (e.g. piece)"
-                  value={form.pack}
-                  onChangeText={(val) => setField('pack', val)}
+                  value={form.sold}
+                  onChangeText={(val) => setField('sold', val)}
                 />
               </View>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={handleManualSave}
-                disabled={createPending}
-              >
-                {createPending ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <>
-                    <Plus size={18} color="#FFFFFF" />
-                    <Text style={styles.actionButtonText}>Add Product</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              <View style={styles.formRow}>
+                <View style={styles.rowInput}>
+                  <TextInput
+                    style={styles.inputField}
+                    placeholder="Reorder Level"
+                    keyboardType="number-pad"
+                    value={form.reorderLevel}
+                    onChangeText={(val) => setField('reorderLevel', val)}
+                  />
+                  <Text style={styles.fieldHint}>Alert when stock is low</Text>
+                </View>
+                <View style={styles.rowInput}>
+                  <TextInput
+                    style={[styles.inputField, styles.creditInput]}
+                    placeholder="Qty on Credit"
+                    keyboardType="number-pad"
+                    value={form.onCredit}
+                    onChangeText={(val) => setField('onCredit', val)}
+                  />
+                  <Text style={styles.fieldHintCredit}>Items given on credit (unpaid)</Text>
+                </View>
+              </View>
+
+              {/* Live calculation preview */}
+              {(form.costPrice && form.sellPrice && form.quantity) ? (
+                <View style={styles.calcPreview}>
+                  <View style={styles.calcRow}>
+                    <Text style={styles.calcLabel}>Margin per unit</Text>
+                    <Text style={styles.calcValue}>
+                      ₦{(parseFloat(form.sellPrice || '0') - parseFloat(form.costPrice || '0')).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Text>
+                  </View>
+                  <View style={styles.calcRow}>
+                    <Text style={styles.calcLabel}>Expected Profit</Text>
+                    <Text style={[styles.calcValue, styles.calcValueGreen]}>
+                      ₦{(
+                        (parseFloat(form.sellPrice || '0') - parseFloat(form.costPrice || '0')) *
+                        parseInt(form.quantity || '0', 10) -
+                        parseFloat(form.expenses || '0')
+                      ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Text>
+                  </View>
+                  {parseInt(form.onCredit || '0', 10) > 0 && (
+                    <View style={styles.calcRow}>
+                      <Text style={styles.calcLabel}>Credit Outstanding</Text>
+                      <Text style={[styles.calcValue, styles.calcValueAmber]}>
+                        ₦{(
+                          parseFloat(form.sellPrice || '0') * parseInt(form.onCredit || '0', 10)
+                        ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ) : null}
+
+              <View style={styles.formActions}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={handleManualSave}
+                  disabled={createPending}
+                >
+                  {createPending ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <>
+                      <Plus size={18} color="#FFFFFF" />
+                      <Text style={styles.actionButtonText}>Add to Inventory</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.clearButton} onPress={resetForm}>
+                  <RefreshCw size={16} color="#6B7280" />
+                  <Text style={styles.clearButtonText}>Clear</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
@@ -835,6 +1001,9 @@ const styles = StyleSheet.create({
   alertMetricCard: {
     borderColor: '#FCEBEB',
   },
+  creditMetricCard: {
+    borderColor: '#FAEEDA',
+  },
   metricValue: {
     fontSize: 16,
     fontWeight: '800',
@@ -905,7 +1074,88 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1A1A1A',
   },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 6,
+  },
+  fieldHint: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  fieldHintCredit: {
+    fontSize: 11,
+    color: '#BA7517',
+    marginTop: 4,
+  },
+  categoryPickerWrap: {
+    gap: 0,
+  },
+  categoryChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  categoryChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+  },
+  categoryChipActive: {
+    backgroundColor: '#E1F5EE',
+    borderColor: '#004D2C',
+  },
+  categoryChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  categoryChipTextActive: {
+    color: '#004D2C',
+  },
+  creditInput: {
+    borderColor: '#FAEEDA',
+  },
+  calcPreview: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 6,
+  },
+  calcRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  calcLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  calcValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  calcValueGreen: {
+    color: '#059669',
+  },
+  calcValueAmber: {
+    color: '#BA7517',
+  },
+  formActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   actionButton: {
+    flex: 1,
     backgroundColor: '#004D2C',
     borderRadius: 12,
     paddingVertical: 14,
@@ -913,12 +1163,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 4,
   },
   actionButtonText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 15,
+  },
+  clearButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  clearButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   voiceConsole: {
     alignItems: 'center',
