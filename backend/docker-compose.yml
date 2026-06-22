@@ -18,18 +18,18 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 2G
-        reservations:
           cpus: '1'
-          memory: 1G
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 64M
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
     restart: always
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 64mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -38,11 +38,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 512M
-        reservations:
           cpus: '0.5'
-          memory: 256M
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 32M
 
   core-banking:
     build:
@@ -70,11 +70,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 1G
-        reservations:
           cpus: '1'
-          memory: 512M
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
   ai-ml-service:
     build:
@@ -101,11 +101,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '3'
-          memory: 2G
+          cpus: '1'
+          memory: 256M
         reservations:
-          cpus: '2'
-          memory: 1G
+          cpus: '0.25'
+          memory: 64M
 
   rag-service:
     build:
@@ -134,11 +134,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.5'
-          memory: 1536M
+          cpus: '1'
+          memory: 256M
         reservations:
-          cpus: '1.5'
-          memory: 768M
+          cpus: '0.25'
+          memory: 64M
 
   ussd-service:
     build:
@@ -165,11 +165,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: 512M
+          cpus: '0.5'
+          memory: 128M
         reservations:
-          cpus: '1'
-          memory: 256M
+          cpus: '0.1'
+          memory: 64M
 
   api-gateway:
     build:
@@ -201,11 +201,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 1G
-        reservations:
           cpus: '1'
-          memory: 512M
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 64M
 
 volumes:
   vr_postgres_data:

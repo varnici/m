@@ -37,6 +37,7 @@ class AnalyticsService:
             ).scalar() or 0
         except Exception as e:
             logger.warning("total_inventory_value function call failed: %s; falling back to aggregate", e)
+            self.db.rollback()
             total_val = self.db.execute(
                 text("""
                     SELECT COALESCE(SUM(sl.quantity_on_hand * p.cost_price_kobo), 0)
@@ -55,6 +56,7 @@ class AnalyticsService:
             ).scalar() or 0
         except Exception as e:
             logger.warning("inventory_turnover function call failed: %s; defaulting to 0", e)
+            self.db.rollback()
             turnover = 0
 
         # 3. Best Sellers
@@ -65,6 +67,7 @@ class AnalyticsService:
             ).fetchall()
         except Exception as e:
             logger.warning("best_selling_products function call failed: %s; returning empty list", e)
+            self.db.rollback()
             best_sellers = []
 
         # 4. Dead Stock Count
@@ -75,6 +78,7 @@ class AnalyticsService:
             ).scalar() or 0
         except Exception as e:
             logger.warning("dead_stock_detection function call failed: %s; defaulting to 0", e)
+            self.db.rollback()
             dead_stock = 0
 
         # 5. Total Revenue & Profit (Last 30 days)
@@ -333,9 +337,13 @@ class AnalyticsService:
 
         # 2. Cross-Sell Insight (Smart Mock based on logic)
         # If we have best sellers, suggest a bundle or cross-sell
-        best_seller_query = text("SELECT * FROM best_selling_products(:owner_id, 1)")
-        top_product = self.db.execute(best_seller_query, {"owner_id": self.owner_id}).first()
-        
+        try:
+            best_seller_query = text("SELECT * FROM best_selling_products(:owner_id, 1)")
+            top_product = self.db.execute(best_seller_query, {"owner_id": self.owner_id}).first()
+        except Exception:
+            self.db.rollback()
+            top_product = None
+
         if top_product:
             recommendations.append({
                 "id": "cross-sell-001",
@@ -350,8 +358,12 @@ class AnalyticsService:
             })
 
         # 3. Dead Stock Liquidation Insight
-        dead_stock_query = text("SELECT * FROM dead_stock_detection(:owner_id, 60) LIMIT 1")
-        dead_item = self.db.execute(dead_stock_query, {"owner_id": self.owner_id}).first()
+        try:
+            dead_stock_query = text("SELECT * FROM dead_stock_detection(:owner_id, 60) LIMIT 1")
+            dead_item = self.db.execute(dead_stock_query, {"owner_id": self.owner_id}).first()
+        except Exception:
+            self.db.rollback()
+            dead_item = None
         
         if dead_item:
             recommendations.append({

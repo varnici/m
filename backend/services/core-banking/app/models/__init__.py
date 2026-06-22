@@ -31,6 +31,10 @@ from app.models.cluster import ClusterDelivery, ClusterParticipant
 from app.models.transaction import Transaction
 from app.models.velocity_score import VelocityScore
 from app.models.product_savings import ProductSavingsGoal, ProductSavingsDeposit
+from app.models.ledger import ChartOfAccount, LedgerTransaction, LedgerEntry
+from app.models.onboarding import (
+    OnboardingProfile, MerchantProfile, DistributorProfile, LogisticsPartnerProfile,
+)
 
 __all__ = [
     "User", "Wallet", "Loan", "Repayment", "Product", "Listing",
@@ -45,5 +49,7 @@ __all__ = [
     "LoanTransaction", "Notification", "Message", "SupportTicket",
     "ClusterDelivery", "ClusterParticipant", "Transaction",
     "VelocityScore", "ProductSavingsGoal", "ProductSavingsDeposit",
+    "ChartOfAccount", "LedgerTransaction", "LedgerEntry",
+    "OnboardingProfile", "MerchantProfile", "DistributorProfile", "LogisticsPartnerProfile",
 ]
 

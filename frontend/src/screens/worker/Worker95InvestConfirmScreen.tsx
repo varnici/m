@@ -23,10 +23,13 @@ import {
   CheckCircle2,
   Info,
 } from 'lucide-react-native';
+import { workerService } from '@/services/workerService';
 import type { RootStackScreenProps } from '@/navigation/types';
 
 const MIN_INVESTMENT = 10000;
 const MAX_INVESTMENT = 5000000;
+const FIXED_MONTHLY_RATE = 1.0;
+const EARLY_PENALTY_PCT = 3.5;
 
 const fmt = (n: number) =>
   `₦${n.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -46,6 +49,7 @@ export default function Worker95InvestConfirmScreen({
 }: RootStackScreenProps<'Worker95InvestConfirm'>) {
   const item = route.params?.item;
   const [rawAmount, setRawAmount] = useState('');
+  const [termMonths, setTermMonths] = useState<6 | 12>(6);
   const [projectionMonths, setProjectionMonths] = useState(6);
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -58,7 +62,7 @@ export default function Worker95InvestConfirmScreen({
   const isValid = principal >= MIN_INVESTMENT && principal <= MAX_INVESTMENT;
 
   const projection = useMemo(
-    () => (item && isValid ? computeProjection(principal, item.projected_monthly_roi, projectionMonths) : null),
+    () => (item && isValid ? computeProjection(principal, FIXED_MONTHLY_RATE, projectionMonths) : null),
     [principal, item, projectionMonths, isValid]
   );
 
@@ -68,9 +72,18 @@ export default function Worker95InvestConfirmScreen({
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1800)); // Simulate API call
-    setLoading(false);
-    setConfirmed(true);
+    try {
+      await workerService.createInvestment({
+        cluster_id: item.cluster_id,
+        amount: principal,
+        term_months: termMonths,
+      });
+      setConfirmed(true);
+    } catch (e: any) {
+      Alert.alert('Investment Failed', e?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!item) {
@@ -102,10 +115,10 @@ export default function Worker95InvestConfirmScreen({
           <View style={styles.successCard}>
             <Text style={styles.successCardTitle}>What happens next?</Text>
             {[
-              { step: '1', text: `Your ₦${(principal / 1000).toFixed(0)}k is now active in the business pool.` },
-              { step: '2', text: 'Inventory performance is monitored daily via the Layer 2 data feed.' },
-              { step: '3', text: `Your first dividend of approx. ${fmt(principal * item.projected_monthly_roi / 100)} is expected on the 1st of next month.` },
-              { step: '4', text: 'Dividends are auto-credited to your VentureRoot wallet.' },
+              { step: '1', text: `Your ${fmt(principal)} is locked for ${termMonths} months in ${item.business_name}.` },
+              { step: '2', text: `You earn ${FIXED_MONTHLY_RATE}% monthly — that's ${fmt(principal * FIXED_MONTHLY_RATE / 100)} every month.` },
+              { step: '3', text: 'After each month, your dividend becomes available to collect.' },
+              { step: '4', text: `Withdrawing before maturity incurs a ${EARLY_PENALTY_PCT}% penalty on the total amount.` },
             ].map((s) => (
               <View key={s.step} style={styles.successStep}>
                 <View style={styles.successStepDot}>
@@ -158,7 +171,35 @@ export default function Worker95InvestConfirmScreen({
             </View>
             <View style={styles.roiBadge}>
               <TrendingUp size={13} color="#059669" />
-              <Text style={styles.roiBadgeText}>{item.projected_monthly_roi.toFixed(2)}%/mo</Text>
+              <Text style={styles.roiBadgeText}>{FIXED_MONTHLY_RATE}%/mo</Text>
+            </View>
+          </View>
+
+          {/* Investment Term Selection */}
+          <View style={styles.amountSection}>
+            <Text style={styles.amountLabel}>Investment Term</Text>
+            <View style={styles.projMonthRow}>
+              {([6, 12] as const).map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  style={[styles.monthChip, termMonths === m && styles.monthChipActive]}
+                  onPress={() => { setTermMonths(m); setProjectionMonths(m); }}
+                >
+                  <Text style={[styles.monthChipText, termMonths === m && styles.monthChipTextActive]}>
+                    {m === 6 ? '6 Months' : '1 Year'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+              <View style={{ flex: 1, backgroundColor: '#F0FDF4', borderRadius: 10, padding: 10, alignItems: 'center' }}>
+                <Text style={{ fontSize: 10, color: '#6B7280' }}>Monthly Return</Text>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#059669' }}>{FIXED_MONTHLY_RATE}%</Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: '#FEF3C7', borderRadius: 10, padding: 10, alignItems: 'center' }}>
+                <Text style={{ fontSize: 10, color: '#6B7280' }}>Early Penalty</Text>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#92400E' }}>{EARLY_PENALTY_PCT}%</Text>
+              </View>
             </View>
           </View>
 
@@ -205,14 +246,14 @@ export default function Worker95InvestConfirmScreen({
               <Text style={styles.projTitle}>Return Projection</Text>
 
               <View style={styles.projMonthRow}>
-                {[3, 6, 12, 24].map((m) => (
+                {[termMonths].map((m) => (
                   <TouchableOpacity
                     key={m}
-                    style={[styles.monthChip, projectionMonths === m && styles.monthChipActive]}
-                    onPress={() => setProjectionMonths(m)}
+                    style={[styles.monthChip, styles.monthChipActive]}
+                    disabled
                   >
-                    <Text style={[styles.monthChipText, projectionMonths === m && styles.monthChipTextActive]}>
-                      {m} mo
+                    <Text style={[styles.monthChipText, styles.monthChipTextActive]}>
+                      {m === 6 ? '6 months' : '12 months'} (your term)
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -243,7 +284,8 @@ export default function Worker95InvestConfirmScreen({
                 <View style={styles.projFooter}>
                   <Calendar size={14} color="#059669" />
                   <Text style={styles.projFooterText}>
-                    First dividend est. on the 1st of next month: {fmt(principal * item.projected_monthly_roi / 100)}
+                    First dividend of {fmt(principal * FIXED_MONTHLY_RATE / 100)} available after 1 month.
+                    Collect monthly or let it accumulate.
                   </Text>
                 </View>
               </LinearGradient>

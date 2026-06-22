@@ -75,6 +75,87 @@ export interface LedgerEntry {
   classification: 'Credit' | 'Debit' | 'Deposit';
 }
 
+export interface DividendRecord {
+  id: string;
+  period_date: string;
+  amount: number;
+  status: 'accrued' | 'available' | 'collected';
+  collected_at: string | null;
+}
+
+export interface InvestmentDetail {
+  id: string;
+  cluster_id: string;
+  business_name: string;
+  principal_amount: number;
+  dividends_earned: number;
+  total_collected: number;
+  status: string;
+  term_months: number;
+  monthly_rate_pct: number;
+  start_date: string;
+  maturity_date: string;
+  penalty_rate_pct: number;
+  current_yield_pct: number;
+  created_at: string;
+  days_remaining: number;
+  is_matured: boolean;
+  available_dividends: number;
+  dividend_records: DividendRecord[];
+}
+
+export interface PortfolioInvestment {
+  id: string;
+  cluster_id: string;
+  business_name: string;
+  principal_amount: number;
+  dividends_earned: number;
+  total_collected: number;
+  status: string;
+  term_months: number;
+  monthly_rate_pct: number;
+  start_date: string;
+  maturity_date: string;
+  days_remaining: number;
+  is_matured: boolean;
+  progress_pct: number;
+  available_dividends: number;
+}
+
+export interface PortfolioSummary {
+  total_principal: number;
+  total_dividends_earned: number;
+  total_collected: number;
+  total_available: number;
+  active_count: number;
+  matured_count: number;
+  investments: PortfolioInvestment[];
+}
+
+export interface CreateInvestmentPayload {
+  cluster_id: string;
+  amount: number;
+  term_months: 6 | 12;
+}
+
+export interface CollectDividendResponse {
+  investment_id: string;
+  collected_amount: number;
+  records_collected: number;
+  message: string;
+}
+
+export interface WithdrawResponse {
+  investment_id: string;
+  principal_returned: number;
+  uncollected_dividends: number;
+  penalty_pct: number;
+  penalty_amount: number;
+  net_amount: number;
+  is_early: boolean;
+  message: string;
+}
+
 // ---------------------------------------------------------------------------
 // Service calls
 // ---------------------------------------------------------------------------
@@ -95,6 +176,38 @@ class WorkerService extends BaseService {
     const response = await this.fetchWithAuth(`${BASE}/savings/configure-rules`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+    return response.json();
+  }
+
+  async createInvestment(payload: CreateInvestmentPayload): Promise<InvestmentDetail> {
+    const response = await this.fetchWithAuth(`${BASE}/investments/create`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.json();
+  }
+
+  async getPortfolio(): Promise<PortfolioSummary> {
+    const response = await this.fetchWithAuth(`${BASE}/investments/portfolio`);
+    return response.json();
+  }
+
+  async getInvestmentDetails(investmentId: string): Promise<InvestmentDetail> {
+    const response = await this.fetchWithAuth(`${BASE}/investments/${investmentId}/details`);
+    return response.json();
+  }
+
+  async collectDividends(investmentId: string): Promise<CollectDividendResponse> {
+    const response = await this.fetchWithAuth(`${BASE}/investments/${investmentId}/collect-dividends`, {
+      method: 'POST',
+    });
+    return response.json();
+  }
+
+  async withdrawInvestment(investmentId: string): Promise<WithdrawResponse> {
+    const response = await this.fetchWithAuth(`${BASE}/investments/${investmentId}/withdraw`, {
+      method: 'POST',
     });
     return response.json();
   }

@@ -28,7 +28,7 @@ export const ALL_ACCOUNT_TYPES: AccountTypeConfig[] = [
   { id: 'artisan', label: 'Artisan', tagline: 'ARTISAN_PROTOCOL', icon: Wrench, description: 'Specialized technical services' },
 ];
 
-export const ENABLED_ACCOUNT_TYPES: AccountTypeId[] = ['retail', 'nine_to_five'];
+export const ENABLED_ACCOUNT_TYPES: AccountTypeId[] = ['retail', 'nine_to_five', 'distributor', 'logistics'];
 
 export function getEnabledTypes(): AccountTypeConfig[] {
   return ALL_ACCOUNT_TYPES.filter((t) => ENABLED_ACCOUNT_TYPES.includes(t.id));

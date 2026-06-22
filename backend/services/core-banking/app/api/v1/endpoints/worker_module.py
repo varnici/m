@@ -9,7 +9,8 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
-from decimal import Decimal
+from datetime import date, datetime, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
@@ -21,6 +22,9 @@ from app.infrastructure.database import db_session
 from app.infrastructure.auth import get_current_user_id
 
 router = APIRouter()
+
+MONTHLY_RATE_PCT = Decimal("1.0000")
+EARLY_WITHDRAWAL_PENALTY_PCT = Decimal("3.5000")
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -111,6 +115,93 @@ class WebhookAckOut(BaseModel):
     received: bool
     user_id: Optional[str]
     credited_amount_naira: float
+    message: str
+
+
+# ---------------------------------------------------------------------------
+# Investment Term models
+# ---------------------------------------------------------------------------
+
+class CreateInvestmentIn(BaseModel):
+    cluster_id: str
+    amount: float = Field(..., ge=10000, le=5000000)
+    term_months: Literal[6, 12]
+
+
+class DividendRecordOut(BaseModel):
+    id: str
+    period_date: str
+    amount: float
+    status: str
+    collected_at: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class InvestmentDetailOut(BaseModel):
+    id: str
+    cluster_id: str
+    business_name: str
+    principal_amount: float
+    dividends_earned: float
+    total_collected: float
+    status: str
+    term_months: int
+    monthly_rate_pct: float
+    start_date: str
+    maturity_date: str
+    penalty_rate_pct: float
+    current_yield_pct: float
+    created_at: str
+    days_remaining: int
+    is_matured: bool
+    available_dividends: float
+    dividend_records: list[DividendRecordOut]
+
+
+class PortfolioInvestmentOut(BaseModel):
+    id: str
+    cluster_id: str
+    business_name: str
+    principal_amount: float
+    dividends_earned: float
+    total_collected: float
+    status: str
+    term_months: int
+    monthly_rate_pct: float
+    start_date: str
+    maturity_date: str
+    days_remaining: int
+    is_matured: bool
+    progress_pct: float
+    available_dividends: float
+
+
+class PortfolioSummaryOut(BaseModel):
+    total_principal: float
+    total_dividends_earned: float
+    total_collected: float
+    total_available: float
+    active_count: int
+    matured_count: int
+    investments: list[PortfolioInvestmentOut]
+
+
+class CollectDividendOut(BaseModel):
+    investment_id: str
+    collected_amount: float
+    records_collected: int
+    message: str
+
+
+class WithdrawOut(BaseModel):
+    investment_id: str
+    principal_returned: float
+    uncollected_dividends: float
+    penalty_pct: float
+    penalty_amount: float
+    net_amount: float
+    is_early: bool
     message: str
 
 
@@ -381,3 +472,405 @@ async def payments_webhook(
         credited_amount_naira=amount_naira,
         message=f"₦{amount_naira:,.2f} credited to {target_table}.",
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /worker/investments/create
+# ---------------------------------------------------------------------------
+
+@router.post("/investments/create", response_model=InvestmentDetailOut)
+def create_investment(payload: CreateInvestmentIn, user_id: str = Depends(get_current_user_id)):
+    with db_session() as db:
+        cluster = db.execute(
+            text(
+                "SELECT bc.id, bc.business_name, bc.is_active_for_investment, "
+                "COALESCE(cs.projected_monthly_roi, 0) AS projected_monthly_roi "
+                "FROM public.business_clusters bc "
+                "LEFT JOIN public.cluster_snapshots cs ON cs.cluster_id = bc.id "
+                "WHERE bc.id = :cid"
+            ),
+            {"cid": payload.cluster_id},
+        ).mappings().one_or_none()
+
+        if not cluster:
+            raise HTTPException(status_code=404, detail="Business cluster not found")
+        if not cluster["is_active_for_investment"]:
+            raise HTTPException(status_code=400, detail="This business is not accepting investments")
+
+        start = date.today()
+        maturity = start + timedelta(days=payload.term_months * 30)
+
+        row = db.execute(
+            text(
+                "INSERT INTO public.investments "
+                "(investor_id, cluster_id, principal_amount, term_months, monthly_rate_pct, "
+                " start_date, maturity_date, penalty_rate_pct, status) "
+                "VALUES (:uid, :cid, :amt, :term, :rate, :start, :mat, :pen, 'active') "
+                "RETURNING id, created_at"
+            ),
+            {
+                "uid": user_id,
+                "cid": payload.cluster_id,
+                "amt": payload.amount,
+                "term": payload.term_months,
+                "rate": float(MONTHLY_RATE_PCT),
+                "start": start,
+                "mat": maturity,
+                "pen": float(EARLY_WITHDRAWAL_PENALTY_PCT),
+            },
+        ).mappings().one()
+        db.commit()
+
+        inv_id = str(row["id"])
+        today = date.today()
+        days_total = (maturity - start).days
+        days_elapsed = (today - start).days
+        days_remaining = max(0, (maturity - today).days)
+
+        return InvestmentDetailOut(
+            id=inv_id,
+            cluster_id=payload.cluster_id,
+            business_name=cluster["business_name"],
+            principal_amount=payload.amount,
+            dividends_earned=0.0,
+            total_collected=0.0,
+            status="active",
+            term_months=payload.term_months,
+            monthly_rate_pct=float(MONTHLY_RATE_PCT),
+            start_date=str(start),
+            maturity_date=str(maturity),
+            penalty_rate_pct=float(EARLY_WITHDRAWAL_PENALTY_PCT),
+            current_yield_pct=float(cluster["projected_monthly_roi"]),
+            created_at=str(row["created_at"]),
+            days_remaining=days_remaining,
+            is_matured=today >= maturity,
+            available_dividends=0.0,
+            dividend_records=[],
+        )
+
+
+# ---------------------------------------------------------------------------
+# GET /worker/investments/portfolio
+# ---------------------------------------------------------------------------
+
+@router.get("/investments/portfolio", response_model=PortfolioSummaryOut)
+def get_investment_portfolio(user_id: str = Depends(get_current_user_id)):
+    with db_session() as db:
+        rows = db.execute(
+            text(
+                "SELECT i.id, i.cluster_id, bc.business_name, i.principal_amount, "
+                "i.dividends_earned, i.total_collected, i.status, i.term_months, "
+                "i.monthly_rate_pct, i.start_date, i.maturity_date, "
+                "COALESCE(("
+                "  SELECT SUM(dr.amount) FROM public.dividend_records dr "
+                "  WHERE dr.investment_id = i.id AND dr.status = 'available'"
+                "), 0) AS available_dividends "
+                "FROM public.investments i "
+                "JOIN public.business_clusters bc ON bc.id = i.cluster_id "
+                "WHERE i.investor_id = :uid AND i.status IN ('active', 'matured') "
+                "ORDER BY i.created_at DESC"
+            ),
+            {"uid": user_id},
+        ).mappings().all()
+
+        today = date.today()
+        investments = []
+        total_principal = 0.0
+        total_earned = 0.0
+        total_collected = 0.0
+        total_available = 0.0
+        active_count = 0
+        matured_count = 0
+
+        for r in rows:
+            start_d = r["start_date"] if isinstance(r["start_date"], date) else date.fromisoformat(str(r["start_date"]))
+            mat_d = r["maturity_date"] if isinstance(r["maturity_date"], date) else date.fromisoformat(str(r["maturity_date"]))
+            days_total = max(1, (mat_d - start_d).days)
+            days_elapsed = min(days_total, (today - start_d).days)
+            days_remaining = max(0, (mat_d - today).days)
+            is_matured = today >= mat_d
+            progress = min(100.0, (days_elapsed / days_total) * 100)
+            avail = float(r["available_dividends"])
+
+            principal = float(r["principal_amount"])
+            earned = float(r["dividends_earned"])
+            collected = float(r["total_collected"])
+
+            total_principal += principal
+            total_earned += earned
+            total_collected += collected
+            total_available += avail
+
+            if is_matured:
+                matured_count += 1
+            else:
+                active_count += 1
+
+            investments.append(PortfolioInvestmentOut(
+                id=str(r["id"]),
+                cluster_id=str(r["cluster_id"]),
+                business_name=r["business_name"],
+                principal_amount=principal,
+                dividends_earned=earned,
+                total_collected=collected,
+                status="matured" if is_matured else r["status"],
+                term_months=int(r["term_months"]),
+                monthly_rate_pct=float(r["monthly_rate_pct"]),
+                start_date=str(start_d),
+                maturity_date=str(mat_d),
+                days_remaining=days_remaining,
+                is_matured=is_matured,
+                progress_pct=round(progress, 1),
+                available_dividends=avail,
+            ))
+
+        return PortfolioSummaryOut(
+            total_principal=total_principal,
+            total_dividends_earned=total_earned,
+            total_collected=total_collected,
+            total_available=total_available,
+            active_count=active_count,
+            matured_count=matured_count,
+            investments=investments,
+        )
+
+
+# ---------------------------------------------------------------------------
+# GET /worker/investments/{investment_id}/details
+# ---------------------------------------------------------------------------
+
+@router.get("/investments/{investment_id}/details", response_model=InvestmentDetailOut)
+def get_investment_details(investment_id: str, user_id: str = Depends(get_current_user_id)):
+    with db_session() as db:
+        inv = db.execute(
+            text(
+                "SELECT i.*, bc.business_name, "
+                "COALESCE(cs.projected_monthly_roi, 0) AS projected_monthly_roi "
+                "FROM public.investments i "
+                "JOIN public.business_clusters bc ON bc.id = i.cluster_id "
+                "LEFT JOIN public.cluster_snapshots cs ON cs.cluster_id = i.cluster_id "
+                "WHERE i.id = :iid AND i.investor_id = :uid"
+            ),
+            {"iid": investment_id, "uid": user_id},
+        ).mappings().one_or_none()
+
+        if not inv:
+            raise HTTPException(status_code=404, detail="Investment not found")
+
+        dividends = db.execute(
+            text(
+                "SELECT id, period_date, amount, status, collected_at "
+                "FROM public.dividend_records "
+                "WHERE investment_id = :iid "
+                "ORDER BY period_date DESC"
+            ),
+            {"iid": investment_id},
+        ).mappings().all()
+
+        today = date.today()
+        start_d = inv["start_date"] if isinstance(inv["start_date"], date) else date.fromisoformat(str(inv["start_date"]))
+        mat_d = inv["maturity_date"] if isinstance(inv["maturity_date"], date) else date.fromisoformat(str(inv["maturity_date"]))
+        days_remaining = max(0, (mat_d - today).days)
+
+        available_divs = sum(
+            float(d["amount"]) for d in dividends if d["status"] == "available"
+        )
+
+        return InvestmentDetailOut(
+            id=str(inv["id"]),
+            cluster_id=str(inv["cluster_id"]),
+            business_name=inv["business_name"],
+            principal_amount=float(inv["principal_amount"]),
+            dividends_earned=float(inv["dividends_earned"]),
+            total_collected=float(inv["total_collected"]),
+            status=inv["status"],
+            term_months=int(inv["term_months"]),
+            monthly_rate_pct=float(inv["monthly_rate_pct"]),
+            start_date=str(start_d),
+            maturity_date=str(mat_d),
+            penalty_rate_pct=float(inv["penalty_rate_pct"]),
+            current_yield_pct=float(inv["projected_monthly_roi"]),
+            created_at=str(inv["created_at"]),
+            days_remaining=days_remaining,
+            is_matured=today >= mat_d,
+            available_dividends=available_divs,
+            dividend_records=[
+                DividendRecordOut(
+                    id=str(d["id"]),
+                    period_date=str(d["period_date"]),
+                    amount=float(d["amount"]),
+                    status=d["status"],
+                    collected_at=str(d["collected_at"]) if d["collected_at"] else None,
+                )
+                for d in dividends
+            ],
+        )
+
+
+# ---------------------------------------------------------------------------
+# POST /worker/investments/{investment_id}/collect-dividends
+# ---------------------------------------------------------------------------
+
+@router.post("/investments/{investment_id}/collect-dividends", response_model=CollectDividendOut)
+def collect_dividends(investment_id: str, user_id: str = Depends(get_current_user_id)):
+    with db_session() as db:
+        inv = db.execute(
+            text(
+                "SELECT id, investor_id FROM public.investments "
+                "WHERE id = :iid AND investor_id = :uid"
+            ),
+            {"iid": investment_id, "uid": user_id},
+        ).mappings().one_or_none()
+
+        if not inv:
+            raise HTTPException(status_code=404, detail="Investment not found")
+
+        available = db.execute(
+            text(
+                "SELECT id, amount FROM public.dividend_records "
+                "WHERE investment_id = :iid AND status = 'available' "
+                "ORDER BY period_date ASC"
+            ),
+            {"iid": investment_id},
+        ).mappings().all()
+
+        if not available:
+            raise HTTPException(status_code=400, detail="No dividends available to collect")
+
+        total = sum(float(d["amount"]) for d in available)
+        record_ids = [str(d["id"]) for d in available]
+
+        for rid in record_ids:
+            db.execute(
+                text(
+                    "UPDATE public.dividend_records "
+                    "SET status = 'collected', collected_at = NOW() "
+                    "WHERE id = :rid"
+                ),
+                {"rid": rid},
+            )
+
+        db.execute(
+            text(
+                "UPDATE public.investments "
+                "SET total_collected = total_collected + :amt "
+                "WHERE id = :iid"
+            ),
+            {"amt": total, "iid": investment_id},
+        )
+
+        db.commit()
+
+    return CollectDividendOut(
+        investment_id=investment_id,
+        collected_amount=total,
+        records_collected=len(record_ids),
+        message=f"₦{total:,.2f} in dividends collected successfully.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /worker/investments/{investment_id}/withdraw
+# ---------------------------------------------------------------------------
+
+@router.post("/investments/{investment_id}/withdraw", response_model=WithdrawOut)
+def withdraw_investment(investment_id: str, user_id: str = Depends(get_current_user_id)):
+    with db_session() as db:
+        inv = db.execute(
+            text(
+                "SELECT i.id, i.principal_amount, i.dividends_earned, i.total_collected, "
+                "i.penalty_rate_pct, i.maturity_date, i.status, i.start_date "
+                "FROM public.investments i "
+                "WHERE i.id = :iid AND i.investor_id = :uid AND i.status = 'active'"
+            ),
+            {"iid": investment_id, "uid": user_id},
+        ).mappings().one_or_none()
+
+        if not inv:
+            raise HTTPException(status_code=404, detail="Active investment not found")
+
+        today = date.today()
+        mat_d = inv["maturity_date"] if isinstance(inv["maturity_date"], date) else date.fromisoformat(str(inv["maturity_date"]))
+        is_early = today < mat_d
+
+        principal = float(inv["principal_amount"])
+        penalty_pct = float(inv["penalty_rate_pct"]) if is_early else 0.0
+
+        uncollected = db.execute(
+            text(
+                "SELECT COALESCE(SUM(amount), 0) AS total "
+                "FROM public.dividend_records "
+                "WHERE investment_id = :iid AND status = 'available'"
+            ),
+            {"iid": investment_id},
+        ).mappings().one()
+        uncollected_amt = float(uncollected["total"])
+
+        gross = principal + uncollected_amt
+        penalty_amount = round(gross * penalty_pct / 100, 2) if is_early else 0.0
+        net_amount = round(gross - penalty_amount, 2)
+
+        if is_early:
+            db.execute(
+                text(
+                    "INSERT INTO public.withdrawal_records "
+                    "(investment_id, requested_amount, penalty_pct, penalty_amount, net_amount) "
+                    "VALUES (:iid, :req, :ppct, :pamt, :net)"
+                ),
+                {
+                    "iid": investment_id,
+                    "req": gross,
+                    "ppct": penalty_pct,
+                    "pamt": penalty_amount,
+                    "net": net_amount,
+                },
+            )
+
+        db.execute(
+            text(
+                "UPDATE public.dividend_records "
+                "SET status = 'collected', collected_at = NOW() "
+                "WHERE investment_id = :iid AND status = 'available'"
+            ),
+            {"iid": investment_id},
+        )
+
+        db.execute(
+            text(
+                "UPDATE public.investments "
+                "SET status = 'closed', withdrawn_at = NOW(), "
+                "    total_collected = total_collected + :uncollected "
+                "WHERE id = :iid"
+            ),
+            {"uncollected": uncollected_amt, "iid": investment_id},
+        )
+
+        db.commit()
+
+    return WithdrawOut(
+        investment_id=investment_id,
+        principal_returned=principal,
+        uncollected_dividends=uncollected_amt,
+        penalty_pct=penalty_pct,
+        penalty_amount=penalty_amount,
+        net_amount=net_amount,
+        is_early=is_early,
+        message=(
+            f"Early withdrawal: ₦{net_amount:,.2f} returned (₦{penalty_amount:,.2f} penalty applied)."
+            if is_early
+            else f"Investment matured! ₦{net_amount:,.2f} returned in full."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /worker/investments/accrue-dividends  (admin/cron trigger)
+# ---------------------------------------------------------------------------
+
+@router.post("/investments/accrue-dividends")
+def trigger_dividend_accrual(user_id: str = Depends(get_current_user_id)):
+    with db_session() as db:
+        result = db.execute(text("SELECT public.accrue_monthly_dividends() AS cnt"))
+        count = result.scalar()
+        db.commit()
+    return {"accrued_count": count, "message": f"Accrued dividends for {count} investments."}

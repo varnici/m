@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker stats *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(p\\) for p in d.get\\('paths',{}\\) if 'invest' in p.lower\\(\\)]\")",
+      "Bash(curl -s -X GET http://localhost:8001/v1/worker/investments/portfolio -H 'Authorization: Bearer test' -H 'X-User-Id: 00000000-0000-0000-0000-000000000001')",
+      "Bash(curl -s -X POST http://localhost:8001/v1/worker/investments/create -H 'Authorization: Bearer test' -H 'X-User-Id: 00000000-0000-0000-0000-000000000001' -H 'Content-Type: application/json' -d '{\"cluster_id\": \"a1000000-0000-0000-0000-000000000001\", \"amount\": 50000, \"term_months\": 6}')"
+    ]
+  }
+}

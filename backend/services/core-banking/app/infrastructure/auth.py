@@ -100,7 +100,7 @@ def get_current_user_id(
             try:
                 user = User(
                     id=user_id,
-                    phone=f"sync_{user_id[:8]}",
+                    phone=f"sync_{user_id}",
                     category="personal",
                 )
                 db.add(user)
@@ -110,13 +110,15 @@ def get_current_user_id(
 
                 db.commit()
                 logger.info("User %s synced successfully", user_id)
-            except Exception as e:
+            except Exception:
                 db.rollback()
-                logger.exception("Failed to sync user %s: %s", user_id, str(e))
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Sync error: {str(e)}",
-                )
+                user = db.get(User, user_id)
+                if not user:
+                    logger.exception("Failed to sync user %s", user_id)
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Failed to provision user",
+                    )
 
         return user_id
     except HTTPException:

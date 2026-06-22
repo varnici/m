@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -H \"X-User-Id: test-user-123\" http://localhost:8080/v1/inventory/analytics/dashboard)",
+      "Bash(curl -s -H \"X-User-Id: bd3b6de8-50ee-4146-97b0-e99dc0619d84\" http://localhost:8080/v1/inventory/analytics/dashboard)",
+      "Bash(curl -s -H \"X-User-Id: bd3b6de8-50ee-4146-97b0-e99dc0619d84\" http://localhost:8080/v1/inventory/analytics/product-health?limit=5)",
+      "Bash(curl -s -H \"X-User-Id: bd3b6de8-50ee-4146-97b0-e99dc0619d84\" http://localhost:8080/v1/loans/dashboard)",
+      "Bash(curl -s -H \"X-User-Id: bd3b6de8-50ee-4146-97b0-e99dc0619d84\" http://localhost:8080/v1/clusters/active)",
+      "Bash(curl -s -H \"X-User-Id: bd3b6de8-50ee-4146-97b0-e99dc0619d84\" http://localhost:8080/v1/worker/marketplace/top-10)",
+      "Bash(curl -sv -H \"X-User-Id: bd3b6de8-50ee-4146-97b0-e99dc0619d84\" http://localhost:8080/v1/loans/dashboard)",
+      "Bash(curl -sv -H \"X-User-Id: bd3b6de8-50ee-4146-97b0-e99dc0619d84\" http://localhost:8080/v1/clusters/active)"
+    ]
+  }
+}

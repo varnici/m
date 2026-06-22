@@ -410,12 +410,17 @@ class PurchaseOrderDetailOut(PurchaseOrderOut):
 
 class InventoryDashboardSummary(BaseModel):
     """Dashboard summary for inventory."""
-    total_products: int
-    total_stock_value_kobo: int
-    low_stock_items: int
-    out_of_stock_items: int
-    total_suppliers: int
-    pending_orders: int
+    total_value_kobo: int = 0
+    total_revenue_kobo: int = 0
+    total_profit_kobo: int = 0
+    turnover_ratio: float = 0.0
+    turnover_description: str = ""
+    dead_stock_count: int = 0
+    best_sellers: List[Dict[str, Any]] = Field(default_factory=list)
+    categories: List[Dict[str, Any]] = Field(default_factory=list)
+    recent_transactions: List[Dict[str, Any]] = Field(default_factory=list)
+    revenue_trend: List[Dict[str, Any]] = Field(default_factory=list)
+    global_recommendations: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class InventoryOptimizationSummary(BaseModel):
@@ -427,10 +432,12 @@ class InventoryOptimizationSummary(BaseModel):
 class ProductHealthOut(BaseModel):
     """Health metrics for a product."""
     product_id: str
-    turnover_rate: float
-    days_to_stockout: Optional[int]
-    reorder_urgency: str
-    profit_margin_pct: float
+    sku: Optional[str] = None
+    name: Optional[str] = None
+    health_score: int = 0
+    stock_status: str = "in_stock"
+    margin_percentage: float = 0.0
+    turnover_rate: float = 0.0
 
 
 class AIInsightsOut(BaseModel):

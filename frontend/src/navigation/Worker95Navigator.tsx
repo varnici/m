@@ -7,6 +7,8 @@ import WorkerDashboardScreen from '@/screens/worker/WorkerDashboardScreen';
 import InvestmentMarketplaceScreen from '@/screens/worker/InvestmentMarketplaceScreen';
 import Worker95BusinessDetailScreen from '@/screens/worker/Worker95BusinessDetailScreen';
 import Worker95InvestConfirmScreen from '@/screens/worker/Worker95InvestConfirmScreen';
+import InvestmentPortfolioScreen from '@/screens/worker/InvestmentPortfolioScreen';
+import InvestmentDetailScreen from '@/screens/worker/InvestmentDetailScreen';
 import SavingsLaunchpadScreen from '@/screens/worker/SavingsLaunchpadScreen';
 import Worker95SalaryConfigScreen from '@/screens/worker/Worker95SalaryConfigScreen';
 import FinancialLedgerScreen from '@/screens/worker/FinancialLedgerScreen';
@@ -20,6 +22,8 @@ export type Worker95StackParamList = {
   Worker95Marketplace: undefined;
   Worker95BusinessDetail: { item: any };
   Worker95InvestConfirm: { item: any };
+  Worker95Portfolio: undefined;
+  Worker95InvestmentDetail: { investmentId: string };
   Worker95Savings: undefined;
   Worker95SalaryConfig: undefined;
   Worker95Ledger: undefined;
@@ -41,6 +45,8 @@ export default function Worker95Navigator() {
       <Stack.Screen name="Worker95Marketplace" component={InvestmentMarketplaceScreen} />
       <Stack.Screen name="Worker95BusinessDetail" component={Worker95BusinessDetailScreen} />
       <Stack.Screen name="Worker95InvestConfirm" component={Worker95InvestConfirmScreen} />
+      <Stack.Screen name="Worker95Portfolio" component={InvestmentPortfolioScreen} />
+      <Stack.Screen name="Worker95InvestmentDetail" component={InvestmentDetailScreen} />
       <Stack.Screen name="Worker95Savings" component={SavingsLaunchpadScreen} />
       <Stack.Screen name="Worker95SalaryConfig" component={Worker95SalaryConfigScreen} />
       <Stack.Screen name="Worker95Ledger" component={FinancialLedgerScreen} />

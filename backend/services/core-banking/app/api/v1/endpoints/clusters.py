@@ -4,6 +4,7 @@ from typing import cast
 from fastapi import APIRouter, HTTPException, Query, Header
 from geoalchemy2 import WKTElement
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from app.infrastructure.database import db_session
 from app.models.cluster import ClusterDelivery, ClusterParticipant
@@ -58,6 +59,7 @@ def get_active_cluster():
     with db_session() as db:
         q = (
             select(ClusterDelivery)
+            .options(selectinload(ClusterDelivery.participants))
             .where(ClusterDelivery.status.in_(["forming", "in_transit"]))
             .order_by(ClusterDelivery.created_at.desc())
         )
@@ -82,7 +84,9 @@ def lock_payment(cluster_id: str, x_user_id: str = Header(..., alias="X-User-Id"
     Simulates live bank/wallet ledger debit.
     """
     with db_session() as db:
-        cluster = db.get(ClusterDelivery, cluster_id)
+        cluster = db.execute(
+            select(ClusterDelivery).options(selectinload(ClusterDelivery.participants)).where(ClusterDelivery.id == cluster_id)
+        ).scalars().first()
         if not cluster:
             raise HTTPException(status_code=404, detail="Cluster not found")
 
@@ -131,7 +135,9 @@ def dispatch_cluster(cluster_id: str):
     Dispatch route cluster to driver, changing status to in_transit.
     """
     with db_session() as db:
-        cluster = db.get(ClusterDelivery, cluster_id)
+        cluster = db.execute(
+            select(ClusterDelivery).options(selectinload(ClusterDelivery.participants)).where(ClusterDelivery.id == cluster_id)
+        ).scalars().first()
         if not cluster:
             raise HTTPException(status_code=404, detail="Cluster not found")
 
@@ -154,6 +160,7 @@ def list_nearby_clusters(
     with db_session() as db:
         q = (
             select(ClusterDelivery)
+            .options(selectinload(ClusterDelivery.participants))
             .where(
                 func.ST_DWithin(
                     ClusterDelivery.center_geom,

@@ -171,8 +171,8 @@ export default function WorkerDashboardScreen({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Active Investments</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('WorkerMarketplace' as any)}>
-              <Text style={styles.seeAll}>Explore +</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Worker95Portfolio')}>
+              <Text style={styles.seeAll}>View All →</Text>
             </TouchableOpacity>
           </View>
 
@@ -182,7 +182,7 @@ export default function WorkerDashboardScreen({
               <Text style={styles.emptyText}>No active investments yet.</Text>
               <TouchableOpacity
                 style={styles.emptyAction}
-                onPress={() => navigation.navigate('WorkerMarketplace' as any)}
+                onPress={() => navigation.navigate('Worker95Marketplace')}
               >
                 <Text style={styles.emptyActionText}>Browse Marketplace</Text>
               </TouchableOpacity>
@@ -190,7 +190,12 @@ export default function WorkerDashboardScreen({
           ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {investments.map((inv) => (
-                <View key={inv.id} style={styles.investCard}>
+                <TouchableOpacity
+                  key={inv.id}
+                  style={styles.investCard}
+                  onPress={() => navigation.navigate('Worker95InvestmentDetail', { investmentId: inv.id })}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.investName} numberOfLines={2}>
                     {inv.business_name}
                   </Text>
@@ -206,9 +211,9 @@ export default function WorkerDashboardScreen({
                   </View>
                   <View style={styles.yieldBadge}>
                     <Zap size={12} color="#FBBF24" />
-                    <Text style={styles.yieldText}>{inv.current_yield_pct.toFixed(2)}% / mo</Text>
+                    <Text style={styles.yieldText}>1.00% / mo</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           )}
@@ -272,6 +277,13 @@ export default function WorkerDashboardScreen({
         {/* ── Quick Nav Buttons ── */}
         <TouchableOpacity
           style={styles.ledgerNavBtn}
+          onPress={() => navigation.navigate('Worker95Portfolio')}
+        >
+          <Text style={styles.ledgerNavText}>My Investment Portfolio</Text>
+          <ChevronRight size={18} color="#059669" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.ledgerNavBtn, { marginTop: 10 }]}
           onPress={() => navigation.navigate('Worker95Dividends')}
         >
           <Text style={styles.ledgerNavText}>View Dividend History</Text>
