@@ -24,6 +24,7 @@ import {
   ArrowRight,
 } from 'lucide-react-native';
 import type { RootStackScreenProps } from '@/navigation/types';
+import AppHeader from '@/components/ui/AppHeader';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -74,8 +75,8 @@ export default function Worker95WelcomeScreen({
   }, []);
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#064E3B" />
+    <SafeAreaView style={styles.root} edges={['bottom', 'left', 'right']}>
+      <AppHeader title="Welcome" variant="green" />
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}

@@ -19,9 +19,12 @@ export type OnboardingStackParamList = {
   OnboardingBasicInfo: undefined;
   OnboardingShopInfo: undefined;
   OnboardingCategory: undefined;
+  OnboardingMarketAssociation: undefined;
   OnboardingLocation: undefined;
+  OnboardingStoreVerification: undefined;
   OnboardingKYC: undefined;
   OnboardingFaceVerification: undefined;
+  OnboardingPOSRegistration: undefined;
   OnboardingBankLink: undefined;
   OnboardingInventory: undefined;
   OnboardingSalesEstimation: undefined;
@@ -29,6 +32,20 @@ export type OnboardingStackParamList = {
   OnboardingTerms: undefined;
   OnboardingActivation: undefined;
   OnboardingReview: undefined;
+
+  // Distributor onboarding
+  DistributorCompany: undefined;
+  DistributorOperations: undefined;
+  DistributorDirector: undefined;
+  DistributorBank: undefined;
+  DistributorTerms: undefined;
+
+  // Logistics onboarding
+  LogisticsCompany: undefined;
+  LogisticsFleet: undefined;
+  LogisticsDriver: undefined;
+  LogisticsInsurance: undefined;
+  LogisticsTerms: undefined;
 };
 
 export type MainTabParamList = {
@@ -145,6 +162,7 @@ export type RootStackParamList = {
   Notifications: undefined;
   AccountDetails: undefined;
   TransactionHistory: undefined;
+  StaffActivity: undefined;
 
   // Worker95 detail screens (pushed from WorkerTabNavigator)
   Worker95Module: undefined;
@@ -154,6 +172,38 @@ export type RootStackParamList = {
   Worker95Ledger: undefined;
   Worker95Profile: undefined;
   Worker95Dividends: undefined;
+
+  // SME Onboarding Screens (additional)
+  OnboardingMarketAssociation: undefined;
+  OnboardingStoreVerification: undefined;
+  OnboardingPOSRegistration: undefined;
+
+  // Worker Onboarding Screens
+  WorkerEmail: undefined;
+  WorkerPhone: undefined;
+  WorkerPassword: undefined;
+  WorkerOTP: { type: 'email' | 'phone' };
+  WorkerProfile: undefined;
+  WorkerEmployment: undefined;
+  WorkerIdentity: undefined;
+  WorkerVerificationPending: undefined;
+  WorkerRiskAssessment: undefined;
+  WorkerPINSetup: undefined;
+  WorkerCompletion: undefined;
+
+  // Distributor Onboarding Screens
+  DistributorCompany: undefined;
+  DistributorOperations: undefined;
+  DistributorDirector: undefined;
+  DistributorBank: undefined;
+  DistributorTerms: undefined;
+
+  // Logistics Onboarding Screens
+  LogisticsCompany: undefined;
+  LogisticsFleet: undefined;
+  LogisticsDriver: undefined;
+  LogisticsInsurance: undefined;
+  LogisticsTerms: undefined;
 };
 
 export type RootStackNavigation = NavigationProp<RootStackParamList>;

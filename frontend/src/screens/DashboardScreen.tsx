@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StatusBar, Linking } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StatusBar, Linking, useWindowDimensions } from 'react-native';
 import {
   Bell,
   Home,
@@ -27,7 +27,6 @@ import {
   TrendingUp as StocksIcon,
   Sprout,
   Truck,
-  Briefcase,
 } from 'lucide-react-native';
 
 import VRWalletCard from '@/components/ui/VRWalletCard';
@@ -65,7 +64,6 @@ const QUICK_ACCESS_ITEMS: Array<{
   { icon: BarChart3, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB', route: 'SalesDashboard' },
   { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706', route: 'InventoryManager' },
   { icon: Truck, label: 'Logistics', bgColor: '#E0F2FE', iconColor: '#0369A1', route: 'VentureRoute' },
-  { icon: Briefcase, label: '9-5 Worker', bgColor: '#EDE9FE', iconColor: '#7C3AED', route: 'Worker95Module' },
   { icon: Users, label: 'Group Buy', bgColor: '#FCE7F3', iconColor: '#DB2777', route: 'PoolList' },
   { icon: Shield, label: 'Insurance', bgColor: '#FEE2E2', iconColor: '#EF4444', route: 'InsuranceSummary' },
   { icon: Bot, label: 'AI Assist', bgColor: '#D1FAE5', iconColor: '#059669', route: 'AIAssistant' },
@@ -89,12 +87,19 @@ const FOOTER_TABS: Array<{
 
 // ─── Dashboard Screen ────────────────────────────────────────
 
+function getGreeting(name: string): string {
+  const hour = new Date().getHours();
+  const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  return `Welcome back, ${name}`;
+}
+
 const DashboardScreen = ({
   navigation,
 }: RootStackScreenProps<'Dashboard'>) => {
   const { user } = useAuth();
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [activeIntelTab, setActiveIntelTab] = useState('For You');
+  const { width: screenWidth } = useWindowDimensions();
 
   const { 
     data, 
@@ -180,9 +185,11 @@ const DashboardScreen = ({
                   {userInfo.avatar_initials || (userInfo.full_name || '').substring(0, 2).toUpperCase()}
                 </Text>
               </View>
-              <View>
-                <Text className="text-white/70 text-xs font-bold uppercase tracking-wider">Good evening 👋</Text>
-                <Text className="text-white font-black text-xl">{userInfo.full_name}</Text>
+              <View style={{ flexShrink: 1 }}>
+                <Text className="text-white/70 text-xs font-bold uppercase tracking-wider">
+                  {getGreeting(userInfo.full_name || 'there')} 👋
+                </Text>
+                <Text className="text-white font-black text-xl" numberOfLines={1}>{userInfo.full_name}</Text>
               </View>
             </TouchableOpacity>
 
@@ -285,17 +292,21 @@ const DashboardScreen = ({
             </TouchableOpacity>
           </View>
           <View className="flex-row flex-wrap justify-between">
-            {QUICK_ACCESS_ITEMS.map((item, index) => (
-              <View key={index} className="mb-4" style={{ width: '25%' }}>
-                <QuickAccessIcon
-                  icon={item.icon}
-                  label={item.label}
-                  bgColor={item.bgColor}
-                  iconColor={item.iconColor}
-                  onPress={() => navigation.navigate(item.route as any)}
-                />
-              </View>
-            ))}
+            {QUICK_ACCESS_ITEMS.map((item, index) => {
+              const columns = screenWidth < 360 ? 3 : 4;
+              const itemWidth = `${100 / columns}%` as const;
+              return (
+                <View key={index} className="mb-4" style={{ width: itemWidth }}>
+                  <QuickAccessIcon
+                    icon={item.icon}
+                    label={item.label}
+                    bgColor={item.bgColor}
+                    iconColor={item.iconColor}
+                    onPress={() => navigation.navigate(item.route as any)}
+                  />
+                </View>
+              );
+            })}
           </View>
         </View>
 

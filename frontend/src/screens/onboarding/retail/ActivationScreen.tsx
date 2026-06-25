@@ -5,6 +5,7 @@ import type { RootStackScreenProps } from '@/navigation/types';
 import { ShieldAlert, Cpu, Database, Link, CheckCircle2, TriangleAlert, RefreshCw } from 'lucide-react-native';
 import { colors } from '../../../theme/colors';
 import { IndustrialPage, IndustrialText } from '../../../components/ui/IndustrialComponents';
+import AppHeader from '@/components/ui/AppHeader';
 import { useOnboarding } from '../../../context/OnboardingContext';
 
 const STATUS_MESSAGES = [
@@ -95,9 +96,9 @@ const ActivationScreen = ({
   const ActiveIcon = status === 'error' ? TriangleAlert : STATUS_MESSAGES[currentStep].icon;
 
   return (
-    <SafeAreaView className="flex-1 bg-ventureroot-industrial-background">
-      <StatusBar barStyle="light-content" />
-      
+    <SafeAreaView className="flex-1 bg-ventureroot-industrial-background" edges={['bottom', 'left', 'right']}>
+      <AppHeader title="Activation" showBack={false} variant="transparent" />
+
       <View className="flex-1 items-center justify-center px-12">
         {/* Animated HUD Element */}
         <Animated.View 

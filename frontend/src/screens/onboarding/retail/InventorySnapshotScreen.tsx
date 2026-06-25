@@ -6,6 +6,7 @@ import { Camera, Mic, ArrowRight, History, Lightbulb, Sparkles, Database, AudioL
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { colors } from '../../../theme/colors';
 import { IndustrialCard, IndustrialText } from '../../../components/ui/IndustrialComponents';
+import AppHeader from '@/components/ui/AppHeader';
 
 const InventorySnapshotScreen = ({
   navigation,
@@ -38,10 +39,10 @@ const InventorySnapshotScreen = ({
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#131313' }}>
-      <StatusBar barStyle="light-content" />
-      
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 32, paddingTop: 60, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#131313' }} edges={['bottom', 'left', 'right']}>
+      <AppHeader title="Inventory Snapshot" variant="transparent" />
+
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 32, paddingTop: 20, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
         {/* Header Section */}
         <View style={{ marginBottom: 48 }}>
           <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, letterSpacing: 4, marginBottom: 12 }}>

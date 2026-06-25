@@ -7,6 +7,7 @@ import { TrendingUp, BarChart3, Target, Zap } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { colors, spacing } from '../../../theme/colors';
 import { IndustrialCard, IndustrialButton, IndustrialText, useIndustrialTheme } from '../../../components/ui/IndustrialComponents';
+import AppHeader from '@/components/ui/AppHeader';
 
 const SalesEstimationScreen = ({
   navigation,
@@ -29,10 +30,10 @@ const SalesEstimationScreen = ({
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.ventureroot.industrial.background }}>
-      <StatusBar barStyle="light-content" />
-      
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 40 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.ventureroot.industrial.background }} edges={['bottom', 'left', 'right']}>
+      <AppHeader title="Sales Estimation" variant="transparent" />
+
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 20 }}>
         {/* Monolith Header */}
         <View style={{ marginBottom: 40 }}>
           <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, marginBottom: 8 }}>

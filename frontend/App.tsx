@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RootNavigator from './src/navigation/RootNavigator';
 import { AuthProvider } from './src/context/AuthContext';
 import { OnboardingProvider } from './src/context/OnboardingContext';
+import { navigationRef, useAppNavigationStore } from './src/store/appNavigationStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppErrorBoundary from './src/components/AppErrorBoundary';
 import { installGlobalErrorHandler } from './src/lib/errorLogger';
@@ -38,7 +39,15 @@ export default function App() {
           <SafeAreaProvider>
             <AuthProvider>
               <OnboardingProvider>
-                <NavigationContainer>
+                <NavigationContainer
+                  ref={navigationRef}
+                  onStateChange={() => {
+                    const route = navigationRef.current?.getCurrentRoute();
+                    if (route?.name) {
+                      useAppNavigationStore.getState().setCurrentRoute(route.name);
+                    }
+                  }}
+                >
                   <StatusBar style="auto" />
                   <RootNavigator />
                 </NavigationContainer>

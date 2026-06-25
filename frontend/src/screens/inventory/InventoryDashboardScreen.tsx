@@ -22,6 +22,7 @@ import { useNavigation } from '@react-navigation/native';
 
 import type { RootStackNavigationProp } from '@/navigation/types';
 import ScreenHeader from '@/components/ui/ScreenHeader';
+import AppHeader from '@/components/ui/AppHeader';
 import { InventoryQuickActions } from '@/components/inventory/InventoryQuickActions';
 import {
   useInventoryDashboard,
@@ -56,15 +57,8 @@ const InventoryDashboardScreen = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background-page">
-      <StatusBar barStyle="light-content" />
-
-      <ScreenHeader
-        title="Inventory"
-        subtitle="Stock in & out"
-        navigation={navigation}
-        showBack={false}
-      />
+    <SafeAreaView className="flex-1 bg-background-page" edges={['bottom', 'left', 'right']}>
+      <AppHeader title="Inventory" subtitle="Stock in & out" />
 
       <ScrollView
         className="flex-1"

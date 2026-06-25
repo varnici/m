@@ -11,6 +11,7 @@ import { usePurchaseOrders } from '@/hooks/useInventory';
 import { Ionicons } from '@expo/vector-icons';
 
 import { PurchaseOrder } from '@/types/inventory';
+import AppHeader from '@/components/ui/AppHeader';
 
 // ============================================================================
 // COMPONENTS
@@ -106,6 +107,7 @@ export const PurchaseOrderScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
+      <AppHeader title="Purchase Orders" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Purchase Orders</Text>
         <TouchableOpacity 

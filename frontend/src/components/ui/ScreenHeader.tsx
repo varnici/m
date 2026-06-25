@@ -1,21 +1,31 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
-import type { RootStackNavigation } from '@/navigation/types';
+import { useAppNavigationStore } from '@/store/appNavigationStore';
 
 interface ScreenHeaderProps {
   title: string;
   subtitle?: string;
-  navigation: RootStackNavigation;
   showBack?: boolean;
+  onBack?: () => void;
+  navigation?: any;
 }
 
-const ScreenHeader = ({ title, subtitle, navigation, showBack = true }: ScreenHeaderProps) => {
+const ScreenHeader = ({ title, subtitle, showBack = true, onBack, navigation }: ScreenHeaderProps) => {
+  const storeGoBack = useAppNavigationStore((s) => s.goBack);
+  const handleBack = onBack || (navigation ? () => navigation.goBack() : storeGoBack);
+
   return (
     <View className="bg-ventureroot-green pt-12 pb-6 px-4">
       <View className="flex-row items-center mb-4">
         {showBack ? (
-          <TouchableOpacity onPress={navigation.goBack} className="mr-3">
+          <TouchableOpacity
+            onPress={handleBack}
+            className="mr-3"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
             <ChevronLeft color="white" size={24} />
           </TouchableOpacity>
         ) : (

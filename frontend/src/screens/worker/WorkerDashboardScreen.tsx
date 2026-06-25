@@ -31,6 +31,7 @@ import { workerService } from '@/services/workerService';
 import { useWorkerStore, selectActivePlans, selectActiveInvestments } from '@/store/workerStore';
 import VelocityScoreCard from '@/components/ui/VelocityScoreCard';
 import type { RootStackScreenProps } from '@/navigation/types';
+import AppHeader from '@/components/ui/AppHeader';
 
 const fmt = (n: number) =>
   `₦${n.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -90,7 +91,8 @@ export default function WorkerDashboardScreen({
   }
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['bottom', 'left', 'right']}>
+      <AppHeader title="Dashboard" showBack={false} />
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={

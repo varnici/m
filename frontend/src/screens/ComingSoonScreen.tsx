@@ -6,6 +6,7 @@ import { colors } from '@/theme/colors';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import { getTypeConfig } from '@/config/accountTypes';
 import { useAuth } from '@/context/AuthContext';
+import AppHeader from '@/components/ui/AppHeader';
 
 const ComingSoonScreen = () => {
   const { signOut } = useAuth();
@@ -19,7 +20,8 @@ const ComingSoonScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <AppHeader title="Coming Soon" />
       <View style={styles.content}>
         <View style={styles.iconContainer}>
           <Clock size={48} color={colors.ventureroot.green} />

@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from './types';
 import { useSecurityStore } from '@/store/securityStore';
 import { useUserProfileStore } from '@/store/userProfileStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { useAuth } from '@/context/AuthContext';
 import { colors } from '@/theme/colors';
 
@@ -91,6 +92,34 @@ import Worker95SalaryConfigScreen from '@/screens/worker/Worker95SalaryConfigScr
 import Worker95ProfileScreen from '@/screens/worker/Worker95ProfileScreen';
 import Worker95DividendsScreen from '@/screens/worker/Worker95DividendsScreen';
 
+import MarketAssociationScreen from '@/screens/onboarding/retail/MarketAssociationScreen';
+import StoreVerificationScreen from '@/screens/onboarding/retail/StoreVerificationScreen';
+import POSRegistrationScreen from '@/screens/onboarding/retail/POSRegistrationScreen';
+
+import WorkerEmailScreen from '@/screens/onboarding/worker/WorkerEmailScreen';
+import WorkerPhoneScreen from '@/screens/onboarding/worker/WorkerPhoneScreen';
+import WorkerPasswordScreen from '@/screens/onboarding/worker/WorkerPasswordScreen';
+import WorkerOTPScreen from '@/screens/onboarding/worker/WorkerOTPScreen';
+import WorkerProfileOnboardingScreen from '@/screens/onboarding/worker/WorkerProfileScreen';
+import WorkerEmploymentScreen from '@/screens/onboarding/worker/WorkerEmploymentScreen';
+import WorkerIdentityScreen from '@/screens/onboarding/worker/WorkerIdentityScreen';
+import WorkerVerificationPendingScreen from '@/screens/onboarding/worker/WorkerVerificationPendingScreen';
+import WorkerRiskAssessmentScreen from '@/screens/onboarding/worker/WorkerRiskAssessmentScreen';
+import WorkerPINSetupScreen from '@/screens/onboarding/worker/WorkerPINSetupScreen';
+import WorkerCompletionScreen from '@/screens/onboarding/worker/WorkerCompletionScreen';
+
+import DistributorCompanyScreen from '@/screens/onboarding/distributor/DistributorCompanyScreen';
+import DistributorOperationsScreen from '@/screens/onboarding/distributor/DistributorOperationsScreen';
+import DistributorDirectorScreen from '@/screens/onboarding/distributor/DistributorDirectorScreen';
+import DistributorBankScreen from '@/screens/onboarding/distributor/DistributorBankScreen';
+import DistributorTermsScreen from '@/screens/onboarding/distributor/DistributorTermsScreen';
+
+import LogisticsCompanyScreen from '@/screens/onboarding/logistics/LogisticsCompanyScreen';
+import LogisticsFleetScreen from '@/screens/onboarding/logistics/LogisticsFleetScreen';
+import LogisticsDriverScreen from '@/screens/onboarding/logistics/LogisticsDriverScreen';
+import LogisticsInsuranceScreen from '@/screens/onboarding/logistics/LogisticsInsuranceScreen';
+import LogisticsTermsScreen from '@/screens/onboarding/logistics/LogisticsTermsScreen';
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function resolveMainScreen(accountType: string | null) {
@@ -100,14 +129,42 @@ function resolveMainScreen(accountType: string | null) {
     case 'nine_to_five':
       return WorkerTabNavigator;
     default:
-      return ComingSoonScreen;
+      return MainTabNavigator;
   }
 }
+
+const ONBOARDING_SCREENS = {
+  WorkerEmail: WorkerEmailScreen,
+  WorkerPhone: WorkerPhoneScreen,
+  WorkerPassword: WorkerPasswordScreen,
+  WorkerOTP: WorkerOTPScreen,
+  WorkerProfile: WorkerProfileOnboardingScreen,
+  WorkerEmployment: WorkerEmploymentScreen,
+  WorkerIdentity: WorkerIdentityScreen,
+  WorkerVerificationPending: WorkerVerificationPendingScreen,
+  WorkerRiskAssessment: WorkerRiskAssessmentScreen,
+  WorkerPINSetup: WorkerPINSetupScreen,
+  WorkerCompletion: WorkerCompletionScreen,
+  DistributorCompany: DistributorCompanyScreen,
+  DistributorOperations: DistributorOperationsScreen,
+  DistributorDirector: DistributorDirectorScreen,
+  DistributorBank: DistributorBankScreen,
+  DistributorTerms: DistributorTermsScreen,
+  LogisticsCompany: LogisticsCompanyScreen,
+  LogisticsFleet: LogisticsFleetScreen,
+  LogisticsDriver: LogisticsDriverScreen,
+  LogisticsInsurance: LogisticsInsuranceScreen,
+  LogisticsTerms: LogisticsTermsScreen,
+  OnboardingMarketAssociation: MarketAssociationScreen,
+  OnboardingStoreVerification: StoreVerificationScreen,
+  OnboardingPOSRegistration: POSRegistrationScreen,
+} as const;
 
 const RootNavigator = () => {
   const { session, isLoading: authLoading } = useAuth();
   const { isLocked, securityType, setIsLocked } = useSecurityStore();
   const accountType = useUserProfileStore((s) => s.accountType);
+  const onboardingComplete = useOnboardingStore((s) => s.isComplete);
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
@@ -136,6 +193,7 @@ const RootNavigator = () => {
   }
 
   const showLock = isLocked && securityType !== 'none';
+  const needsOnboarding = session && !accountType;
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -143,9 +201,16 @@ const RootNavigator = () => {
         <Stack.Screen name="SecurityLock" component={SecurityLockScreen} options={{ animation: 'fade' }} />
       ) : !session ? (
         <Stack.Screen name="Auth" component={AuthNavigator} />
-      ) : !accountType ? (
+      ) : needsOnboarding ? (
         <>
           <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+
+          {/* All onboarding screens available from RoleSelection */}
+          <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
+          {Object.entries(ONBOARDING_SCREENS).map(([name, component]) => (
+            <Stack.Screen key={name} name={name as keyof RootStackParamList} component={component} />
+          ))}
+
           <Stack.Screen name="Main" component={resolveMainScreen(accountType)} />
         </>
       ) : (
@@ -222,7 +287,6 @@ const RootNavigator = () => {
           <Stack.Screen name="Shopfront" component={ShopfrontScreen} />
           <Stack.Screen name="ProductSavings" component={ProductSavingsScreen} />
 
-          {/* Worker95 detail screens (pushed from WorkerTabNavigator) */}
           <Stack.Screen name="Worker95Module" component={Worker95Navigator} />
           <Stack.Screen name="Worker95BusinessDetail" component={Worker95BusinessDetailScreen} />
           <Stack.Screen name="Worker95InvestConfirm" component={Worker95InvestConfirmScreen} />
@@ -234,6 +298,10 @@ const RootNavigator = () => {
           <Stack.Screen name="PINSetup" component={PINSetupScreen} />
           <Stack.Screen name="PatternSetup" component={PatternSetupScreen} />
           <Stack.Screen name="BiometricSetup" component={BiometricSetupScreen} />
+
+          {Object.entries(ONBOARDING_SCREENS).map(([name, component]) => (
+            <Stack.Screen key={name} name={name as keyof RootStackParamList} component={component} />
+          ))}
         </>
       )}
     </Stack.Navigator>

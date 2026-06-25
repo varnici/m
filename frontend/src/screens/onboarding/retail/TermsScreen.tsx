@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, ScrollView, TouchableOpacity, useColorScheme, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { ShieldCheck, CheckCircle2, ArrowRight, Gavel, FileText } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { colors, spacing } from '../../../theme/colors';
-import { IndustrialPage, IndustrialText, IndustrialButton, useIndustrialTheme, IndustrialCard } from '../../../components/ui/IndustrialComponents';
+import { IndustrialText, IndustrialButton, useIndustrialTheme, IndustrialCard } from '../../../components/ui/IndustrialComponents';
+import AppHeader from '@/components/ui/AppHeader';
 
 const TermsScreen = ({
   navigation,
@@ -39,8 +41,10 @@ const TermsScreen = ({
   ];
 
   return (
-    <IndustrialPage>
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 40, paddingBottom: 20 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }} edges={['bottom', 'left', 'right']}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      <AppHeader title="Terms & Conditions" variant="transparent" />
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 20, paddingBottom: 20 }}>
         {/* Header */}
         <View style={{ marginBottom: 40 }}>
           <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, marginBottom: 8 }}>
@@ -113,7 +117,7 @@ const TermsScreen = ({
           disabled={!accepted}
         />
       </View>
-    </IndustrialPage>
+    </SafeAreaView>
   );
 };
 

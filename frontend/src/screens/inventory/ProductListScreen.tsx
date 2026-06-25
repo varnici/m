@@ -18,6 +18,7 @@ import { retailCategoriesData } from '@/data/retailCategories';
 import { colors } from '@/theme/colors';
 import { InventoryQuickActions } from '@/components/inventory/InventoryQuickActions';
 import type { Product as InventoryProduct } from '@/types/inventory';
+import AppHeader from '@/components/ui/AppHeader';
 
 // ============================================================================
 // TYPES
@@ -258,7 +259,8 @@ export const ProductListScreen = ({ navigation }: any) => {
   }, [isLoading, isError, error, refetch]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <AppHeader title="All Products" />
       <View style={styles.header}>
         <View className="flex-1">
           <Text style={styles.headerEyebrow}>Products</Text>

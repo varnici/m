@@ -19,12 +19,12 @@ export interface AccountTypeConfig {
 }
 
 export const ALL_ACCOUNT_TYPES: AccountTypeConfig[] = [
-  { id: 'retail', label: 'Retail Business Owner', tagline: 'RETAIL_OPERATOR', icon: Store, description: 'Storefronts and traditional trade nodes' },
-  { id: 'nine_to_five', label: '9-5 Worker', tagline: 'WORKER_PROTOCOL', icon: Briefcase, description: 'Salaried income and smart investing' },
+  { id: 'retail', label: 'Business Owner', tagline: 'BUSINESS_OWNER', icon: Store, description: 'Small business, shop, or market trader' },
+  { id: 'nine_to_five', label: '9-5 Worker', tagline: 'WORKER_PROTOCOL', icon: Briefcase, description: 'Salaried employee looking to invest' },
   { id: 'personal', label: 'Personal', tagline: 'PERSONAL_PROTOCOL', icon: User, description: 'Individual financial identifiers' },
-  { id: 'distributor', label: 'Distributor', tagline: 'MINI_DISTRIBUTOR', icon: Package, description: 'Supply chain relay nodes' },
+  { id: 'distributor', label: 'Distributor', tagline: 'DISTRIBUTOR', icon: Package, description: 'Wholesale supplier to businesses' },
   { id: 'manufactural', label: 'Manufacturer', tagline: 'PRODUCTION_UNIT', icon: Factory, description: 'Manufacturing and assembly assets' },
-  { id: 'logistics', label: 'Logistics / Transportation', tagline: 'LOGISTICS_NODE', icon: Truck, description: 'Transit and fleet operations' },
+  { id: 'logistics', label: 'Logistics and Transport', tagline: 'LOGISTICS_NODE', icon: Truck, description: 'Delivery and fleet operations' },
   { id: 'artisan', label: 'Artisan', tagline: 'ARTISAN_PROTOCOL', icon: Wrench, description: 'Specialized technical services' },
 ];
 

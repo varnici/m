@@ -3,25 +3,35 @@ import { View, Text, TouchableOpacity, ScrollView, StatusBar } from 'react-nativ
 import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { BowlHeader, CleanCard } from '../../../components/ThemeComponents';
-import { 
-  ShoppingBag, 
-  HeartPulse, 
-  Zap, 
-  UtensilsCrossed, 
-  Shirt, 
+import {
+  ShoppingBag,
+  HeartPulse,
+  Zap,
+  UtensilsCrossed,
+  Shirt,
   Ellipsis,
   ChevronLeft,
-  ChevronRight 
+  ChevronRight,
+  Sprout,
+  HardHat,
+  Sparkles,
+  BookOpen,
+  Wrench,
 } from 'lucide-react-native';
 
 
 const CATEGORIES = [
-  { id: 'provisions', title: 'Provision Store', icon: ShoppingBag, description: 'Groceries, FMCG, household items' },
-  { id: 'fashion', title: 'Fashion & Apparel', icon: Shirt, description: 'Clothing, shoes, accessories' },
-  { id: 'pharma', title: 'Pharma & Health', icon: HeartPulse, description: 'Drugs, medical supplies' },
-  { id: 'electronics', title: 'Electronics & Tech', icon: Zap, description: 'Gadgets, repairs, appliances' },
-  { id: 'food', title: 'Food & Restaurant', icon: UtensilsCrossed, description: 'Cooked meals, catering' },
-  { id: 'others', title: 'Others', icon: Ellipsis, description: 'Niche retail categories' },
+  { id: 'fmcg', title: 'FMCG / Groceries', icon: ShoppingBag, description: 'Fast-moving consumer goods, provisions, household items' },
+  { id: 'textiles', title: 'Textiles & Clothing', icon: Shirt, description: 'Fabrics, fashion, shoes, accessories' },
+  { id: 'electronics', title: 'Electronics & Phones', icon: Zap, description: 'Gadgets, phones, repairs, appliances' },
+  { id: 'pharma', title: 'Pharmaceuticals', icon: HeartPulse, description: 'Drugs, medical supplies, wellness products' },
+  { id: 'agriculture', title: 'Agriculture & Farm Produce', icon: Sprout, description: 'Farm products, livestock feed, agro inputs' },
+  { id: 'building', title: 'Building Materials', icon: HardHat, description: 'Cement, iron rods, plumbing, electrical fittings' },
+  { id: 'cosmetics', title: 'Cosmetics & Beauty', icon: Sparkles, description: 'Skincare, haircare, makeup, fragrances' },
+  { id: 'food_beverage', title: 'Food & Beverage Preparation', icon: UtensilsCrossed, description: 'Cooked meals, catering, restaurants, bars' },
+  { id: 'stationery', title: 'Stationery & Office Supplies', icon: BookOpen, description: 'Paper, printing, office equipment' },
+  { id: 'auto_parts', title: 'Auto Parts', icon: Wrench, description: 'Vehicle parts, lubricants, accessories' },
+  { id: 'others', title: 'Other', icon: Ellipsis, description: 'Other niche retail categories' },
 ];
 
 const BusinessCategoryScreen = ({
@@ -33,7 +43,7 @@ const BusinessCategoryScreen = ({
   const handleSelect = useCallback((id: string) => {
     updateData({ primaryCategory: id });
     setTimeout(() => {
-      navigationRef.current?.navigate('OnboardingLocation');
+      navigationRef.current?.navigate('OnboardingMarketAssociation');
     }, 0);
   }, [updateData]);
 

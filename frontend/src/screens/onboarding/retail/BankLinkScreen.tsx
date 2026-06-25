@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { Landmark, ShieldCheck, ArrowRight, CheckCircle2, Link, ChevronRight } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
+import AppHeader from '@/components/ui/AppHeader';
 
 const BankLinkScreen = ({
   navigation,
@@ -30,10 +31,10 @@ const BankLinkScreen = ({
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-ventureroot-industrial-background">
-      <StatusBar barStyle="light-content" />
-      
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 32, paddingTop: 60, paddingBottom: 40 }}>
+    <SafeAreaView className="flex-1 bg-ventureroot-industrial-background" edges={['bottom', 'left', 'right']}>
+      <AppHeader title="Bank Account" variant="transparent" />
+
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 32, paddingTop: 20, paddingBottom: 40 }}>
         
         {/* Monolith Header */}
         <View className="mb-12">

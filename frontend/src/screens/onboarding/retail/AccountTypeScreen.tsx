@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, TouchableOpacity, ScrollView, useColorScheme } from 'react-native';
+import { View, TouchableOpacity, ScrollView, useColorScheme, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { ChevronRight } from 'lucide-react-native';
 import { colors, spacing } from '../../../theme/colors';
-import { IndustrialPage, IndustrialText, IndustrialCard, useIndustrialTheme } from '../../../components/ui/IndustrialComponents';
+import { IndustrialText, IndustrialCard, useIndustrialTheme } from '../../../components/ui/IndustrialComponents';
 import { getEnabledTypes } from '@/config/accountTypes';
+import AppHeader from '@/components/ui/AppHeader';
 
 const AccountTypeScreen = ({
   navigation,
@@ -22,7 +24,9 @@ const AccountTypeScreen = ({
   };
 
   return (
-    <IndustrialPage>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }} edges={['bottom', 'left', 'right']}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      <AppHeader title="Account Type" variant="transparent" />
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 20 }}>
         <View style={{ marginBottom: 40 }}>
           <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, marginBottom: 8 }}>
@@ -93,7 +97,7 @@ const AccountTypeScreen = ({
           </View>
         </ScrollView>
       </View>
-    </IndustrialPage>
+    </SafeAreaView>
   );
 };
 

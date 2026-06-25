@@ -28,6 +28,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { logisticsService } from '@/services/logisticsService';
+import AppHeader from '@/components/ui/AppHeader';
 
 const { width: SW } = Dimensions.get('window');
 const MAP_H = 200;
@@ -404,8 +405,10 @@ const VentureRouteScreen = () => {
   };
 
   return (
+    <View style={s.root}>
+    <AppHeader title="Logistics" />
     <ScrollView
-      style={s.root}
+      style={{ flex: 1 }}
       refreshControl={<RefreshControl refreshing={isLoading} onRefresh={() => queryClient.invalidateQueries({ queryKey: ['activeCluster', user?.id] })} tintColor={C.emerald} />}
       showsVerticalScrollIndicator={false}
     >
@@ -703,6 +706,7 @@ const VentureRouteScreen = () => {
 
       <View style={{ height: 32 }} />
     </ScrollView>
+    </View>
   );
 };
 

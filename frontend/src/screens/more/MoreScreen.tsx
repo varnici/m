@@ -28,6 +28,7 @@ import {
   CheckCircle2,
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
+import AppHeader from '@/components/ui/AppHeader';
 
 const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
   const { signOut, user } = useAuth();
@@ -118,9 +119,9 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-background-page">
-      <StatusBar barStyle="light-content" />
-      
+    <SafeAreaView className="flex-1 bg-background-page" edges={['bottom', 'left', 'right']}>
+      <AppHeader title="More" showBack={false} />
+
       {/* Header Area */}
       <TouchableOpacity 
         className="bg-ventureroot-green pt-12 pb-10 px-6 rounded-b-[40px] items-center"

@@ -23,3 +23,4 @@ COMMENT ON COLUMN activity_logs.actor_id IS 'The real person (staff/owner) who p
 COMMENT ON COLUMN activity_logs.owner_id IS 'The business owner whose data was modified';
 COMMENT ON COLUMN activity_logs.action IS 'create, update, delete, stock_adjust, sale, credit_given, credit_paid';
 COMMENT ON COLUMN activity_logs.details IS 'JSON with before/after values for audit';
+w

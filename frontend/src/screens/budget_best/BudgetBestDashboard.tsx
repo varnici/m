@@ -26,6 +26,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getDashboard } from '../../services/budgetBestApi';
 import { SavingsDashboard, SavingsGoalResponse } from '../../types/budget-best';
 import SavingsBucket from '../../components/SavingsBucket';
+import AppHeader from '@/components/ui/AppHeader';
 
 const BudgetBestDashboard = ({ navigation }: any) => {
   const [data, setData] = useState<SavingsDashboard | null>(null);
@@ -84,8 +85,8 @@ const BudgetBestDashboard = ({ navigation }: any) => {
   const tier = getTierInfo(data?.streak?.streak_count || 0);
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-950">
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView className="flex-1 bg-slate-950" edges={['bottom', 'left', 'right']}>
+      <AppHeader title="Budget Best" variant="green" />
 
       {/* Header */}
       <View className="px-6 pt-6 pb-4 flex-row items-center justify-between">

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { useOnboarding } from '../../../context/OnboardingContext';
 import { Camera, UserCheck, ShieldCheck, ArrowRight, Scan } from 'lucide-react-native';
+import AppHeader from '@/components/ui/AppHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -29,10 +30,10 @@ const FaceVerificationScreen = ({
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-ventureroot-industrial-background">
-      <StatusBar barStyle="light-content" />
-      
-      <View className="flex-1 px-8 pt-12 pb-10">
+    <SafeAreaView className="flex-1 bg-ventureroot-industrial-background" edges={['bottom', 'left', 'right']}>
+      <AppHeader title="Face Verification" variant="transparent" />
+
+      <View className="flex-1 px-8 pt-6 pb-10">
         {/* Monolith Header */}
         <View className="mb-12">
           <Text className="text-ventureroot-industrial-primary text-[10px] font-black tracking-[4px] mb-3 uppercase">

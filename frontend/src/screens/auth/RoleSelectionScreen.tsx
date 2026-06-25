@@ -1,32 +1,145 @@
 import React, { useState } from 'react';
-import { ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
-import { ChevronDown, ChevronLeft, Check } from 'lucide-react-native';
+import {
+  ChevronLeft,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  Briefcase,
+  Store,
+  Package,
+  Truck,
+  CircleDot,
+} from 'lucide-react-native';
 import { colors, spacing } from '@/theme/colors';
-import { CleanCard, CleanButton, CleanText } from '@/components/ui/CleanComponents';
-import { getEnabledTypes, type AccountTypeId } from '@/config/accountTypes';
+import { CleanButton, CleanText } from '@/components/ui/CleanComponents';
+import type { AccountTypeId } from '@/config/accountTypes';
 import { useUserProfileStore } from '@/store/userProfileStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
+import type { LucideIcon } from 'lucide-react-native';
+
+interface UserTypeOption {
+  id: AccountTypeId;
+  icon: LucideIcon;
+  label: string;
+  description: string;
+  steps: string[];
+}
+
+const USER_TYPE_OPTIONS: UserTypeOption[] = [
+  {
+    id: 'retail',
+    icon: Store,
+    label: 'Business Owner',
+    description: 'Small business, shop, or market trader',
+    steps: [
+      'Email & phone verification',
+      'Personal information',
+      'Business name & category',
+      'Market association verification',
+      'Store location (GPS) & photos',
+      'Owner face ID capture',
+      'POS system linkage',
+      'BVN & NIN identity verification',
+      'Settlement bank account',
+      'Terms of listing agreement',
+    ],
+  },
+  {
+    id: 'nine_to_five',
+    icon: Briefcase,
+    label: '9-5 Worker',
+    description: 'Salaried employee looking to invest',
+    steps: [
+      'Email & phone verification',
+      'Personal profile & address',
+      'Employment & income details',
+      'BVN & NIN identity verification',
+      'Risk profile assessment (5 questions)',
+      'Transaction PIN & biometric setup',
+    ],
+  },
+  {
+    id: 'distributor',
+    icon: Package,
+    label: 'Distributor',
+    description: 'Wholesale supplier to businesses',
+    steps: [
+      'Company email & phone verification',
+      'Company name & CAC registration',
+      'Tax Identification Number (TIN)',
+      'Warehouse address & GPS',
+      'Product categories & supply volume',
+      'Director BVN & NIN verification',
+      'Board resolution upload (if applicable)',
+      'Corporate settlement bank account',
+      'Distributor terms agreement',
+    ],
+  },
+  {
+    id: 'logistics',
+    icon: Truck,
+    label: 'Logistics and Transport',
+    description: 'Delivery and fleet operations',
+    steps: [
+      'Company email & phone verification',
+      'Company name & CAC (if registered)',
+      'Fleet size & vehicle registration',
+      'Vehicle type breakdown',
+      'Driver licence verification',
+      'Goods-in-Transit (GIT) insurance',
+      'Insurance document upload',
+      'Settlement bank account',
+      'Logistics partner terms agreement',
+    ],
+  },
+];
 
 const RoleSelectionScreen = ({
   navigation,
 }: RootStackScreenProps<'RoleSelection'>) => {
-  const enabledTypes = getEnabledTypes();
   const setAccountType = useUserProfileStore((s) => s.setAccountType);
+  const startOnboarding = useOnboardingStore((s) => s.startOnboarding);
+  const onboardingCurrentRoute = useOnboardingStore((s) => s.currentRoute);
   const [selectedType, setSelectedType] = useState<AccountTypeId | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const { width } = useWindowDimensions();
+  const horizontalPadding = Math.max(16, width * 0.05);
+
+  const selectedOption = USER_TYPE_OPTIONS.find((o) => o.id === selectedType);
 
   const handleContinue = () => {
     if (!selectedType) return;
-    setAccountType(selectedType);
-    navigation.navigate('Main' as any);
+
+    startOnboarding(selectedType);
+
+    const firstRoute = useOnboardingStore.getState().currentRoute();
+    if (!firstRoute) return;
+
+    if (selectedType === 'retail') {
+      navigation.navigate('Onboarding' as any);
+    } else {
+      navigation.navigate(firstRoute as any);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: horizontalPadding }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -39,51 +152,116 @@ const RoleSelectionScreen = ({
         </View>
 
         <View style={styles.titleSection}>
-          <CleanText variant="h1">Welcome to VentureRoot</CleanText>
+          <CleanText variant="h1">Create your account</CleanText>
           <CleanText variant="body" style={styles.subtitle}>
-            Select the account type that best describes your business.
+            Select the account type that best describes you.
           </CleanText>
         </View>
 
-        <View style={styles.formSection}>
-          <CleanText variant="caption" style={styles.label}>ACCOUNT TYPE</CleanText>
+        {/* ── Dropdown ── */}
+        <View style={{ marginBottom: 16 }}>
+          <CleanText variant="caption" style={styles.label}>
+            ACCOUNT TYPE
+          </CleanText>
+
           <TouchableOpacity
-            onPress={() => setIsDropdownOpen((open) => !open)}
+            onPress={() => setIsDropdownOpen(!isDropdownOpen)}
             activeOpacity={0.7}
-            accessibilityLabel="Select account type"
-            accessibilityRole="button"
+            style={styles.dropdownTrigger}
           >
-            <CleanCard style={styles.dropdownTrigger}>
-              <CleanText style={{ color: selectedType ? colors.text.primary : colors.text.muted }}>
-                {selectedType ? enabledTypes.find((t) => t.id === selectedType)?.label : 'Select Account Type'}
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}>
+              {selectedOption && (
+                <selectedOption.icon size={18} color={colors.ventureroot.green} />
+              )}
+              <CleanText
+                style={{
+                  color: selectedType ? colors.text.primary : colors.text.muted,
+                  fontSize: 15,
+                  fontWeight: selectedType ? '600' : '400',
+                }}
+              >
+                {selectedOption ? selectedOption.label : 'Select account type'}
               </CleanText>
+            </View>
+            {isDropdownOpen ? (
+              <ChevronUp size={20} color={colors.text.secondary} />
+            ) : (
               <ChevronDown size={20} color={colors.text.secondary} />
-            </CleanCard>
+            )}
           </TouchableOpacity>
 
           {isDropdownOpen && (
-            <CleanCard style={styles.dropdownMenu}>
-              {enabledTypes.map((type) => (
-                <TouchableOpacity
-                  key={type.id}
-                  onPress={() => {
-                    setSelectedType(type.id);
-                    setIsDropdownOpen(false);
-                  }}
-                  style={styles.dropdownItem}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: selectedType === type.id }}
-                >
-                  <CleanText style={{ flex: 1 }}>{type.label}</CleanText>
-                  {selectedType === type.id && <Check size={18} color={colors.ventureroot.green} />}
-                </TouchableOpacity>
-              ))}
-            </CleanCard>
+            <View style={styles.dropdownMenu}>
+              {USER_TYPE_OPTIONS.map((option) => {
+                const isSelected = selectedType === option.id;
+                const Icon = option.icon;
+                return (
+                  <TouchableOpacity
+                    key={option.id}
+                    onPress={() => {
+                      setSelectedType(option.id);
+                      setIsDropdownOpen(false);
+                    }}
+                    style={[
+                      styles.dropdownItem,
+                      isSelected && { backgroundColor: '#F0FDF4' },
+                    ]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: isSelected }}
+                  >
+                    <Icon size={18} color={isSelected ? colors.ventureroot.green : '#64748B'} />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <CleanText style={{ fontWeight: '600', fontSize: 14, color: '#0F172A' }}>
+                        {option.label}
+                      </CleanText>
+                      <CleanText style={{ fontSize: 11, color: '#94A3B8', marginTop: 1 }}>
+                        {option.description}
+                      </CleanText>
+                    </View>
+                    {isSelected && <Check size={16} color={colors.ventureroot.green} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           )}
         </View>
+
+        {/* ── Onboarding Requirements Panel ── */}
+        {selectedOption && !isDropdownOpen && (
+          <View style={styles.requirementsPanel}>
+            <View style={styles.requirementsHeader}>
+              <selectedOption.icon size={20} color={colors.ventureroot.green} />
+              <CleanText style={{ fontWeight: '700', fontSize: 15, marginLeft: 10, color: '#0F172A' }}>
+                {selectedOption.label} — What you'll need
+              </CleanText>
+            </View>
+
+            <View style={{ gap: 8, marginTop: 14 }}>
+              {selectedOption.steps.map((step, idx) => (
+                <View key={idx} style={styles.stepRow}>
+                  <View style={styles.stepNumber}>
+                    <CleanText style={{ fontSize: 10, fontWeight: '700', color: colors.ventureroot.green }}>
+                      {idx + 1}
+                    </CleanText>
+                  </View>
+                  <CleanText style={{ flex: 1, fontSize: 13, color: '#334155', lineHeight: 18 }}>
+                    {step}
+                  </CleanText>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.timeEstimate}>
+              <CircleDot size={14} color="#64748B" />
+              <CleanText style={{ fontSize: 11, color: '#64748B', marginLeft: 6 }}>
+                Estimated time: {selectedOption.steps.length <= 6 ? '5-8' : '8-15'} minutes
+              </CleanText>
+            </View>
+          </View>
+        )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingHorizontal: horizontalPadding }]}>
         <CleanButton
           title="Continue"
           onPress={handleContinue}
@@ -91,18 +269,6 @@ const RoleSelectionScreen = ({
           disabled={!selectedType}
           style={{ width: '100%' }}
         />
-
-        <View style={styles.progressContainer}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <View
-              key={i}
-              style={[
-                styles.progressDot,
-                i === 1 ? styles.progressDotActive : styles.progressDotInactive,
-              ]}
-            />
-          ))}
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -114,12 +280,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.page,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
   },
   header: {
     paddingVertical: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   backButton: {
     width: 40,
@@ -130,61 +295,86 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   titleSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   subtitle: {
     marginTop: spacing.xs,
     color: colors.text.secondary,
-  },
-  formSection: {
-    marginBottom: spacing.xl,
+    lineHeight: 20,
   },
   label: {
     fontWeight: '700',
-    marginBottom: spacing.xs,
-    marginLeft: spacing.xs,
+    marginBottom: 6,
+    marginLeft: 2,
     letterSpacing: 1,
+    fontSize: 11,
+    color: '#475569',
   },
   dropdownTrigger: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    backgroundColor: colors.ventureroot.white,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
   },
   dropdownMenu: {
-    marginTop: spacing.xs,
-    padding: spacing.xs,
-    backgroundColor: colors.ventureroot.white,
+    marginTop: 4,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    borderBottomColor: '#F1F5F9',
+  },
+  requirementsPanel: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 20,
+  },
+  requirementsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  stepNumber: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#D1FAE5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  timeEstimate: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
   footer: {
     padding: spacing.lg,
     backgroundColor: colors.background.page,
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: spacing.lg,
-    gap: spacing.xs,
-  },
-  progressDot: {
-    height: 6,
-    borderRadius: 3,
-  },
-  progressDotActive: {
-    width: 24,
-    backgroundColor: colors.ventureroot.green,
-  },
-  progressDotInactive: {
-    width: 6,
-    backgroundColor: colors.border.medium,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
 });
 

@@ -51,6 +51,7 @@ import { InventoryTableRow } from '@/components/inventory/InventoryTableRow';
 import { voiceInventoryParser } from '@/services/voiceInventoryParser';
 import BarcodeScanner from '@/components/BarcodeScanner';
 import { inventoryService } from '@/services/inventoryService';
+import AppHeader from '@/components/ui/AppHeader';
 
 const LIMIT = 50;
 
@@ -491,7 +492,8 @@ export default function InventoryManagerScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+      <AppHeader title="Inventory Manager" />
       {/* 1. Header Bar */}
       <View style={styles.header}>
         <View style={styles.headerTitleSection}>

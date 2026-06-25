@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { ShieldCheck, ArrowRight, Info, HelpCircle, FileText } from 'lucide-react-native';
 import { useOnboarding } from '../../../context/OnboardingContext';
+import AppHeader from '@/components/ui/AppHeader';
 
 const TaxComplianceScreen = ({
   navigation,
@@ -22,11 +23,11 @@ const TaxComplianceScreen = ({
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-ventureroot-industrial-background">
-      <StatusBar barStyle="light-content" />
-      
+    <SafeAreaView className="flex-1 bg-ventureroot-industrial-background" edges={['bottom', 'left', 'right']}>
+      <AppHeader title="Tax Compliance" variant="transparent" />
+
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 32, paddingTop: 60, paddingBottom: 40 }}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 32, paddingTop: 20, paddingBottom: 40 }}>
           
           {/* Industrial Header */}
           <View className="mb-12">
