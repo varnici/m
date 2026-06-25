@@ -97,8 +97,8 @@ const RegisterScreen = ({ navigation }: RootStackScreenProps<'Register'>) => {
         return;
       }
 
-      const nextRoute = await getPostAuthRoute();
-      navigation.replace(nextRoute as any);
+      // Session is now active — RootNavigator will auto-switch
+      // to RoleSelection (user type selection) for new users.
     } catch (error: any) {
       Alert.alert('Registration failed', error.message || 'Could not create account.');
     } finally {

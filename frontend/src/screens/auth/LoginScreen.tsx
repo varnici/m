@@ -60,9 +60,10 @@ const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
 
       if (loginError) throw loginError;
 
-      // Use optimized snapshot resolution
+      // Session is now active — RootNavigator will auto-switch to the
+      // correct branch (RoleSelection if no accountType, Main if returning user).
+      // Restore accountType from DB for returning users.
       const snapshot = await resolveAuthSnapshot();
-      navigation.replace(snapshot.nextRoute as any);
     } catch (error: any) {
       Alert.alert('Login failed', error.message || 'Could not sign in.');
     } finally {
