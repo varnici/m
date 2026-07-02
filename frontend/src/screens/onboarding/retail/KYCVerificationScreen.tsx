@@ -1,137 +1,156 @@
-import React, { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StatusBar,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import type { RootStackScreenProps } from '@/navigation/types';
-import { useOnboarding } from '../../../context/OnboardingContext';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import OnboardingShell, { OnboardingButton, OnboardingInput } from '@/components/onboarding/OnboardingShell';
+import MaskedInput from '@/components/onboarding/MaskedInput';
+import { useOnboardingNav } from '@/hooks/useOnboardingNav';
+import { validateNIN, validateDriverLicence } from '@/utils/validation';
+import { colors } from '@/theme/colors';
 
 const ID_TYPES = [
   { label: 'National ID (NIN)', value: 'NIN' },
   { label: "Voter's Card", value: 'VOTER' },
   { label: 'International Passport', value: 'PASSPORT' },
   { label: "Driver's License", value: 'DL' },
-];
+] as const;
 
-const KYCVerificationScreen = ({
-  navigation,
-}: RootStackScreenProps<'OnboardingKYC'>) => {
-  const { data, updateData } = useOnboarding();
+function validateIdNumber(idType: string, idNumber: string): { valid: boolean; error?: string } {
+  const trimmed = idNumber.trim();
+  if (!trimmed) return { valid: false, error: 'ID number is required' };
+
+  switch (idType) {
+    case 'NIN':
+      return validateNIN(trimmed);
+    case 'VOTER': {
+      if (trimmed.length !== 19) return { valid: false, error: "Voter's card number must be 19 characters" };
+      return { valid: true };
+    }
+    case 'PASSPORT': {
+      if (!/^[A-Za-z0-9]{9}$/.test(trimmed)) return { valid: false, error: 'Passport number must be 9 alphanumeric characters' };
+      return { valid: true };
+    }
+    case 'DL':
+      return validateDriverLicence(trimmed);
+    default:
+      return { valid: false, error: 'Select an ID type' };
+  }
+}
+
+const KYCVerificationScreen = () => {
+  const { goNext, goBack, step, total, data } = useOnboardingNav();
+
   const [idType, setIdType] = useState(data.idType || 'NIN');
   const [idNumber, setIdNumber] = useState(data.idNumber || '');
+  const [idExpiry, setIdExpiry] = useState(data.idExpiry || '');
 
-  const isFormValid = idNumber.trim().length >= 8;
+  const validation = useMemo(() => validateIdNumber(idType, idNumber), [idType, idNumber]);
+  const idNumberError = idNumber.length > 0 ? validation.error : undefined;
+  const isFormValid = validation.valid;
 
-  const handleContinue = () => {
-    updateData({ idType, idNumber: idNumber.trim() });
-    navigation.navigate('OnboardingFaceVerification');
+  const isSensitive = idType === 'NIN';
+
+  const maxLengthMap: Record<string, number> = {
+    NIN: 11,
+    VOTER: 19,
+    PASSPORT: 9,
+    DL: 12,
+  };
+
+  const placeholderMap: Record<string, string> = {
+    NIN: 'Enter 11-digit NIN',
+    VOTER: 'Enter 19-character voter card number',
+    PASSPORT: 'Enter 9-character passport number',
+    DL: 'e.g. LA1234567',
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="dark-content" />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Text style={{ fontSize: 24, fontWeight: '700', marginBottom: 6 }}>
-            KYC Verification
-          </Text>
-          <Text style={{ color: '#475569', marginBottom: 20 }}>
-            Provide a valid identity document.
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={{
-              backgroundColor: '#E2E8F0',
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              borderRadius: 8,
-              alignSelf: 'flex-start',
-              marginBottom: 16,
-            }}
-          >
-            <Text style={{ fontWeight: '600' }}>Back</Text>
-          </TouchableOpacity>
-
-          <Text style={{ marginBottom: 8, fontWeight: '600' }}>ID Type</Text>
-          <View style={{ gap: 8, marginBottom: 16 }}>
-            {ID_TYPES.map((item) => (
-              <TouchableOpacity
-                key={item.value}
-                onPress={() => setIdType(item.value)}
-                style={{
-                  paddingVertical: 12,
-                  paddingHorizontal: 12,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: idType === item.value ? '#16A34A' : '#CBD5E1',
-                  backgroundColor: idType === item.value ? '#DCFCE7' : 'white',
-                }}
-              >
-                <Text style={{ fontWeight: '600' }}>{item.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={{ marginBottom: 8, fontWeight: '600' }}>ID Number</Text>
-          <TextInput
-            value={idNumber}
-            onChangeText={setIdNumber}
-            placeholder="Enter ID number"
-            style={{
-              backgroundColor: 'white',
-              borderWidth: 1,
-              borderColor: '#CBD5E1',
-              borderRadius: 10,
-              paddingHorizontal: 12,
-              paddingVertical: 12,
-            }}
-          />
-
-          <TouchableOpacity
-            onPress={handleContinue}
+    <OnboardingShell
+      currentStep={step}
+      totalSteps={total}
+      title="KYC Verification"
+      subtitle="Provide a valid identity document to verify your account."
+      onBack={goBack}
+      footer={
+        <View style={{ gap: 10 }}>
+          <OnboardingButton
+            title="Continue"
+            onPress={() => goNext({ idType, idNumber: idNumber.trim(), idExpiry: idExpiry.trim() || undefined })}
             disabled={!isFormValid}
-            style={{
-              marginTop: 24,
-              paddingVertical: 14,
-              borderRadius: 10,
-              alignItems: 'center',
-              backgroundColor: isFormValid ? '#16A34A' : '#94A3B8',
-            }}
-          >
-            <Text style={{ color: 'white', fontWeight: '700' }}>Continue to Face Verification</Text>
-          </TouchableOpacity>
+          />
+          <OnboardingButton
+            title="Complete KYC Later"
+            variant="secondary"
+            onPress={() => goNext({ idType: undefined, idNumber: undefined, idExpiry: undefined })}
+          />
+        </View>
+      }
+    >
+      {/* ID Type Selection */}
+      <Text style={{ fontSize: 13, fontWeight: '700', color: '#475569', marginBottom: 10, letterSpacing: 0.5 }}>
+        ID Type
+      </Text>
+      <View style={{ gap: 8, marginBottom: 20 }}>
+        {ID_TYPES.map((item) => {
+          const isSelected = idType === item.value;
+          return (
+            <TouchableOpacity
+              key={item.value}
+              onPress={() => {
+                setIdType(item.value);
+                setIdNumber('');
+              }}
+              activeOpacity={0.7}
+              style={{
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderRadius: 12,
+                borderWidth: 1.5,
+                borderColor: isSelected ? colors.ventureroot.green : '#E2E8F0',
+                backgroundColor: isSelected ? '#F0FDF4' : '#FFFFFF',
+              }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: '600', color: isSelected ? colors.ventureroot.green : '#334155' }}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
-          <TouchableOpacity
-            onPress={() => navigation.navigate('OnboardingFaceVerification')}
-            style={{
-              marginTop: 12,
-              paddingVertical: 12,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: '#CBD5E1',
-              alignItems: 'center',
-              backgroundColor: 'white',
-            }}
-          >
-            <Text style={{ color: '#334155', fontWeight: '600' }}>Complete KYC Later</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      {/* ID Number Input */}
+      {isSensitive ? (
+        <MaskedInput
+          label="NIN Number"
+          value={idNumber}
+          onChangeText={setIdNumber}
+          placeholder={placeholderMap[idType]}
+          error={idNumberError}
+          maxLength={maxLengthMap[idType]}
+          keyboardType="number-pad"
+          helper="Your NIN is encrypted and stored securely"
+        />
+      ) : (
+        <OnboardingInput
+          label="ID Number"
+          value={idNumber}
+          onChangeText={setIdNumber}
+          placeholder={placeholderMap[idType]}
+          error={idNumberError}
+          maxLength={maxLengthMap[idType]}
+          keyboardType={idType === 'VOTER' ? 'default' : 'default'}
+          autoCapitalize={idType === 'PASSPORT' || idType === 'DL' ? 'characters' : 'none'}
+        />
+      )}
+
+      {/* Expiry Date (optional) */}
+      <OnboardingInput
+        label="Expiry Date (optional)"
+        value={idExpiry}
+        onChangeText={setIdExpiry}
+        placeholder="DD/MM/YYYY"
+        maxLength={10}
+        helper="Leave blank if not applicable"
+      />
+    </OnboardingShell>
   );
 };
 

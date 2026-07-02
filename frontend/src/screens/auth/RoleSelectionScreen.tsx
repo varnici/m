@@ -121,15 +121,12 @@ const RoleSelectionScreen = ({
     if (!selectedType) return;
 
     startOnboarding(selectedType);
+    useOnboardingStore.getState().updateData({ accountType: selectedType });
 
     const firstRoute = useOnboardingStore.getState().currentRoute();
     if (!firstRoute) return;
 
-    if (selectedType === 'retail') {
-      navigation.navigate('Onboarding' as any);
-    } else {
-      navigation.navigate(firstRoute as any);
-    }
+    navigation.navigate(firstRoute as any);
   };
 
   return (

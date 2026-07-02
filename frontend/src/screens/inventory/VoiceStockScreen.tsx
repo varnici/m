@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,12 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react-native';
-import { Audio } from 'expo-av';
+import {
+  useAudioRecorder,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from 'expo-audio';
 import type { RootStackScreenProps } from '@/navigation/types';
 import {
   createInventory,
@@ -43,32 +48,22 @@ const VoiceStockScreen = ({
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   useEffect(() => {
     syncPendingInventory().catch(() => undefined);
-    return () => {
-      recordingRef.current?.stopAndUnloadAsync();
-    };
   }, []);
 
   const startRecording = async () => {
     try {
       setError(null);
       setParsedPreview(null);
-      const permission = await Audio.requestPermissionsAsync();
-      if (permission.status !== 'granted') {
+      const { granted } = await requestRecordingPermissionsAsync();
+      if (!granted) {
         throw new Error('Allow microphone access in Settings to use voice stock');
       }
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      recordingRef.current = recording;
+      await setAudioModeAsync({ playsInSilentMode: true });
+      recorder.record();
       setIsListening(true);
       setStatusLine('Listening… release when finished');
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -79,14 +74,14 @@ const VoiceStockScreen = ({
   };
 
   const stopRecording = async () => {
-    if (!recordingRef.current) return;
+    if (!recorder.isRecording) return;
     try {
       setIsListening(false);
       setIsProcessing(true);
       setStatusLine('Understanding what you said…');
 
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
+      await recorder.stop();
+      const uri = recorder.uri;
       if (!uri) throw new Error('Recording failed — try again');
 
       const response = await fetch(uri);
@@ -143,7 +138,6 @@ const VoiceStockScreen = ({
         ...prev,
       ]);
     } finally {
-      recordingRef.current = null;
       setIsProcessing(false);
     }
   };

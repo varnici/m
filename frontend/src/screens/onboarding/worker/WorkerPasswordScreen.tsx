@@ -1,25 +1,13 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import OnboardingShell, { OnboardingButton } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingNav } from '@/hooks/useOnboardingNav';
+import { validatePassword } from '@/utils/validation';
 import { Eye, EyeOff, Check, X, Shield } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 
-interface PasswordRule {
-  label: string;
-  test: (pw: string) => boolean;
-}
-
-const PASSWORD_RULES: PasswordRule[] = [
-  { label: 'At least 8 characters', test: (pw) => pw.length >= 8 },
-  { label: 'One uppercase letter', test: (pw) => /[A-Z]/.test(pw) },
-  { label: 'One number', test: (pw) => /\d/.test(pw) },
-  { label: 'One special character (!@#$...)', test: (pw) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw) },
-];
-
 export default function WorkerPasswordScreen() {
   const { goNext, goBack, step, total } = useOnboardingNav();
-  const { width } = useWindowDimensions();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,12 +15,11 @@ export default function WorkerPasswordScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [touched, setTouched] = useState(false);
 
-  const ruleResults = useMemo(
-    () => PASSWORD_RULES.map((rule) => ({ ...rule, passed: rule.test(password) })),
+  const { valid: allRulesPass, rules: ruleResults } = useMemo(
+    () => validatePassword(password),
     [password]
   );
 
-  const allRulesPass = ruleResults.every((r) => r.passed);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
   const showMismatch = touched && confirmPassword.length > 0 && !passwordsMatch;
   const canContinue = allRulesPass && passwordsMatch;
@@ -57,7 +44,6 @@ export default function WorkerPasswordScreen() {
       }
     >
       <View style={{ marginTop: 8 }}>
-        {/* Password Field */}
         <View style={{ marginBottom: 16 }}>
           <Text style={styles.label}>PASSWORD</Text>
           <View style={[styles.inputRow, password.length > 0 && !allRulesPass && styles.inputRowError]}>
@@ -85,7 +71,6 @@ export default function WorkerPasswordScreen() {
           </View>
         </View>
 
-        {/* Password Rules Checklist */}
         <View style={styles.rulesContainer}>
           {ruleResults.map((rule, index) => (
             <View key={index} style={styles.ruleRow}>
@@ -108,7 +93,6 @@ export default function WorkerPasswordScreen() {
           ))}
         </View>
 
-        {/* Confirm Password Field */}
         <View style={{ marginBottom: 16, marginTop: 8 }}>
           <Text style={styles.label}>CONFIRM PASSWORD</Text>
           <View style={[styles.inputRow, showMismatch && styles.inputRowError]}>

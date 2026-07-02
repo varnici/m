@@ -1,121 +1,265 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StatusBar, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
-import type { RootStackScreenProps } from '@/navigation/types';
-import { useOnboarding } from '../../../context/OnboardingContext';
-import { BowlHeader, CleanCard, CleanInput, RichButton } from '../../../components/ThemeComponents';
-import { ChevronLeft, ShieldCheck, ArrowRight } from 'lucide-react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, TextInput, Animated, Alert, ActivityIndicator } from 'react-native';
+import OnboardingShell, { OnboardingButton, OnboardingInput } from '@/components/onboarding/OnboardingShell';
+import { useOnboardingNav } from '@/hooks/useOnboardingNav';
+import { validatePhone, formatPhoneInput } from '@/utils/validation';
+import { ShieldCheck } from 'lucide-react-native';
+import { colors } from '@/theme/colors';
+import { supabase } from '@/lib/supabase';
 
+const OTP_LENGTH = 6;
+const COUNTDOWN_SECONDS = 180;
 
-const PhoneRegistrationScreen = ({
-  navigation,
-}: RootStackScreenProps<'OnboardingPhone'>) => {
-  const { data, updateData } = useOnboarding();
-  const [value, setValue] = useState(data.phoneOrEmail || '');
+const PhoneRegistrationScreen = () => {
+  const { goNext, goBack, step, total, data } = useOnboardingNav();
+
+  const [phone, setPhone] = useState(data.phone || '');
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
+  const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const otpRef = useRef<TextInput>(null);
 
-  const handleContinue = () => {
-    if (!isOtpSent) {
-      // Simulate sending OTP
-      updateData({ phoneOrEmail: value });
-      setIsOtpSent(true);
+  const phoneValidation = phone ? validatePhone(phone.replace(/\D/g, '')) : { valid: false };
+
+  useEffect(() => {
+    if (!isOtpSent) return;
+    setCountdown(COUNTDOWN_SECONDS);
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) { clearInterval(interval); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isOtpSent]);
+
+  const formatCountdown = () => {
+    const m = Math.floor(countdown / 60);
+    const s = countdown % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const triggerShake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const buildE164 = (raw: string) => {
+    const digits = raw.replace(/\D/g, '');
+    const local = digits.replace(/^0/, '');
+    return `+234${local}`;
+  };
+
+  const handleSendOtp = async () => {
+    setSending(true);
+    const fullPhone = buildE164(phone);
+    const { error } = await supabase.auth.updateUser({ phone: fullPhone });
+    setSending(false);
+    if (error) {
+      Alert.alert('Could not send code', error.message);
+      return;
+    }
+    setIsOtpSent(true);
+    setOtp('');
+    setOtpError('');
+  };
+
+  const handleVerify = async () => {
+    if (otp.length < OTP_LENGTH) return;
+    setVerifying(true);
+    const fullPhone = buildE164(phone);
+    const { error } = await supabase.auth.verifyOtp({
+      phone: fullPhone,
+      token: otp,
+      type: 'phone_change',
+    });
+    setVerifying(false);
+    if (error) {
+      setOtpError('Incorrect code. Please try again.');
+      triggerShake();
+      return;
+    }
+    goNext({ phone: fullPhone, phoneVerified: true });
+  };
+
+  const handleBack = () => {
+    if (isOtpSent) {
+      setIsOtpSent(false);
+      setOtp('');
+      setOtpError('');
     } else {
-      // Small delay to simulate verification
-      updateData({ otp });
-      navigation.navigate('OnboardingBasicInfo');
+      goBack();
     }
   };
 
-  return (
-    <View className="flex-1 bg-ventureroot-clean-background">
-      <StatusBar barStyle="light-content" />
-      
-      <BowlHeader 
-        title={isOtpSent ? "Verification" : "Identity Anchor"} 
-        subtitle={isOtpSent ? `We sent a code to ${value}` : "Secure your business profile with a master identity token."}
-      />
+  const handleResend = async () => {
+    setOtp('');
+    setOtpError('');
+    await handleSendOtp();
+  };
 
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
+  const handlePhoneChange = (text: string) => {
+    setPhone(formatPhoneInput(text));
+  };
+
+  if (!isOtpSent) {
+    return (
+      <OnboardingShell
+        currentStep={step}
+        totalSteps={total}
+        title="Phone Number"
+        subtitle="Secure your business profile with a verified phone number."
+        onBack={goBack}
+        footer={
+          <OnboardingButton
+            title={sending ? 'Sending...' : 'Send Verification Code'}
+            onPress={handleSendOtp}
+            disabled={!phoneValidation.valid || sending}
+          />
+        }
       >
-        <ScrollView 
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 30, paddingBottom: 40 }}
-          showsVerticalScrollIndicator={false}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0, 77, 44, 0.05)',
+            alignSelf: 'flex-start',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 8,
+            marginBottom: 20,
+          }}
         >
-          <TouchableOpacity 
-            onPress={() => isOtpSent ? setIsOtpSent(false) : navigation.goBack()}
-            className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mb-6"
-          >
-            <ChevronLeft color="#a8b2c3ff" size={24} />
-          </TouchableOpacity>
+          <ShieldCheck size={14} color={colors.ventureroot.green} />
+          <Text style={{ fontSize: 10, fontWeight: '700', color: colors.ventureroot.green, marginLeft: 6, letterSpacing: 0.5 }}>
+            SIM KYC CROSS-CHECK READY
+          </Text>
+        </View>
 
-          {!isOtpSent ? (
-            <View>
-              <View className="flex-row items-center bg-ventureroot-green/5 self-start px-3 py-1.5 rounded-lg mb-6">
-                <ShieldCheck size={14} color="#004D2C" />
-                <Text className="text-[10px] font-bold text-ventureroot-green ml-1.5 uppercase tracking-wider">
-                  SIM KYC Cross-Check Ready
-                </Text>
-              </View>
-
-              <CleanInput
-                label="MOBILE NUMBER OR EMAIL"
-                value={value}
-                onChangeText={setValue}
-                placeholder="e.g. 08012345678 or name@example.com"
-                keyboardType={value.includes('@') ? 'email-address' : 'phone-pad'}
-              />
-              
-              <Text className="text-ventureroot-clean-textLight text-xs italic opacity-70 mb-8 px-1">
-                This will be used for your secure login and transaction authorization.
-              </Text>
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569', marginBottom: 6, letterSpacing: 0.5 }}>
+            MOBILE NUMBER
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14 }}>
+              <Text style={{ fontSize: 15, color: '#0F172A', fontWeight: '600' }}>+234</Text>
             </View>
+            <View style={{ flex: 1 }}>
+              <TextInput
+                value={phone}
+                onChangeText={handlePhoneChange}
+                placeholder="801 234 5678"
+                placeholderTextColor="#94A3B8"
+                keyboardType="phone-pad"
+                maxLength={12}
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderWidth: 1.5,
+                  borderColor: (phoneValidation as any).error && phone ? '#EF4444' : '#E2E8F0',
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  fontSize: 15,
+                  color: '#0F172A',
+                }}
+              />
+            </View>
+          </View>
+          {(phoneValidation as any).error && phone ? (
+            <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>{(phoneValidation as any).error}</Text>
           ) : (
-            <View className="items-center">
-              <View className="flex-row justify-center gap-3 mb-10">
-                {[...Array(6)].map((_, i) => (
-                  <View 
-                    key={i} 
-                    className={`w-12 h-16 rounded-2xl items-center justify-center border-2 ${
-                      otp[i] ? 'border-ventureroot-green bg-ventureroot-green/5' : 'border-slate-100 bg-white'
-                    }`}
-                  >
-                    <Text className="text-2xl font-bold text-ventureroot-green">
-                      {otp[i] || ''}
-                    </Text>
-                    {!otp[i] && <View className="w-4 h-0.5 bg-slate-200 absolute bottom-4" />}
-                  </View>
-                ))}
-                <TextInput
-                  value={otp}
-                  onChangeText={(t) => setOtp(t.slice(0, 6))}
-                  keyboardType="number-pad"
-                  style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%' }}
-                  autoFocus
-                />
-              </View>
-              
-              <TouchableOpacity 
-                onPress={() => setIsOtpSent(false)} 
-                className="mb-8"
-              >
-                <Text className="text-ventureroot-green font-bold text-sm">
+            <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 6, lineHeight: 16 }}>
+              This will be used for your secure login and transaction authorization.
+            </Text>
+          )}
+        </View>
+      </OnboardingShell>
+    );
+  }
+
+  return (
+    <OnboardingShell
+      currentStep={step}
+      totalSteps={total}
+      title="Verification"
+      subtitle={`We sent a 6-digit code to +234 ${phone}`}
+      onBack={handleBack}
+      footer={
+        <OnboardingButton
+          title={verifying ? 'Verifying...' : 'Verify & Continue'}
+          onPress={handleVerify}
+          disabled={otp.length < OTP_LENGTH || verifying}
+        />
+      }
+    >
+      <Animated.View style={{ alignItems: 'center', marginTop: 16, transform: [{ translateX: shakeAnim }] }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 12 }}>
+          {Array.from({ length: OTP_LENGTH }).map((_, i) => (
+            <View
+              key={i}
+              style={{
+                width: 48, height: 60, borderRadius: 14,
+                alignItems: 'center', justifyContent: 'center',
+                borderWidth: 2,
+                borderColor: otp[i] ? colors.ventureroot.green : otpError ? '#EF4444' : '#E2E8F0',
+                backgroundColor: otp[i] ? 'rgba(0, 77, 44, 0.05)' : '#FFFFFF',
+              }}
+            >
+              <Text style={{ fontSize: 24, fontWeight: '700', color: colors.ventureroot.green }}>
+                {otp[i] || ''}
+              </Text>
+              {!otp[i] && (
+                <View style={{ width: 16, height: 2, backgroundColor: '#CBD5E1', position: 'absolute', bottom: 14 }} />
+              )}
+            </View>
+          ))}
+        </View>
+
+        <TextInput
+          ref={otpRef}
+          value={otp}
+          onChangeText={(t) => {
+            setOtpError('');
+            setOtp(t.replace(/\D/g, '').slice(0, OTP_LENGTH));
+          }}
+          keyboardType="number-pad"
+          autoFocus
+          style={{ position: 'absolute', opacity: 0, width: '100%', height: 60 }}
+        />
+      </Animated.View>
+
+      {otpError ? (
+        <Text style={{ fontSize: 13, color: '#EF4444', textAlign: 'center', marginTop: 8 }}>{otpError}</Text>
+      ) : null}
+
+      <View style={{ alignItems: 'center', marginTop: 24 }}>
+        {sending ? (
+          <ActivityIndicator size="small" color={colors.ventureroot.green} />
+        ) : (
+          <>
+            <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 8 }}>
+              {countdown > 0 ? `Resend code in ${formatCountdown()}` : "Didn't receive a code?"}
+            </Text>
+            {countdown === 0 && (
+              <TouchableOpacity onPress={handleResend}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.ventureroot.green }}>
                   Resend Code
                 </Text>
               </TouchableOpacity>
-            </View>
-          )}
-
-          <RichButton
-            title={isOtpSent ? "Verify Identity" : "Continue"}
-            onPress={handleContinue}
-            disabled={!value || (isOtpSent && otp.length < 6)}
-          />
-
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+            )}
+          </>
+        )}
+      </View>
+    </OnboardingShell>
   );
 };
 

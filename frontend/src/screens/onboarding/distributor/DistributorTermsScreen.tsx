@@ -6,11 +6,17 @@ import {
   useWindowDimensions,
   TouchableOpacity,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { CheckCircle2, Clock, FileCheck, Copy } from 'lucide-react-native';
 import OnboardingShell, { OnboardingButton } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingNav } from '@/hooks/useOnboardingNav';
 import { colors } from '@/theme/colors';
+import { useAuth } from '@/context/AuthContext';
+import { useOnboardingStore } from '@/store/onboardingStore';
+import { useUserProfileStore } from '@/store/userProfileStore';
+import { submitDistributorOnboarding } from '@/services/onboardingSubmitService';
 
 const TERMS_SECTIONS = [
   {
@@ -46,17 +52,34 @@ const TERMS_SECTIONS = [
 ];
 
 export default function DistributorTermsScreen() {
-  const { goNext, goBack, step, total } = useOnboardingNav();
+  const { goNext, goBack, step, total, data } = useOnboardingNav();
+  const { user } = useAuth();
   const { width } = useWindowDimensions();
   const hp = Math.max(20, width * 0.06);
 
   const [accepted, setAccepted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [referenceNumber] = useState(
     `VR-DIST-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
   );
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'Session expired. Please log in again.');
+      return;
+    }
+    setSubmitting(true);
+    const result = await submitDistributorOnboarding({ ...data, termsAccepted: true }, user.id);
+    setSubmitting(false);
+    if (!result.success) {
+      Alert.alert('Submission Failed', result.error || 'Something went wrong. Please try again.', [
+        { text: 'Retry', onPress: handleSubmit },
+        { text: 'Cancel' },
+      ]);
+      return;
+    }
+    useOnboardingStore.getState().completeOnboarding();
     setSubmitted(true);
   };
 
@@ -166,9 +189,9 @@ export default function DistributorTermsScreen() {
       onBack={goBack}
       footer={
         <OnboardingButton
-          title="Submit Application"
+          title={submitting ? 'Submitting...' : 'Submit Application'}
           onPress={handleSubmit}
-          disabled={!accepted}
+          disabled={!accepted || submitting}
         />
       }
     >

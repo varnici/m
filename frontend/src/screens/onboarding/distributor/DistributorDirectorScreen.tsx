@@ -9,8 +9,10 @@ import {
 } from 'react-native';
 import { Upload, FileText, CheckCircle2 } from 'lucide-react-native';
 import OnboardingShell, { OnboardingButton, OnboardingInput } from '@/components/onboarding/OnboardingShell';
+import MaskedInput from '@/components/onboarding/MaskedInput';
 import { useOnboardingNav } from '@/hooks/useOnboardingNav';
 import { colors } from '@/theme/colors';
+import * as DocumentPicker from 'expo-document-picker';
 
 export default function DistributorDirectorScreen() {
   const { goNext, goBack, step, total } = useOnboardingNav();
@@ -24,7 +26,7 @@ export default function DistributorDirectorScreen() {
   const [bvnError, setBvnError] = useState('');
   const [ninError, setNinError] = useState('');
   const [isSoleProprietor, setIsSoleProprietor] = useState(false);
-  const [boardResolution, setBoardResolution] = useState<{ name: string; size: string } | null>(null);
+  const [boardResolution, setBoardResolution] = useState<{ name: string; size: string; uri: string } | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const validateBVN = (value: string) => {
@@ -56,16 +58,18 @@ export default function DistributorDirectorScreen() {
     setDob(formatted);
   };
 
-  const handleUploadResolution = () => {
+  const handleUploadResolution = async () => {
     setUploading(true);
-    // Simulate file picker and upload
-    setTimeout(() => {
-      setUploading(false);
-      setBoardResolution({
-        name: 'board_resolution_2024.pdf',
-        size: '2.4 MB',
-      });
-    }, 1500);
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/*'],
+      copyToCacheDirectory: true,
+    });
+    setUploading(false);
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      const sizeMB = asset.size ? `${(asset.size / (1024 * 1024)).toFixed(1)} MB` : 'Unknown size';
+      setBoardResolution({ name: asset.name, size: sizeMB, uri: asset.uri });
+    }
   };
 
   const isBVNValid = bvn.length === 11;
@@ -90,7 +94,7 @@ export default function DistributorDirectorScreen() {
       footer={
         <OnboardingButton
           title="Continue"
-          onPress={() => goNext({ directorName: fullName, directorDob: dob, directorBvn: bvn, directorNin: nin, isSoleProprietor })}
+          onPress={() => goNext({ directorFullName: fullName, directorDob: dob, bvn, nin, isSoleProprietor, boardResolutionUri: boardResolution?.uri })}
           disabled={!isFormValid}
         />
       }
@@ -112,24 +116,24 @@ export default function DistributorDirectorScreen() {
         maxLength={10}
       />
 
-      <OnboardingInput
+      <MaskedInput
         label="BANK VERIFICATION NUMBER (BVN)"
         value={bvn}
         onChangeText={validateBVN}
         placeholder="11-digit BVN"
         error={bvnError}
-        helper="Your BVN is used for identity verification only"
+        helper="Your BVN is encrypted and used for identity verification only. Never stored in plain text."
         keyboardType="number-pad"
         maxLength={11}
       />
 
-      <OnboardingInput
+      <MaskedInput
         label="NATIONAL IDENTIFICATION NUMBER (NIN)"
         value={nin}
         onChangeText={validateNIN}
         placeholder="11-digit NIN"
         error={ninError}
-        helper="NIN from your National ID card or NIN slip"
+        helper="NIN from your National ID card or dial *346# on any network."
         keyboardType="number-pad"
         maxLength={11}
       />

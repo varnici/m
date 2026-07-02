@@ -9,7 +9,6 @@ import { useAuth } from '@/context/AuthContext';
 import { colors } from '@/theme/colors';
 
 import AuthNavigator from './AuthNavigator';
-import OnboardingNavigator from './OnboardingNavigator';
 import MainTabNavigator from './MainTabNavigator';
 import WorkerTabNavigator from './WorkerTabNavigator';
 import ComingSoonScreen from '@/screens/ComingSoonScreen';
@@ -92,9 +91,24 @@ import Worker95SalaryConfigScreen from '@/screens/worker/Worker95SalaryConfigScr
 import Worker95ProfileScreen from '@/screens/worker/Worker95ProfileScreen';
 import Worker95DividendsScreen from '@/screens/worker/Worker95DividendsScreen';
 
+import AccountTypeScreen from '@/screens/onboarding/retail/AccountTypeScreen';
+import PhoneRegistrationScreen from '@/screens/onboarding/retail/PhoneRegistrationScreen';
+import BasicInfoScreen from '@/screens/onboarding/retail/BasicInfoScreen';
+import ShopInformationScreen from '@/screens/onboarding/retail/ShopInformationScreen';
+import BusinessCategoryScreen from '@/screens/onboarding/retail/BusinessCategoryScreen';
 import MarketAssociationScreen from '@/screens/onboarding/retail/MarketAssociationScreen';
+import LocationScreen from '@/screens/onboarding/retail/LocationScreen';
 import StoreVerificationScreen from '@/screens/onboarding/retail/StoreVerificationScreen';
+import KYCVerificationScreen from '@/screens/onboarding/retail/KYCVerificationScreen';
+import FaceVerificationScreen from '@/screens/onboarding/retail/FaceVerificationScreen';
 import POSRegistrationScreen from '@/screens/onboarding/retail/POSRegistrationScreen';
+import BankLinkScreen from '@/screens/onboarding/retail/BankLinkScreen';
+import InventorySnapshotScreen from '@/screens/onboarding/retail/InventorySnapshotScreen';
+import SalesEstimationScreen from '@/screens/onboarding/retail/SalesEstimationScreen';
+import TaxComplianceScreen from '@/screens/onboarding/retail/TaxComplianceScreen';
+import TermsScreen from '@/screens/onboarding/retail/TermsScreen';
+import ActivationScreen from '@/screens/onboarding/retail/ActivationScreen';
+import OnboardingReviewScreen from '@/screens/onboarding/retail/OnboardingReviewScreen';
 
 import WorkerEmailScreen from '@/screens/onboarding/worker/WorkerEmailScreen';
 import WorkerPhoneScreen from '@/screens/onboarding/worker/WorkerPhoneScreen';
@@ -134,6 +148,26 @@ function resolveMainScreen(accountType: string | null) {
 }
 
 const ONBOARDING_SCREENS = {
+  // Retail onboarding
+  OnboardingAccountType: AccountTypeScreen,
+  OnboardingPhone: PhoneRegistrationScreen,
+  OnboardingBasicInfo: BasicInfoScreen,
+  OnboardingShopInfo: ShopInformationScreen,
+  OnboardingCategory: BusinessCategoryScreen,
+  OnboardingMarketAssociation: MarketAssociationScreen,
+  OnboardingLocation: LocationScreen,
+  OnboardingStoreVerification: StoreVerificationScreen,
+  OnboardingKYC: KYCVerificationScreen,
+  OnboardingFaceVerification: FaceVerificationScreen,
+  OnboardingPOSRegistration: POSRegistrationScreen,
+  OnboardingBankLink: BankLinkScreen,
+  OnboardingInventory: InventorySnapshotScreen,
+  OnboardingSalesEstimation: SalesEstimationScreen,
+  OnboardingTaxCompliance: TaxComplianceScreen,
+  OnboardingTerms: TermsScreen,
+  OnboardingActivation: ActivationScreen,
+  OnboardingReview: OnboardingReviewScreen,
+  // Worker onboarding
   WorkerEmail: WorkerEmailScreen,
   WorkerPhone: WorkerPhoneScreen,
   WorkerPassword: WorkerPasswordScreen,
@@ -155,14 +189,13 @@ const ONBOARDING_SCREENS = {
   LogisticsDriver: LogisticsDriverScreen,
   LogisticsInsurance: LogisticsInsuranceScreen,
   LogisticsTerms: LogisticsTermsScreen,
-  OnboardingMarketAssociation: MarketAssociationScreen,
-  OnboardingStoreVerification: StoreVerificationScreen,
-  OnboardingPOSRegistration: POSRegistrationScreen,
 } as const;
 
+const SESSION_BACKGROUND_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+
 const RootNavigator = () => {
-  const { session, isLoading: authLoading } = useAuth();
-  const { isLocked, securityType, setIsLocked } = useSecurityStore();
+  const { session, isLoading: authLoading, signOut } = useAuth();
+  const { isLocked, securityType, setIsLocked, backgroundedAt, setBackgroundedAt } = useSecurityStore();
   const accountType = useUserProfileStore((s) => s.accountType);
   const onboardingComplete = useOnboardingStore((s) => s.isComplete);
   const appState = useRef(AppState.currentState);
@@ -173,16 +206,29 @@ const RootNavigator = () => {
     }
 
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        if (securityType !== 'none') {
+      const wasBackground = appState.current.match(/inactive|background/);
+      const comingToForeground = nextAppState === 'active';
+      const goingToBackground = nextAppState.match(/inactive|background/);
+
+      if (wasBackground && comingToForeground) {
+        if (session && backgroundedAt && Date.now() - backgroundedAt > SESSION_BACKGROUND_TIMEOUT) {
+          // Session idle too long — force full sign-out
+          setBackgroundedAt(null);
+          signOut();
+        } else if (securityType !== 'none') {
           setIsLocked(true);
         }
       }
+
+      if (goingToBackground) {
+        setBackgroundedAt(Date.now());
+      }
+
       appState.current = nextAppState;
     });
 
     return () => subscription.remove();
-  }, [securityType, setIsLocked]);
+  }, [securityType, setIsLocked, session, backgroundedAt, setBackgroundedAt, signOut]);
 
   if (authLoading) {
     return (
@@ -192,7 +238,8 @@ const RootNavigator = () => {
     );
   }
 
-  const showLock = isLocked && securityType !== 'none';
+  // Only gate with the lock when there is an active session — without one, show Auth
+  const showLock = !!session && isLocked && securityType !== 'none';
   const needsOnboarding = session && !accountType;
 
   return (
@@ -206,7 +253,6 @@ const RootNavigator = () => {
           <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
 
           {/* All onboarding screens available from RoleSelection */}
-          <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
           {Object.entries(ONBOARDING_SCREENS).map(([name, component]) => (
             <Stack.Screen key={name} name={name as keyof RootStackParamList} component={component} />
           ))}
@@ -216,7 +262,6 @@ const RootNavigator = () => {
       ) : (
         <>
           <Stack.Screen name="Main" component={resolveMainScreen(accountType)} />
-          <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
 
           <Stack.Screen name="Dashboard" component={DashboardScreen} />
           <Stack.Screen name="More" component={MoreScreen} />

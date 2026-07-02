@@ -49,11 +49,42 @@ const PatternSetupScreen = ({ navigation }: RootStackScreenProps<'PatternSetup'>
     }
   };
 
+  const isPatternTooWeak = (p: number[]): boolean => {
+    // Reject straight lines: all horizontal, vertical, or main diagonal on a 3x3 grid
+    const straightLines = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],         // rows
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],           // columns
+      [0, 4, 8], [2, 4, 6],                       // diagonals
+    ];
+    for (const line of straightLines) {
+      if (line.every((dot) => p.includes(dot)) && p.length === line.length) {
+        return true;
+      }
+    }
+    // Reject patterns that only use dots from a single row or column
+    const rows = [new Set([0,1,2]), new Set([3,4,5]), new Set([6,7,8])];
+    const cols = [new Set([0,3,6]), new Set([1,4,7]), new Set([2,5,8])];
+    const patSet = new Set(p);
+    for (const group of [...rows, ...cols]) {
+      if ([...patSet].every((d) => group.has(d))) return true;
+    }
+    return false;
+  };
+
   const handlePatternComplete = (currentPattern: number[]) => {
     if (currentPattern.length < 4) {
       setError(true);
       Vibration.vibrate([0, 50, 100, 50]);
       setTimeout(() => setError(false), 1500);
+      return;
+    }
+
+    if (!confirming && isPatternTooWeak(currentPattern)) {
+      Alert.alert(
+        'Pattern too simple',
+        'Avoid straight lines or single rows/columns. Choose a more complex pattern.'
+      );
+      setPattern([]);
       return;
     }
 
@@ -86,11 +117,11 @@ const PatternSetupScreen = ({ navigation }: RootStackScreenProps<'PatternSetup'>
             {confirming ? 'CONFIRM PATTERN' : 'CREATE PATTERN'}
           </IndustrialText>
           <IndustrialText style={styles.subtitle}>
-            {error 
-              ? 'Invalid pattern or mismatch. Connect at least 4 dots.' 
-              : confirming 
-                ? 'Draw the pattern again to verify' 
-                : 'Connect at least 4 dots to create your security pattern'}
+            {error
+              ? 'Invalid pattern or mismatch. Connect at least 4 dots.'
+              : confirming
+                ? 'Draw the pattern again to verify'
+                : 'Connect at least 4 dots — avoid straight lines or single rows'}
           </IndustrialText>
         </Animated.View>
 

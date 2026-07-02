@@ -1,158 +1,98 @@
-// @ts-nocheck
-import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import type { RootStackScreenProps } from '@/navigation/types';
-import { ShieldCheck, User, Store, Landmark, ChevronRight } from 'lucide-react-native';
-import { useOnboarding } from '../../../context/OnboardingContext';
-import { colors, spacing } from '../../../theme/colors';
-import { userService } from '../../../services/userService';
-import { IndustrialCard, IndustrialButton, IndustrialText, useIndustrialTheme, IndustrialPage } from '../../../components/ui/IndustrialComponents';
+import React from 'react';
+import { View, Text } from 'react-native';
+import OnboardingShell, { OnboardingButton } from '@/components/onboarding/OnboardingShell';
+import { useOnboardingNav } from '@/hooks/useOnboardingNav';
 
-const OnboardingReviewScreen = ({
-  navigation,
-}: RootStackScreenProps<'OnboardingReview'>) => {
-  const { data } = useOnboarding();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const theme = useIndustrialTheme();
+interface SummaryCardProps {
+  title: string;
+  items: { label: string; value: string | undefined }[];
+}
 
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-      await userService.updateProfile({
-        full_name: data.fullName,
-        business_name: data.businessName,
-        business_category: data.primaryCategory,
-        bank_name: data.bankName,
-        tin: data.tin,
-        location: {
-          state: data.state,
-          address: data.address,
-        }
-      });
-      setIsSubmitting(false);
-      navigation.navigate('OnboardingTerms');
-    } catch (error) {
-      console.error('Failed to submit onboarding:', error);
-      setIsSubmitting(false);
-      // In production, show a toast or alert
-    }
-  };
-
-  const SummaryNode = ({ icon: Icon, title, dataPoints }: any) => (
-    <View style={{ marginBottom: spacing.xl }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-        <Icon size={14} color={colors.ventureroot.industrial.primary} style={{ marginRight: spacing.xs }} />
-        <IndustrialText variant="label" style={{ letterSpacing: 2 }}>{title}</IndustrialText>
-      </View>
-      <IndustrialCard variant="low" style={{ padding: 0 }}>
-        {dataPoints.map((item: any, index: number) => (
-          <View 
-            key={index} 
-            style={{ 
-              flexDirection: 'row', 
-              justifyContent: 'space-between', 
-              paddingVertical: spacing.md, 
-              paddingHorizontal: spacing.lg,
-              borderBottomWidth: index !== dataPoints.length - 1 ? 1 : 0,
-              borderBottomColor: theme.surfaceHigh
-            }}
-          >
-            <IndustrialText style={{ fontSize: 12, opacity: 0.4 }}>{item.label}</IndustrialText>
-            <IndustrialText style={{ fontSize: 12, fontWeight: '700', color: !item.value ? colors.ventureroot.industrial.primary : theme.onSurface }}>
-              {item.value || 'COMPLETE_LATER'}
-            </IndustrialText>
-          </View>
-        ))}
-      </IndustrialCard>
+const SummaryCard = ({ title, items }: SummaryCardProps) => (
+  <View style={{ marginBottom: 20 }}>
+    <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569', marginBottom: 8, letterSpacing: 0.5 }}>
+      {title}
+    </Text>
+    <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', overflow: 'hidden' }}>
+      {items.map((item, index) => (
+        <View
+          key={index}
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            borderBottomWidth: index < items.length - 1 ? 1 : 0,
+            borderBottomColor: '#F1F5F9',
+          }}
+        >
+          <Text style={{ fontSize: 13, color: '#64748B' }}>{item.label}</Text>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: item.value ? '#0F172A' : '#94A3B8' }}>
+            {item.value || 'Not provided'}
+          </Text>
+        </View>
+      ))}
     </View>
-  );
+  </View>
+);
+
+const OnboardingReviewScreen = () => {
+  const { goNext, goBack, step, total, data } = useOnboardingNav();
 
   return (
-    <IndustrialPage>
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 40 }}>
-        {/* Monolith Header */}
-        <View style={{ marginBottom: 40 }}>
-          <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, marginBottom: 8 }}>
-            PROTOCOL FINALIZATION
-          </IndustrialText>
-          <IndustrialText variant="h1">
-            APPLICATION{"\n"}REVIEW
-          </IndustrialText>
-          <View style={{ width: 40, height: 4, backgroundColor: colors.ventureroot.industrial.primary, marginTop: 16 }} />
-        </View>
+    <OnboardingShell
+      currentStep={step}
+      totalSteps={total}
+      title="Review Your Information"
+      subtitle="Please review all the details you have provided before proceeding."
+      onBack={goBack}
+      footer={
+        <OnboardingButton
+          title="Continue"
+          onPress={() => goNext()}
+        />
+      }
+    >
+      <SummaryCard
+        title="Personal Information"
+        items={[
+          { label: 'Full Name', value: data.fullName },
+          { label: 'Phone / Email', value: data.phoneOrEmail || data.email },
+          { label: 'ID Status', value: data.idNumber ? 'Verified' : 'Pending' },
+        ]}
+      />
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
-          <SummaryNode 
-            icon={User} 
-            title="INDIVIDUAL_IDENTITY" 
-            dataPoints={[
-              { label: 'LEGAL NAME', value: data.fullName },
-              { label: 'PHONE / EMAIL', value: data.phoneOrEmail },
-              { label: 'KYC STATUS', value: data.idNumber ? 'LEVEL_2_VERIFIED' : 'LEVEL_1_LITE' },
-            ]} 
-          />
+      <SummaryCard
+        title="Business Details"
+        items={[
+          { label: 'Business Name', value: data.businessName },
+          { label: 'Category', value: data.primaryCategory },
+          { label: 'State', value: data.state },
+          { label: 'Address', value: data.address },
+        ]}
+      />
 
-          <SummaryNode 
-            icon={Store} 
-            title="COMMERCIAL_NODE" 
-            dataPoints={[
-              { label: 'ENTITY NAME', value: data.businessName },
-              { label: 'MARKET SECTOR', value: data.primaryCategory },
-              { label: 'OPERATION BASE', value: data.state },
-            ]} 
-          />
+      <SummaryCard
+        title="Financial Information"
+        items={[
+          { label: 'Bank', value: data.bankName },
+          { label: 'Sales Tier', value: data.salesTier },
+          { label: 'TIN', value: data.tin || 'Not provided' },
+          { label: 'VAT Registered', value: data.vatRegistered ? 'Yes' : 'No' },
+        ]}
+      />
 
-          <SummaryNode 
-            icon={Landmark} 
-            title="FINANCIAL_HANDSHAKE" 
-            dataPoints={[
-              { label: 'SETTLEMENT NODE', value: data.bankName },
-              { label: 'DIRECT DEBIT', value: 'AUTHORIZED' },
-              { label: 'TAX ID (TIN)', value: data.tin || 'PENDING_REG' },
-            ]} 
-          />
-
-          {/* Integrity Alert */}
-          <View style={{ 
-            backgroundColor: theme.surfaceLow, 
-            padding: 20, 
-            flexDirection: 'row', 
-            alignItems: 'center',
-            marginBottom: 40
-          }}>
-             <ShieldCheck size={20} color={colors.ventureroot.industrial.primary} />
-             <View style={{ marginLeft: 16 }}>
-                <IndustrialText style={{ fontSize: 11, fontWeight: '900' }}>INTEGRITY SEAL ACTIVE</IndustrialText>
-                <IndustrialText style={{ fontSize: 9, opacity: 0.4, marginTop: 2 }}>
-                  SIGNED: {new Date().toLocaleTimeString()} • SHA-256 SYNC
-                </IndustrialText>
-             </View>
-          </View>
-
-          {isSubmitting ? (
-            <View style={{ height: 64, alignItems: 'center', justifyContent: 'center' }}>
-               <ActivityIndicator color={colors.ventureroot.industrial.primary} />
-               <IndustrialText variant="label" style={{ marginTop: 16, fontSize: 9 }}>TRANSMITTING PROTOCOL...</IndustrialText>
-            </View>
-          ) : (
-            <IndustrialButton 
-              title="BIND PROFILE & FINISH" 
-              onPress={handleSubmit}
-            />
-          )}
-          
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()}
-            style={{ marginTop: 24, padding: 16, alignItems: 'center' }}
-          >
-            <IndustrialText variant="label" style={{ opacity: 0.3 }}>ADJUST_INFORMATION</IndustrialText>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    </IndustrialPage>
+      <SummaryCard
+        title="Verification"
+        items={[
+          { label: 'Store Verified', value: data.shopFrontPhotoUri ? 'Yes' : 'No' },
+          { label: 'POS Option', value: data.posOption || 'Not selected' },
+          { label: 'Market Association', value: data.marketAssociationToken ? 'Linked' : 'Not linked' },
+        ]}
+      />
+    </OnboardingShell>
   );
 };
 
 export default OnboardingReviewScreen;
-// @ts-nocheck

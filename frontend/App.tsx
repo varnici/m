@@ -7,7 +7,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RootNavigator from './src/navigation/RootNavigator';
 import { AuthProvider } from './src/context/AuthContext';
-import { OnboardingProvider } from './src/context/OnboardingContext';
 import { navigationRef, useAppNavigationStore } from './src/store/appNavigationStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppErrorBoundary from './src/components/AppErrorBoundary';
@@ -38,7 +37,6 @@ export default function App() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
             <AuthProvider>
-              <OnboardingProvider>
                 <NavigationContainer
                   ref={navigationRef}
                   onStateChange={() => {
@@ -51,7 +49,6 @@ export default function App() {
                   <StatusBar style="auto" />
                   <RootNavigator />
                 </NavigationContainer>
-              </OnboardingProvider>
             </AuthProvider>
           </SafeAreaProvider>
         </GestureHandlerRootView>

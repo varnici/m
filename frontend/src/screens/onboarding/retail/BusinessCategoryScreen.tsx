@@ -1,8 +1,8 @@
-import React, { useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
-import type { RootStackScreenProps } from '@/navigation/types';
-import { useOnboarding } from '../../../context/OnboardingContext';
-import { BowlHeader, CleanCard } from '../../../components/ThemeComponents';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import OnboardingShell, { OnboardingButton } from '@/components/onboarding/OnboardingShell';
+import { useOnboardingNav } from '@/hooks/useOnboardingNav';
+import { colors } from '@/theme/colors';
 import {
   ShoppingBag,
   HeartPulse,
@@ -10,7 +10,6 @@ import {
   UtensilsCrossed,
   Shirt,
   Ellipsis,
-  ChevronLeft,
   ChevronRight,
   Sprout,
   HardHat,
@@ -18,7 +17,6 @@ import {
   BookOpen,
   Wrench,
 } from 'lucide-react-native';
-
 
 const CATEGORIES = [
   { id: 'fmcg', title: 'FMCG / Groceries', icon: ShoppingBag, description: 'Fast-moving consumer goods, provisions, household items' },
@@ -34,88 +32,99 @@ const CATEGORIES = [
   { id: 'others', title: 'Other', icon: Ellipsis, description: 'Other niche retail categories' },
 ];
 
-const BusinessCategoryScreen = ({
-  navigation,
-}: RootStackScreenProps<'OnboardingCategory'>) => {
-  const { data, updateData } = useOnboarding();
-  const navigationRef = useRef(navigation);
-
-  const handleSelect = useCallback((id: string) => {
-    updateData({ primaryCategory: id });
-    setTimeout(() => {
-      navigationRef.current?.navigate('OnboardingMarketAssociation');
-    }, 0);
-  }, [updateData]);
+const BusinessCategoryScreen = () => {
+  const { goNext, goBack, step, total, data } = useOnboardingNav();
+  const [selected, setSelected] = useState<string>(data.primaryCategory || '');
 
   return (
-    <View className="flex-1 bg-ventureroot-clean-background">
-      <StatusBar barStyle="light-content" />
-      
-      <BowlHeader 
-        title="Market Segment" 
-        subtitle="Select your primary niche. We tailor your inventory tools and credit model based on industry sales cycles."
-      />
-
-      <ScrollView 
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 30, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
+    <OnboardingShell
+      currentStep={step}
+      totalSteps={total}
+      title="Market Segment"
+      subtitle="Select your primary niche. We tailor your inventory tools and credit model based on industry sales cycles."
+      onBack={goBack}
+      footer={
+        <OnboardingButton
+          title="Continue"
+          onPress={() => goNext({ primaryCategory: selected })}
+          disabled={!selected}
+        />
+      }
+    >
+      <Text
+        style={{
+          fontSize: 12,
+          fontWeight: '700',
+          color: '#475569',
+          letterSpacing: 0.5,
+          marginBottom: 16,
+        }}
       >
-        <TouchableOpacity 
-          onPress={() => navigationRef.current?.goBack()}
-          className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mb-6"
-        >
-          <ChevronLeft color="#1E293B" size={24} />
-        </TouchableOpacity>
+        SELECT CATEGORY
+      </Text>
 
-        <Text className="text-ventureroot-clean-textLight text-sm font-bold tracking-widest uppercase mb-6 ml-1">
-          Select Category
-        </Text>
-
-        <View className="gap-4">
-          {CATEGORIES.map((item) => (
+      <View style={{ gap: 12 }}>
+        {CATEGORIES.map((item) => {
+          const isActive = selected === item.id;
+          return (
             <TouchableOpacity
               key={item.id}
-              onPress={() => handleSelect(item.id)}
-              className={`flex-row items-center p-5 rounded-3xl ${
-                data.primaryCategory === item.id 
-                ? 'bg-ventureroot-clean-surface border-2 border-ventureroot-green/10' 
-                : 'bg-ventureroot-clean-surface border border-transparent'
-              }`}
+              onPress={() => setSelected(item.id)}
+              activeOpacity={0.8}
               style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: 18,
+                borderRadius: 18,
+                backgroundColor: '#FFFFFF',
+                borderWidth: isActive ? 2 : 1,
+                borderColor: isActive ? colors.ventureroot.green : '#F1F5F9',
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.05,
                 shadowRadius: 10,
                 elevation: 2,
               }}
-              activeOpacity={0.8}
             >
-              <View className={`w-14 h-14 rounded-2xl items-center justify-center mr-5 ${
-                data.primaryCategory === item.id 
-                ? 'bg-ventureroot-green' 
-                : 'bg-white'
-              }`}>
-                <item.icon 
-                  size={26} 
-                  color={data.primaryCategory === item.id ? '#FFFFFF' : '#004D2C'} 
+              <View
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 16,
+                  backgroundColor: isActive ? colors.ventureroot.green : '#F8FAFC',
+                }}
+              >
+                <item.icon
+                  size={24}
+                  color={isActive ? '#FFFFFF' : colors.ventureroot.green}
                 />
               </View>
 
-              <View className="flex-1">
-                <Text className="text-ventureroot-clean-text font-bold text-lg mb-0.5">
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontWeight: '700',
+                    fontSize: 15,
+                    color: '#0F172A',
+                    marginBottom: 2,
+                  }}
+                >
                   {item.title}
                 </Text>
-                <Text className="text-ventureroot-clean-textLight text-xs">
+                <Text style={{ fontSize: 12, color: '#64748B', lineHeight: 16 }}>
                   {item.description}
                 </Text>
               </View>
 
-              <ChevronRight size={20} color="#64748B" opacity={0.5} />
+              <ChevronRight size={18} color="#94A3B8" />
             </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
-    </View>
+          );
+        })}
+      </View>
+    </OnboardingShell>
   );
 };
 

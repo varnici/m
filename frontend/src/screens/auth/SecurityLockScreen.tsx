@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,16 +8,14 @@ import {
   Platform,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withSpring, 
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
   withSequence,
   withTiming,
-  interpolate,
-  Extrapolate
 } from 'react-native-reanimated';
-import { Lock, Fingerprint, ShieldAlert, ShieldCheck } from 'lucide-react-native';
+import { Lock, Fingerprint, ShieldAlert, ShieldCheck, Timer } from 'lucide-react-native';
 import { useSecurityStore } from '@/store/securityStore';
 import { userService } from '@/services/userService';
 import { colors } from '@/theme/colors';
@@ -27,32 +25,70 @@ import { PatternGrid } from '@/components/security/PatternGrid';
 import * as LocalAuthentication from 'expo-local-authentication';
 import type { RootStackScreenProps } from '@/navigation/types';
 
+const MAX_ATTEMPTS_BEFORE_WARN = 3;
+
+function formatCountdown(seconds: number): string {
+  if (seconds >= 60) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}m ${s}s`;
+  }
+  return `${seconds}s`;
+}
+
 const SecurityLockScreen = ({ navigation }: RootStackScreenProps<'SecurityLock'>) => {
-  const { setIsLocked, securityType, biometricsEnabled } = useSecurityStore();
+  const {
+    setIsLocked,
+    securityType,
+    biometricsEnabled,
+    failedAttempts,
+    lockoutUntil,
+    recordFailedAttempt,
+    resetFailedAttempts,
+  } = useSecurityStore();
+
   const [input, setInput] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState(false);
-  
-  // Animation values
+  const [secondsLeft, setSecondsLeft] = useState(0);
+
   const shakeOffset = useSharedValue(0);
   const scale = useSharedValue(1);
   const opacity = useSharedValue(0);
 
+  // Countdown timer for lockout
+  useEffect(() => {
+    if (!lockoutUntil) {
+      setSecondsLeft(0);
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+      setSecondsLeft(Math.max(0, remaining));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lockoutUntil]);
+
+  const isLockedOut = secondsLeft > 0;
+
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 800 });
-    if (biometricsEnabled) {
+    if (biometricsEnabled && !isLockedOut) {
       handleBiometrics();
     }
   }, []);
 
-  const triggerError = () => {
+  const triggerError = useCallback(() => {
+    recordFailedAttempt();
     setError(true);
     Vibration.vibrate([0, 50, 100, 50]);
     shakeOffset.value = withSequence(
-      withTiming(-10, { duration: 50 }),
-      withTiming(10, { duration: 50 }),
-      withTiming(-10, { duration: 50 }),
-      withTiming(10, { duration: 50 }),
+      withTiming(-12, { duration: 50 }),
+      withTiming(12, { duration: 50 }),
+      withTiming(-12, { duration: 50 }),
+      withTiming(12, { duration: 50 }),
       withTiming(0, { duration: 50 })
     );
     scale.value = withSequence(
@@ -63,34 +99,30 @@ const SecurityLockScreen = ({ navigation }: RootStackScreenProps<'SecurityLock'>
       setError(false);
       setInput('');
     }, 1500);
-  };
+  }, [recordFailedAttempt]);
 
-  const handleSuccess = () => {
+  const handleSuccess = useCallback(() => {
+    resetFailedAttempts();
     Vibration.vibrate(10);
     scale.value = withTiming(0.9, { duration: 200 });
     opacity.value = withTiming(0, { duration: 300 });
-    setTimeout(() => {
-      setIsLocked(false);
-    }, 300);
-  };
+    setTimeout(() => setIsLocked(false), 300);
+  }, [resetFailedAttempts, setIsLocked]);
 
   const handleBiometrics = async () => {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-    
     if (hasHardware && isEnrolled) {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Authenticate to unlock VentureRoot',
         fallbackLabel: 'Use PIN/Pattern',
       });
-      
-      if (result.success) {
-        handleSuccess();
-      }
+      if (result.success) handleSuccess();
     }
   };
 
   const verifyPin = async (pin: string) => {
+    if (isLockedOut) return;
     try {
       setIsVerifying(true);
       const result = await userService.verifySecurity({ pin });
@@ -99,7 +131,7 @@ const SecurityLockScreen = ({ navigation }: RootStackScreenProps<'SecurityLock'>
       } else {
         triggerError();
       }
-    } catch (err) {
+    } catch {
       triggerError();
     } finally {
       setIsVerifying(false);
@@ -107,11 +139,10 @@ const SecurityLockScreen = ({ navigation }: RootStackScreenProps<'SecurityLock'>
   };
 
   const handlePatternComplete = async (pattern: number[]) => {
-    if (pattern.length < 4) {
+    if (isLockedOut || pattern.length < 4) {
       triggerError();
       return;
     }
-    
     try {
       setIsVerifying(true);
       const result = await userService.verifySecurity({ pattern: pattern.join(',') });
@@ -120,7 +151,7 @@ const SecurityLockScreen = ({ navigation }: RootStackScreenProps<'SecurityLock'>
       } else {
         triggerError();
       }
-    } catch (err) {
+    } catch {
       triggerError();
     } finally {
       setIsVerifying(false);
@@ -132,22 +163,31 @@ const SecurityLockScreen = ({ navigation }: RootStackScreenProps<'SecurityLock'>
     transform: [{ scale: scale.value }, { translateX: shakeOffset.value }],
   }));
 
+  const attemptsRemaining = Math.max(0, 5 - failedAttempts);
+  const showAttemptsWarning = failedAttempts >= MAX_ATTEMPTS_BEFORE_WARN && !isLockedOut;
+
   const renderHeader = () => (
     <View style={styles.header}>
-      <View style={[styles.lockIcon, error && styles.lockIconError]}>
-        {error ? (
+      <View style={[styles.lockIcon, error && styles.lockIconError, isLockedOut && styles.lockIconLockout]}>
+        {isLockedOut ? (
+          <Timer size={32} color="#F59E0B" />
+        ) : error ? (
           <ShieldAlert size={32} color="#FF4B4B" />
         ) : (
           <Lock size={32} color={colors.ventureroot.industrial.primary} />
         )}
       </View>
       <IndustrialText variant="h1" style={styles.title}>
-        {error ? 'ACCESS DENIED' : 'SECURE ACCESS'}
+        {isLockedOut ? 'ACCOUNT LOCKED' : error ? 'ACCESS DENIED' : 'SECURE ACCESS'}
       </IndustrialText>
-      <IndustrialText style={styles.subtitle}>
-        {securityType === 'pin' 
-          ? 'Enter your 6-digit PIN to proceed' 
-          : 'Draw your security pattern'}
+      <IndustrialText style={isLockedOut ? { ...styles.subtitle, ...styles.subtitleLockout } : styles.subtitle}>
+        {isLockedOut
+          ? `Too many failed attempts. Try again in ${formatCountdown(secondsLeft)}`
+          : showAttemptsWarning
+            ? `${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining before lockout`
+            : securityType === 'pin'
+              ? 'Enter your 6-digit PIN to proceed'
+              : 'Draw your security pattern'}
       </IndustrialText>
     </View>
   );
@@ -155,13 +195,13 @@ const SecurityLockScreen = ({ navigation }: RootStackScreenProps<'SecurityLock'>
   const renderPinDots = () => (
     <View style={styles.dotsContainer}>
       {[...Array(6)].map((_, i) => (
-        <View 
-          key={i} 
+        <View
+          key={i}
           style={[
-            styles.dot, 
+            styles.dot,
             i < input.length && styles.dotFilled,
-            error && styles.dotError
-          ]} 
+            error && styles.dotError,
+          ]}
         />
       ))}
     </View>
@@ -171,38 +211,45 @@ const SecurityLockScreen = ({ navigation }: RootStackScreenProps<'SecurityLock'>
     <IndustrialPage>
       <StatusBar barStyle="light-content" />
       <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-      
+
       <Animated.View style={[styles.container, containerStyle]}>
         {renderHeader()}
 
         <View style={styles.content}>
-          {securityType === 'pin' ? (
+          {isLockedOut ? (
+            <View style={styles.lockoutBox}>
+              <Timer size={48} color="#F59E0B" />
+              <IndustrialText style={styles.lockoutTimer}>
+                {formatCountdown(secondsLeft)}
+              </IndustrialText>
+              <IndustrialText style={styles.lockoutHint}>
+                For your security, further attempts{'\n'}are temporarily blocked.
+              </IndustrialText>
+            </View>
+          ) : securityType === 'pin' ? (
             <>
               {renderPinDots()}
-              <NumericKeypad 
+              <NumericKeypad
                 onPress={(val) => {
-                  if (input.length < 6 && !isVerifying) {
+                  if (input.length < 6 && !isVerifying && !isLockedOut) {
                     const next = input + val;
                     setInput(next);
                     if (next.length === 6) verifyPin(next);
                   }
                 }}
-                onDelete={() => !isVerifying && setInput(input.slice(0, -1))}
+                onDelete={() => !isVerifying && !isLockedOut && setInput(input.slice(0, -1))}
               />
             </>
           ) : (
-            <PatternGrid 
-              onComplete={handlePatternComplete} 
+            <PatternGrid
+              onComplete={handlePatternComplete}
               error={error}
             />
           )}
         </View>
 
-        {biometricsEnabled && (
-          <TouchableOpacity 
-            style={styles.bioButton} 
-            onPress={handleBiometrics}
-          >
+        {biometricsEnabled && !isLockedOut && (
+          <TouchableOpacity style={styles.bioButton} onPress={handleBiometrics}>
             <Fingerprint size={32} color={colors.ventureroot.industrial.primary} />
             <IndustrialText style={styles.bioText}>Use Biometrics</IndustrialText>
           </TouchableOpacity>
@@ -244,6 +291,10 @@ const styles = StyleSheet.create({
     borderColor: '#FF4B4B',
     backgroundColor: 'rgba(255, 75, 75, 0.1)',
   },
+  lockIconLockout: {
+    borderColor: '#F59E0B',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+  },
   title: {
     fontSize: 24,
     letterSpacing: 4,
@@ -253,9 +304,32 @@ const styles = StyleSheet.create({
     opacity: 0.5,
     fontSize: 12,
     letterSpacing: 1,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+  },
+  subtitleLockout: {
+    opacity: 0.9,
+    color: '#F59E0B',
   },
   content: {
     alignItems: 'center',
+  },
+  lockoutBox: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    gap: 16,
+  },
+  lockoutTimer: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#F59E0B',
+    letterSpacing: 2,
+  },
+  lockoutHint: {
+    opacity: 0.5,
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   dotsContainer: {
     flexDirection: 'row',

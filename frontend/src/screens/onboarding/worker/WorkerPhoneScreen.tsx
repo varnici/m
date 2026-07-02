@@ -1,40 +1,42 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TextInput, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
 import OnboardingShell, { OnboardingButton } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingNav } from '@/hooks/useOnboardingNav';
+import { validatePhone, formatPhoneInput } from '@/utils/validation';
 import { Phone, CheckCircle2 } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
+import { supabase } from '@/lib/supabase';
 
 export default function WorkerPhoneScreen() {
-  const { goNext, goBack, step, total } = useOnboardingNav();
-  const { width } = useWindowDimensions();
-  const horizontalPadding = Math.max(20, width * 0.06);
+  const { goNext, goBack, step, total, data } = useOnboardingNav();
 
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(data.phone ?? '');
   const [touched, setTouched] = useState(false);
 
   const digitsOnly = phone.replace(/\D/g, '');
-  const isValid = digitsOnly.length === 10;
-  const showError = touched && digitsOnly.length > 0 && digitsOnly.length < 10;
-
-  const formatPhone = (text: string) => {
-    const digits = text.replace(/\D/g, '').slice(0, 10);
-    // Format as XXX XXXX XXX
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 7) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
-    return `${digits.slice(0, 3)} ${digits.slice(3, 7)} ${digits.slice(7)}`;
-  };
+  const validation = validatePhone(digitsOnly);
+  const showError = touched && digitsOnly.length > 0 && !validation.valid;
 
   const handlePhoneChange = useCallback((text: string) => {
     const digits = text.replace(/\D/g, '');
     if (digits.length <= 10) {
-      setPhone(text);
+      setPhone(formatPhoneInput(text));
     }
     if (!touched && digits.length > 0) setTouched(true);
   }, [touched]);
 
-  const handleContinue = useCallback(() => {
-    goNext({ phone: digitsOnly });
+  const [sending, setSending] = useState(false);
+
+  const handleContinue = useCallback(async () => {
+    setSending(true);
+    const fullPhone = `+234${digitsOnly.replace(/^0/, '')}`;
+    const { error } = await supabase.auth.updateUser({ phone: fullPhone });
+    setSending(false);
+    if (error) {
+      Alert.alert('Could not send code', error.message);
+      return;
+    }
+    goNext({ phone: fullPhone });
   }, [goNext, digitsOnly]);
 
   return (
@@ -46,9 +48,9 @@ export default function WorkerPhoneScreen() {
       onBack={goBack}
       footer={
         <OnboardingButton
-          title="Continue"
+          title={sending ? 'Sending code...' : 'Continue'}
           onPress={handleContinue}
-          disabled={!isValid}
+          disabled={!validation.valid || sending}
         />
       }
     >
@@ -57,7 +59,7 @@ export default function WorkerPhoneScreen() {
         <View style={[
           styles.phoneRow,
           showError && styles.phoneRowError,
-          isValid && touched && styles.phoneRowValid,
+          validation.valid && touched && styles.phoneRowValid,
         ]}>
           <View style={styles.countryCode}>
             <Text style={styles.flag}>🇳🇬</Text>
@@ -66,22 +68,20 @@ export default function WorkerPhoneScreen() {
           <View style={styles.divider} />
           <TextInput
             style={styles.phoneInput}
-            value={formatPhone(phone)}
+            value={formatPhoneInput(phone)}
             onChangeText={handlePhoneChange}
-            placeholder="801 2345 678"
+            placeholder="801 234 5678"
             placeholderTextColor="#94A3B8"
             keyboardType="phone-pad"
-            maxLength={12} // 10 digits + 2 spaces
+            maxLength={12}
           />
         </View>
 
         {showError && (
-          <Text style={styles.errorText}>
-            Please enter a valid 10-digit phone number
-          </Text>
+          <Text style={styles.errorText}>{validation.error}</Text>
         )}
 
-        {isValid && touched && (
+        {validation.valid && touched && (
           <View style={styles.validRow}>
             <CheckCircle2 size={14} color={colors.status.success} />
             <Text style={styles.validText}>Valid phone number</Text>

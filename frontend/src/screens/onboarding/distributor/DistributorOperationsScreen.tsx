@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
+  Alert,
 } from 'react-native';
 import { MapPin, ChevronDown, Check } from 'lucide-react-native';
 import OnboardingShell, { OnboardingButton, OnboardingInput } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingNav } from '@/hooks/useOnboardingNav';
 import { colors } from '@/theme/colors';
+import * as Location from 'expo-location';
 
 const NIGERIAN_STATES = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue',
@@ -95,13 +97,21 @@ export default function DistributorOperationsScreen() {
     }));
   };
 
-  const handleCaptureGPS = () => {
+  const handleCaptureGPS = async () => {
     setCapturingGPS(true);
-    // Simulate GPS capture
-    setTimeout(() => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Location access is required to record your warehouse coordinates.');
       setCapturingGPS(false);
-      setGpsCoords({ lat: 6.5244, lng: 3.3792 });
-    }, 1500);
+      return;
+    }
+    try {
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setGpsCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+    } catch {
+      Alert.alert('Error', 'Could not capture location. Please try again.');
+    }
+    setCapturingGPS(false);
   };
 
   const isAddressValid = street.trim().length > 0 && city.trim().length > 0 && state.length > 0 && lga.length > 0;

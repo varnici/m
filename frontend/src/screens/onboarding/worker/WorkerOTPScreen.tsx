@@ -7,11 +7,13 @@ import {
   StyleSheet,
   useWindowDimensions,
   Animated,
+  Alert,
 } from 'react-native';
 import OnboardingShell, { OnboardingButton } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingNav } from '@/hooks/useOnboardingNav';
 import { Mail, Phone, RefreshCw } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
+import { supabase } from '@/lib/supabase';
 
 const OTP_LENGTH = 6;
 const TIMER_SECONDS = 180; // 3 minutes
@@ -19,7 +21,7 @@ const TIMER_SECONDS = 180; // 3 minutes
 export default function WorkerOTPScreen() {
   const { goNext, goBack, step, total, data } = useOnboardingNav();
   const { width } = useWindowDimensions();
-  const verifyType = data.email ? 'email' : 'phone';
+  const verifyType = data.phone ? 'phone' : 'email';
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [timer, setTimer] = useState(TIMER_SECONDS);
@@ -94,30 +96,45 @@ export default function WorkerOTPScreen() {
   );
 
   const verifyCode = useCallback(
-    (code: string) => {
+    async (code: string) => {
       setVerifying(true);
-      // Mock verification
-      setTimeout(() => {
+      const phone = data.phone as string | undefined;
+      if (!phone) {
         setVerifying(false);
-        // Simulate: 123456 is the valid code, anything else fails
-        if (code === '123456') {
-          goNext({ otpVerified: true });
-        } else {
-          setError(true);
-          triggerShake();
-        }
-      }, 1000);
+        Alert.alert('Error', 'Phone number not found. Please go back and re-enter it.');
+        return;
+      }
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        phone,
+        token: code,
+        type: 'phone_change',
+      });
+      setVerifying(false);
+      if (verifyError) {
+        setError(true);
+        triggerShake();
+      } else {
+        goNext({ otpVerified: true, phoneVerified: true });
+      }
     },
-    [goNext, triggerShake]
+    [goNext, triggerShake, data.phone]
   );
 
-  const handleResend = useCallback(() => {
+  const handleResend = useCallback(async () => {
+    const phone = data.phone as string | undefined;
+    if (phone) {
+      const { error: resendError } = await supabase.auth.updateUser({ phone });
+      if (resendError) {
+        Alert.alert('Could not resend', resendError.message);
+        return;
+      }
+    }
     setTimer(TIMER_SECONDS);
     setCanResend(false);
     setOtp(Array(OTP_LENGTH).fill(''));
     setError(false);
     inputRefs.current[0]?.focus();
-  }, []);
+  }, [data.phone]);
 
   const handleContinue = useCallback(() => {
     const code = otp.join('');

@@ -1,35 +1,30 @@
-import { Audio } from 'expo-av';
+import {
+  AudioModule,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from 'expo-audio';
+import type { AudioRecorder } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { inventoryService } from './inventoryService';
 import { ParsedVoiceProduct } from '@/store/inventoryManagerStore';
 
 export class VoiceInventoryParser {
-  private recording: Audio.Recording | null = null;
+  private recording: AudioRecorder | null = null;
 
-  /**
-   * Request microphone permission and prepare/configure the Audio session.
-   */
   async startRecording(): Promise<void> {
     try {
-      const permission = await Audio.requestPermissionsAsync();
-      if (permission.status !== 'granted') {
+      const permission = await requestRecordingPermissionsAsync();
+      if (!permission.granted) {
         throw new Error('Microphone permission not granted. Please enable it in Settings.');
       }
 
-      // Configure iOS and Android audio options
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-      });
+      await setAudioModeAsync({ playsInSilentMode: true });
 
-      // Start the recording with High Quality configuration
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      this.recording = recording;
-      
-      // Trigger a light tactile vibration confirming we are listening
+      const recorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
+      recorder.record();
+      this.recording = recorder;
+
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (error) {
       console.error('[VoiceParser] Failed to start recording:', error);
@@ -48,8 +43,8 @@ export class VoiceInventoryParser {
     }
 
     try {
-      await this.recording.stopAndUnloadAsync();
-      const uri = this.recording.getURI();
+      await this.recording.stop();
+      const uri = this.recording.uri;
       if (!uri) {
         throw new Error('Recording URI is null or undefined.');
       }

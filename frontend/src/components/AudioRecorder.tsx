@@ -1,13 +1,18 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Button, Text, ActivityIndicator } from 'react-native';
-import { Audio } from 'expo-av';
+import {
+  useAudioRecorder,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from 'expo-audio';
 
 interface AudioRecorderProps {
   onRecordingFinished: (audioUri: string, audioBlob: Blob) => void;
 }
 
 export default function AudioRecorder({ onRecordingFinished }: AudioRecorderProps) {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -16,12 +21,10 @@ export default function AudioRecorder({ onRecordingFinished }: AudioRecorderProp
     setError(null);
     try {
       setLoading(true);
-      await Audio.requestPermissionsAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const rec = new Audio.Recording();
-      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      await rec.startAsync();
-      setRecording(rec);
+      const { granted } = await requestRecordingPermissionsAsync();
+      if (!granted) throw new Error('Microphone permission not granted');
+      await setAudioModeAsync({ playsInSilentMode: true });
+      recorder.record();
       setIsRecording(true);
     } catch (e) {
       setError('Failed to start recording');
@@ -31,13 +34,11 @@ export default function AudioRecorder({ onRecordingFinished }: AudioRecorderProp
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
     setLoading(true);
     try {
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
+      await recorder.stop();
+      const uri = recorder.uri;
       if (!uri) throw new Error('No audio URI');
-      // Fetch the file as a blob
       const response = await fetch(uri);
       const blob = await response.blob();
       onRecordingFinished(uri, blob);
@@ -45,7 +46,6 @@ export default function AudioRecorder({ onRecordingFinished }: AudioRecorderProp
       setError('Failed to stop recording');
     } finally {
       setIsRecording(false);
-      setRecording(null);
       setLoading(false);
     }
   };

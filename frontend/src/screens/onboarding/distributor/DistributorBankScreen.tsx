@@ -82,15 +82,16 @@ export default function DistributorBankScreen() {
     }
   };
 
-  // Trigger name lookup when bank + account are complete
+  // Trigger name lookup when bank + account number are complete
   useEffect(() => {
     if (bankName && accountNumber.length === 10 && !accountError) {
       setLookingUp(true);
       setResolvedName('');
+      // Stub: a real implementation would call a name-enquiry API (e.g. Paystack)
       const timer = setTimeout(() => {
         setLookingUp(false);
-        setResolvedName('ABUBAKAR MUHAMMAD IBRAHIM');
-      }, 2000);
+        setResolvedName('ACCOUNT VERIFIED');
+      }, 1200);
       return () => clearTimeout(timer);
     }
   }, [bankName, accountNumber, accountError]);
@@ -99,7 +100,7 @@ export default function DistributorBankScreen() {
     bankName.length > 0 &&
     accountNumber.length === 10 &&
     !accountError &&
-    accountType === 'Current' &&
+    accountType.length > 0 &&
     resolvedName.length > 0;
 
   return (
@@ -112,7 +113,7 @@ export default function DistributorBankScreen() {
       footer={
         <OnboardingButton
           title="Continue"
-          onPress={() => goNext({ bankName, accountNumber, accountType, resolvedName })}
+          onPress={() => goNext({ bankName, accountNumber, accountTypeDist: accountType, resolvedAccountName: resolvedName })}
           disabled={!isFormValid}
         />
       }

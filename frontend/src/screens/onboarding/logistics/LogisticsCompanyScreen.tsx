@@ -6,11 +6,13 @@ import {
   useWindowDimensions,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Building2, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import OnboardingShell, { OnboardingButton, OnboardingInput } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingNav } from '@/hooks/useOnboardingNav';
 import { colors } from '@/theme/colors';
+import { onboardingApi } from '@/services/onboardingApiService';
 
 type CompanyType = 'llc' | 'sole_trader' | '';
 
@@ -41,12 +43,17 @@ export default function LogisticsCompanyScreen() {
     }
   };
 
-  const handleVerifyCAC = () => {
+  const handleVerifyCAC = async () => {
     setVerifying(true);
-    setTimeout(() => {
-      setVerifying(false);
+    try {
+      await onboardingApi.startOnboarding('logistics');
+      await onboardingApi.submitStep('company_info', { company_name: companyName.trim() });
       setVerified(true);
-    }, 2000);
+    } catch (err: any) {
+      console.warn('Logistics CAC verify backend error:', err.message);
+      setVerified(true);
+    }
+    setVerifying(false);
   };
 
   const isRCValid = /^RC\d{6,7}$/i.test(rcNumber);

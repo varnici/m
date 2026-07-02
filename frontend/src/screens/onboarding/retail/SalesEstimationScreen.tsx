@@ -1,109 +1,73 @@
-// @ts-nocheck
 import React, { useState } from 'react';
-import { View, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import type { RootStackScreenProps } from '@/navigation/types';
-import { TrendingUp, BarChart3, Target, Zap } from 'lucide-react-native';
-import { useOnboarding } from '../../../context/OnboardingContext';
-import { colors, spacing } from '../../../theme/colors';
-import { IndustrialCard, IndustrialButton, IndustrialText, useIndustrialTheme } from '../../../components/ui/IndustrialComponents';
-import AppHeader from '@/components/ui/AppHeader';
+import { View, Text, TouchableOpacity } from 'react-native';
+import OnboardingShell, { OnboardingButton } from '@/components/onboarding/OnboardingShell';
+import { useOnboardingNav } from '@/hooks/useOnboardingNav';
+import { colors } from '@/theme/colors';
 
-const SalesEstimationScreen = ({
-  navigation,
-}: RootStackScreenProps<'OnboardingSalesEstimation'>) => {
-  const { data, updateData } = useOnboarding();
-  const [selectedTier, setSelectedTier] = useState<string | null>(null);
-  const theme = useIndustrialTheme();
+const TIERS = [
+  { id: 'TIER_1', title: 'Standard Growth', range: '₦50k - ₦250k', desc: 'Baseline commercial velocity' },
+  { id: 'TIER_2', title: 'Industrial Scaling', range: '₦250k - ₦1M', desc: 'Accelerated trade volume' },
+  { id: 'TIER_3', title: 'Institutional Flow', range: '₦1M+', desc: 'Maximum deployment capacity' },
+];
 
-  const tiers = [
-    { id: 'TIER_1', title: 'Standard Growth', range: '₦50k - ₦250k', desc: 'Baseline commercial velocity' },
-    { id: 'TIER_2', title: 'Industrial Scaling', range: '₦250k - ₦1M', desc: 'Accelerated trade volume' },
-    { id: 'TIER_3', title: 'Institutional Flow', range: '₦1M+', desc: 'Maximum deployment capacity' }
-  ];
-
-  const handleContinue = () => {
-    if (selectedTier) {
-      updateData({ salesTier: selectedTier });
-      navigation.navigate('OnboardingTaxCompliance');
-    }
-  };
+const SalesEstimationScreen = () => {
+  const { goNext, goBack, step, total, data } = useOnboardingNav();
+  const [selectedTier, setSelectedTier] = useState<string | null>(data.salesTier || null);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.ventureroot.industrial.background }} edges={['bottom', 'left', 'right']}>
-      <AppHeader title="Sales Estimation" variant="transparent" />
-
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 20 }}>
-        {/* Monolith Header */}
-        <View style={{ marginBottom: 40 }}>
-          <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, marginBottom: 8 }}>
-            REVENUE_PROJECTION_ENGINE
-          </IndustrialText>
-          <IndustrialText variant="h1">
-            SALES{"\n"}ESTIMATION
-          </IndustrialText>
-          <IndustrialText style={{ marginTop: 12, opacity: 0.4, fontSize: 13 }}>
-            Select your projected monthly commercial turnover for limit calibration.
-          </IndustrialText>
-        </View>
-
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
-          {tiers.map((tier) => (
-            <TouchableOpacity 
-              key={tier.id}
-              onPress={() => setSelectedTier(tier.id)}
-              activeOpacity={0.9}
-            >
-              <IndustrialCard 
-                variant={selectedTier === tier.id ? "high" : "low"} 
-                style={{ 
-                  marginBottom: spacing.md, 
-                  borderLeftWidth: 4, 
-                  borderLeftColor: selectedTier === tier.id ? colors.ventureroot.industrial.primary : 'transparent',
-                  padding: 24
-                }}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <IndustrialText variant="h3">{tier.title}</IndustrialText>
-                  {selectedTier === tier.id && <Zap size={14} color={colors.ventureroot.industrial.primary} />}
+    <OnboardingShell
+      currentStep={step}
+      totalSteps={total}
+      title="Sales Estimation"
+      subtitle="Select your projected monthly commercial turnover for limit calibration."
+      onBack={goBack}
+      footer={
+        <OnboardingButton
+          title="Continue"
+          onPress={() => goNext({ salesTier: selectedTier })}
+          disabled={!selectedTier}
+        />
+      }
+    >
+      {TIERS.map((tier) => {
+        const isSelected = selectedTier === tier.id;
+        return (
+          <TouchableOpacity
+            key={tier.id}
+            onPress={() => setSelectedTier(tier.id)}
+            activeOpacity={0.7}
+            style={{
+              backgroundColor: isSelected ? '#F0FDF4' : '#FFFFFF',
+              borderWidth: 1.5,
+              borderColor: isSelected ? colors.ventureroot.green : '#E2E8F0',
+              borderRadius: 12,
+              padding: 20,
+              marginBottom: 12,
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>{tier.title}</Text>
+              {isSelected && (
+                <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: colors.ventureroot.green, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{'✓'}</Text>
                 </View>
-                <IndustrialText style={{ fontSize: 18, fontWeight: '900', color: colors.ventureroot.industrial.primary, marginBottom: 4 }}>
-                  {tier.range}
-                </IndustrialText>
-                <IndustrialText style={{ fontSize: 11, opacity: 0.4 }}>{tier.desc}</IndustrialText>
-              </IndustrialCard>
-            </TouchableOpacity>
-          ))}
+              )}
+            </View>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: colors.ventureroot.green, marginBottom: 4 }}>
+              {tier.range}
+            </Text>
+            <Text style={{ fontSize: 13, color: '#64748B' }}>{tier.desc}</Text>
+          </TouchableOpacity>
+        );
+      })}
 
-          {/* AI Intelligence Alert */}
-          <View style={{ 
-            backgroundColor: theme.surfaceLow, 
-            padding: 20, 
-            flexDirection: 'row', 
-            alignItems: 'center',
-            marginTop: 20,
-            marginBottom: 40
-          }}>
-             <Target size={20} color={colors.ventureroot.industrial.primary} />
-             <View style={{ marginLeft: 16 }}>
-                <IndustrialText style={{ fontSize: 11, fontWeight: '900' }}>AI LIMIT CALIBRATION</IndustrialText>
-                <IndustrialText style={{ fontSize: 9, opacity: 0.4, marginTop: 2 }}>
-                  Selected tier will initialize your baseline Root Credit Line.
-                </IndustrialText>
-             </View>
-          </View>
-
-          <IndustrialButton 
-            title="SAVE PROJECTION" 
-            onPress={handleContinue}
-            disabled={!selectedTier}
-            style={{ height: 64 }}
-          />
-        </ScrollView>
+      <View style={{ backgroundColor: '#F8FAFC', borderRadius: 10, padding: 16, marginTop: 8, flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ fontSize: 13, color: '#64748B', flex: 1 }}>
+          Selected tier will initialize your baseline credit line. You can update this later.
+        </Text>
       </View>
-    </SafeAreaView>
+    </OnboardingShell>
   );
 };
 
 export default SalesEstimationScreen;
-// @ts-nocheck

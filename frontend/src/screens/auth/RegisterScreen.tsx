@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Alert, TextInput, TouchableOpacity, View, ScrollView, useColorScheme } from 'react-native';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { supabase } from '@/lib/supabase';
-import { getPostAuthRoute } from '@/lib/authRouting';
+import { useUserProfileStore } from '@/store/userProfileStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { IndustrialPage, IndustrialText, IndustrialButton, IndustrialCard, useIndustrialTheme } from '@/components/ui/IndustrialComponents';
 import { ArrowLeft, Mail, Lock, User, Phone } from 'lucide-react-native';
 import { colors, spacing } from '@/theme/colors';
@@ -59,8 +60,20 @@ const RegisterScreen = ({ navigation }: RootStackScreenProps<'Register'>) => {
       Alert.alert('Missing fields', 'Fill all registration fields.');
       return;
     }
-    if (normalizedPassword.length < 6) {
-      Alert.alert('Weak password', 'Password should be at least 6 characters.');
+    if (normalizedPassword.length < 8) {
+      Alert.alert('Weak password', 'Password must be at least 8 characters.');
+      return;
+    }
+    if (!/[A-Z]/.test(normalizedPassword)) {
+      Alert.alert('Weak password', 'Include at least one uppercase letter (A–Z).');
+      return;
+    }
+    if (!/[0-9]/.test(normalizedPassword)) {
+      Alert.alert('Weak password', 'Include at least one number (0–9).');
+      return;
+    }
+    if (!/[^A-Za-z0-9]/.test(normalizedPassword)) {
+      Alert.alert('Weak password', 'Include at least one special character (!, @, #, $ …).');
       return;
     }
     if (normalizedPassword !== normalizedConfirmPassword) {
@@ -97,8 +110,10 @@ const RegisterScreen = ({ navigation }: RootStackScreenProps<'Register'>) => {
         return;
       }
 
-      // Session is now active — RootNavigator will auto-switch
-      // to RoleSelection (user type selection) for new users.
+      // Clear any stale persisted state from a previous user so
+      // RootNavigator sees accountType=null and routes to RoleSelection.
+      useUserProfileStore.getState().clear();
+      useOnboardingStore.getState().resetOnboarding();
     } catch (error: any) {
       Alert.alert('Registration failed', error.message || 'Could not create account.');
     } finally {
@@ -154,18 +169,18 @@ const RegisterScreen = ({ navigation }: RootStackScreenProps<'Register'>) => {
             theme={theme}
             isDark={isDark}
           />
-          <InputField 
-            label="PASSWORD" 
-            value={password} 
-            onChangeText={setPassword} 
-            placeholder="••••••••" 
-            icon={Lock} 
+          <InputField
+            label="PASSWORD"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Min 8 chars, A-Z, 0-9, symbol"
+            icon={Lock}
             secure={!showPassword}
             autoCapitalize="none"
             theme={theme}
             isDark={isDark}
           />
-          <InputField 
+          <InputField
             label="CONFIRM PASSWORD" 
             value={confirmPassword} 
             onChangeText={setConfirmPassword} 

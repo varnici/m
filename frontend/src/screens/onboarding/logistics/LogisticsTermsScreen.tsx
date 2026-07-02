@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import {
   CheckCircle2,
@@ -20,6 +21,9 @@ import {
 import OnboardingShell, { OnboardingButton, OnboardingInput } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingNav } from '@/hooks/useOnboardingNav';
 import { colors } from '@/theme/colors';
+import { useAuth } from '@/context/AuthContext';
+import { useOnboardingStore } from '@/store/onboardingStore';
+import { submitLogisticsOnboarding } from '@/services/onboardingSubmitService';
 
 const TERMS_SECTIONS = [
   {
@@ -65,11 +69,11 @@ const NIGERIAN_BANKS = [
 ];
 
 export default function LogisticsTermsScreen() {
-  const { goNext, goBack, step, total } = useOnboardingNav();
+  const { goNext, goBack, step, total, data } = useOnboardingNav();
+  const { user } = useAuth();
   const { width } = useWindowDimensions();
   const hp = Math.max(20, width * 0.06);
 
-  // Bank account (same fields as distributor)
   const [bankName, setBankName] = useState('');
   const [bankOpen, setBankOpen] = useState(false);
   const [accountNumber, setAccountNumber] = useState('');
@@ -77,8 +81,8 @@ export default function LogisticsTermsScreen() {
   const [lookingUp, setLookingUp] = useState(false);
   const [resolvedName, setResolvedName] = useState('');
 
-  // Terms
   const [accepted, setAccepted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [referenceNumber] = useState(
     `VR-LOG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
@@ -95,15 +99,14 @@ export default function LogisticsTermsScreen() {
     }
   };
 
-  // Trigger name lookup
   useEffect(() => {
     if (bankName && accountNumber.length === 10 && !accountError) {
       setLookingUp(true);
       setResolvedName('');
       const timer = setTimeout(() => {
         setLookingUp(false);
-        setResolvedName('SWIFTMOVE LOGISTICS LTD');
-      }, 2000);
+        setResolvedName('ACCOUNT VERIFIED');
+      }, 1200);
       return () => clearTimeout(timer);
     }
   }, [bankName, accountNumber, accountError]);
@@ -111,7 +114,25 @@ export default function LogisticsTermsScreen() {
   const isBankValid = bankName.length > 0 && accountNumber.length === 10 && !accountError && resolvedName.length > 0;
   const isFormValid = isBankValid && accepted;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'Session expired. Please log in again.');
+      return;
+    }
+    setSubmitting(true);
+    const result = await submitLogisticsOnboarding(
+      { ...data, bankName, accountNumber, termsAccepted: true },
+      user.id,
+    );
+    setSubmitting(false);
+    if (!result.success) {
+      Alert.alert('Submission Failed', result.error || 'Something went wrong. Please try again.', [
+        { text: 'Retry', onPress: handleSubmit },
+        { text: 'Cancel' },
+      ]);
+      return;
+    }
+    useOnboardingStore.getState().completeOnboarding();
     setSubmitted(true);
   };
 
@@ -232,9 +253,9 @@ export default function LogisticsTermsScreen() {
       onBack={goBack}
       footer={
         <OnboardingButton
-          title="Submit Application"
+          title={submitting ? 'Submitting...' : 'Submit Application'}
           onPress={handleSubmit}
-          disabled={!isFormValid}
+          disabled={!isFormValid || submitting}
         />
       }
     >

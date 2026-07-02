@@ -40,7 +40,7 @@ const fmt = (n: number) =>
 export default function Worker95ProfileScreen({
   navigation,
 }: RootStackScreenProps<'Worker95Profile'>) {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { summary, clearCache } = useWorkerStore();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
@@ -59,15 +59,15 @@ export default function Worker95ProfileScreen({
   const handleSignOut = () => {
     Alert.alert(
       'Sign Out',
-      'Are you sure you want to sign out of the Worker module?',
+      'Are you sure you want to sign out?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
             clearCache();
-            navigation.navigate('WorkerHome' as any);
+            await signOut();
           },
         },
       ]

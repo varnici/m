@@ -1,112 +1,162 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StatusBar, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
-import type { RootStackScreenProps } from '@/navigation/types';
-import { useOnboarding } from '../../../context/OnboardingContext';
-import { BowlHeader, CleanInput, RichButton } from '../../../components/ThemeComponents';
-import { ChevronLeft, User, Calendar, Flag, UserCheck } from 'lucide-react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import OnboardingShell, { OnboardingButton, OnboardingInput } from '@/components/onboarding/OnboardingShell';
+import { useOnboardingNav } from '@/hooks/useOnboardingNav';
+import { validateName, validateDOB, validateEmail, formatDOBInput } from '@/utils/validation';
+import { colors } from '@/theme/colors';
 
+const GENDER_OPTIONS = ['Male', 'Female', 'Prefer not to say'] as const;
 
-const BasicInfoScreen = ({
-  navigation,
-}: RootStackScreenProps<'OnboardingBasicInfo'>) => {
-  const { data, updateData } = useOnboarding();
-  
-  const [form, setForm] = useState({
-    fullName: data.fullName || '',
-    dateOfBirth: data.dateOfBirth || '',
-    gender: data.gender || '',
-    nationality: data.nationality || 'Nigerian',
-    email: data.email || '',
+const BasicInfoScreen = () => {
+  const { goNext, goBack, step, total, data } = useOnboardingNav();
+
+  const [fullName, setFullName] = useState(data.fullName || '');
+  const [dateOfBirth, setDateOfBirth] = useState(data.dateOfBirth || '');
+  const [gender, setGender] = useState(data.gender || '');
+  const [nationality, setNationality] = useState(data.nationality || 'Nigerian');
+  const [email, setEmail] = useState(data.email || '');
+
+  // Track whether user has interacted with each field for inline errors
+  const [touched, setTouched] = useState({
+    fullName: false,
+    dateOfBirth: false,
+    email: false,
   });
 
-  const handleContinue = () => {
-    updateData(form);
-    navigation.navigate('OnboardingShopInfo');
+  const nameResult = validateName(fullName);
+  const dobResult = dateOfBirth ? validateDOB(dateOfBirth) : { valid: false, error: undefined };
+  const emailResult = email ? validateEmail(email) : { valid: true }; // email is optional
+
+  const isFormValid =
+    nameResult.valid &&
+    (dateOfBirth ? dobResult.valid : false) &&
+    gender !== '' &&
+    emailResult.valid;
+
+  const handleDOBChange = (text: string) => {
+    setDateOfBirth(formatDOBInput(text));
   };
 
-  const isFormValid = form.fullName && form.dateOfBirth && form.gender;
+  const handleContinue = () => {
+    goNext({ fullName: fullName.trim(), dateOfBirth, gender, nationality, email: email.trim() });
+  };
 
   return (
-    <View className="flex-1 bg-ventureroot-clean-background">
-      <StatusBar barStyle="light-content" />
-      
-      <BowlHeader 
-        title="Personal Profile" 
-        subtitle="Individual identification (KYC Level 1). Your data is secured with industrial-grade encryption."
+    <OnboardingShell
+      currentStep={step}
+      totalSteps={total}
+      title="Personal Profile"
+      subtitle="Individual identification (KYC Level 1). Your data is secured with encryption."
+      onBack={goBack}
+      footer={
+        <OnboardingButton
+          title="Continue"
+          onPress={handleContinue}
+          disabled={!isFormValid}
+        />
+      }
+    >
+      <Text
+        style={{
+          fontSize: 12,
+          fontWeight: '700',
+          color: '#475569',
+          letterSpacing: 0.5,
+          marginBottom: 20,
+        }}
+      >
+        KYC LEVEL 1
+      </Text>
+
+      <OnboardingInput
+        label="FULL LEGAL NAME (AS IN ID)"
+        value={fullName}
+        onChangeText={(t) => {
+          setFullName(t);
+          if (!touched.fullName) setTouched((p) => ({ ...p, fullName: true }));
+        }}
+        placeholder="e.g. John Doe Akpan"
+        error={touched.fullName && !nameResult.valid ? nameResult.error : undefined}
+        autoCapitalize="words"
       />
 
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        className="flex-1"
-      >
-        <ScrollView 
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 30, paddingBottom: 40 }}
-          showsVerticalScrollIndicator={false}
-        >
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()}
-            className="w-10 h-10 rounded-full bg-slate-100 items-center justify-center mb-6"
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <OnboardingInput
+            label="DATE OF BIRTH"
+            value={dateOfBirth}
+            onChangeText={(t) => {
+              handleDOBChange(t);
+              if (!touched.dateOfBirth) setTouched((p) => ({ ...p, dateOfBirth: true }));
+            }}
+            placeholder="DD/MM/YYYY"
+            keyboardType="number-pad"
+            maxLength={10}
+            error={touched.dateOfBirth && dateOfBirth && !dobResult.valid ? dobResult.error : undefined}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: '700',
+              color: '#475569',
+              marginBottom: 6,
+              letterSpacing: 0.5,
+            }}
           >
-            <ChevronLeft color="#1E293B" size={24} />
-          </TouchableOpacity>
-
-          <Text className="text-ventureroot-clean-textLight text-sm font-bold tracking-widest uppercase mb-6 ml-1">
-            KYC Level 1
+            GENDER
           </Text>
-
-          <View className="gap-2">
-            <CleanInput
-              label="FULL LEGAL NAME (AS IN ID)"
-              placeholder="e.g. John Doe Akpan"
-              value={form.fullName}
-              onChangeText={(fullName: string) => setForm({ ...form, fullName })}
-            />
-
-            <View className="flex-row gap-4">
-              <View className="flex-1">
-                <CleanInput
-                  label="DATE OF BIRTH"
-                  placeholder="DD/MM/YYYY"
-                  value={form.dateOfBirth}
-                  onChangeText={(dateOfBirth: string) => setForm({ ...form, dateOfBirth })}
-                />
-              </View>
-              <View className="flex-1">
-                <CleanInput
-                  label="GENDER"
-                  placeholder="Male/Female"
-                  value={form.gender}
-                  onChangeText={(gender: string) => setForm({ ...form, gender })}
-                />
-              </View>
-            </View>
-
-            <CleanInput
-              label="NATIONALITY"
-              placeholder="Nigeria"
-              value={form.nationality}
-              onChangeText={(nationality: string) => setForm({ ...form, nationality })}
-            />
-
-            <CleanInput
-              label="EMAIL ADDRESS (OPTIONAL)"
-              placeholder="name@example.com"
-              value={form.email}
-              onChangeText={(email: string) => setForm({ ...form, email })}
-              keyboardType="email-address"
-            />
+          <View style={{ gap: 6 }}>
+            {GENDER_OPTIONS.map((option) => (
+              <TouchableOpacity
+                key={option}
+                onPress={() => setGender(option)}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 10,
+                  borderWidth: 1.5,
+                  borderColor: gender === option ? colors.ventureroot.green : '#E2E8F0',
+                  backgroundColor: gender === option ? 'rgba(0, 77, 44, 0.05)' : '#FFFFFF',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: '600',
+                    color: gender === option ? colors.ventureroot.green : '#475569',
+                  }}
+                >
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
+        </View>
+      </View>
 
-          <View className="mt-8">
-            <RichButton
-              title="Next: Business Profile"
-              onPress={handleContinue}
-              disabled={!isFormValid}
-            />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+      <OnboardingInput
+        label="NATIONALITY"
+        value={nationality}
+        onChangeText={setNationality}
+        placeholder="e.g. Nigerian"
+        autoCapitalize="words"
+      />
+
+      <OnboardingInput
+        label="EMAIL ADDRESS (OPTIONAL)"
+        value={email}
+        onChangeText={(t) => {
+          setEmail(t);
+          if (!touched.email) setTouched((p) => ({ ...p, email: true }));
+        }}
+        placeholder="name@example.com"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        error={touched.email && email && !emailResult.valid ? emailResult.error : undefined}
+      />
+    </OnboardingShell>
   );
 };
 

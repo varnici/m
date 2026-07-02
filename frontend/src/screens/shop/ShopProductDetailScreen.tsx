@@ -39,7 +39,7 @@ let MapboxGL: any = null;
 try {
   MapboxGL = require('@rnmapbox/maps');
 } catch (e) {
-  console.warn('Mapbox not available');
+  // Mapbox not available — fallback UI is used below
 }
 
 if (MapboxGL) {

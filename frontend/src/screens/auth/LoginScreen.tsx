@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Alert, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
 import type { RootStackScreenProps } from '@/navigation/types';
 import { supabase } from '@/lib/supabase';
@@ -34,15 +34,46 @@ const InputField = ({ label, value, onChangeText, placeholder, icon: Icon, secur
   </View>
 );
 
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_COOLDOWN_MS = 60_000; // 1 minute
+
 const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const theme = useIndustrialTheme();
   const isDark = useColorScheme() === 'dark';
 
+  // Countdown tick for login cooldown
+  useEffect(() => {
+    if (!cooldownUntil) return;
+    const tick = () => {
+      const remaining = Math.ceil((cooldownUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setCooldownSeconds(0);
+        setCooldownUntil(null);
+        setLoginAttempts(0);
+      } else {
+        setCooldownSeconds(remaining);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [cooldownUntil]);
+
+  const isCoolingDown = cooldownSeconds > 0;
+
   const handleLogin = async () => {
+    if (isCoolingDown) {
+      Alert.alert('Too many attempts', `Wait ${cooldownSeconds}s before trying again.`);
+      return;
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedPassword = password.trim();
 
@@ -58,12 +89,28 @@ const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
         password: normalizedPassword,
       });
 
-      if (loginError) throw loginError;
+      if (loginError) {
+        const next = loginAttempts + 1;
+        setLoginAttempts(next);
+        if (next >= MAX_LOGIN_ATTEMPTS) {
+          setCooldownUntil(Date.now() + LOGIN_COOLDOWN_MS);
+          Alert.alert(
+            'Account temporarily locked',
+            `Too many failed attempts. Wait 60 seconds before trying again.`
+          );
+        } else {
+          const left = MAX_LOGIN_ATTEMPTS - next;
+          Alert.alert(
+            'Login failed',
+            `${loginError.message || 'Could not sign in.'}\n${left} attempt${left === 1 ? '' : 's'} remaining.`
+          );
+        }
+        return;
+      }
 
-      // Session is now active — RootNavigator will auto-switch to the
-      // correct branch (RoleSelection if no accountType, Main if returning user).
-      // Restore accountType from DB for returning users.
-      const snapshot = await resolveAuthSnapshot();
+      setLoginAttempts(0);
+      setCooldownUntil(null);
+      await resolveAuthSnapshot();
     } catch (error: any) {
       Alert.alert('Login failed', error.message || 'Could not sign in.');
     } finally {
@@ -143,10 +190,10 @@ const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
           </View>
 
           <View style={{ marginTop: 12 }}>
-            <IndustrialButton 
-              title={isLoading ? "SIGNING IN..." : "SIGN IN"} 
-              onPress={handleLogin} 
-              disabled={isLoading}
+            <IndustrialButton
+              title={isLoading ? "SIGNING IN..." : isCoolingDown ? `WAIT ${cooldownSeconds}s` : "SIGN IN"}
+              onPress={handleLogin}
+              disabled={isLoading || isCoolingDown}
             />
           </View>
         </IndustrialCard>

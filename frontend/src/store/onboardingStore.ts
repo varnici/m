@@ -21,7 +21,6 @@ const STEP_SEQUENCES: Record<string, RouteName[]> = {
     'WorkerCompletion',
   ],
   retail: [
-    'OnboardingAccountType',
     'OnboardingPhone',
     'OnboardingBasicInfo',
     'OnboardingShopInfo',

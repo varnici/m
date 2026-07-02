@@ -1,103 +1,107 @@
-import React from 'react';
-import { View, TouchableOpacity, ScrollView, useColorScheme, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import type { RootStackScreenProps } from '@/navigation/types';
-import { useOnboarding } from '../../../context/OnboardingContext';
-import { ChevronRight } from 'lucide-react-native';
-import { colors, spacing } from '../../../theme/colors';
-import { IndustrialText, IndustrialCard, useIndustrialTheme } from '../../../components/ui/IndustrialComponents';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import OnboardingShell, { OnboardingButton } from '@/components/onboarding/OnboardingShell';
+import { useOnboardingNav } from '@/hooks/useOnboardingNav';
 import { getEnabledTypes } from '@/config/accountTypes';
-import AppHeader from '@/components/ui/AppHeader';
+import { ChevronRight } from 'lucide-react-native';
+import { colors } from '@/theme/colors';
 
-const AccountTypeScreen = ({
-  navigation,
-}: RootStackScreenProps<'OnboardingAccountType'>) => {
-  const { data, updateData } = useOnboarding();
-  const theme = useIndustrialTheme();
-  const isDark = useColorScheme() === 'dark';
+const AccountTypeScreen = () => {
+  const { goNext, goBack, step, total, data } = useOnboardingNav();
+  const [selected, setSelected] = useState<string>(data.accountType || '');
 
   const enabledTypes = getEnabledTypes();
 
-  const handleSelect = (id: string) => {
-    updateData({ accountType: id });
-    navigation.navigate('OnboardingPhone');
-  };
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }} edges={['bottom', 'left', 'right']}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <AppHeader title="Account Type" variant="transparent" />
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 20 }}>
-        <View style={{ marginBottom: 40 }}>
-          <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, marginBottom: 8 }}>
-            PROTOCOL_IDENTIFIER
-          </IndustrialText>
-          <IndustrialText variant="h1">
-            ACCOUNT{"\n"}TYPE
-          </IndustrialText>
-          <View style={{ width: 40, height: 4, backgroundColor: colors.ventureroot.industrial.primary, marginTop: 16 }} />
-        </View>
+    <OnboardingShell
+      currentStep={step}
+      totalSteps={total}
+      title="Account Type"
+      subtitle="Select your operational mode to get started."
+      onBack={goBack}
+      footer={
+        <OnboardingButton
+          title="Continue"
+          onPress={() => goNext({ accountType: selected })}
+          disabled={!selected}
+        />
+      }
+    >
+      <Text
+        style={{
+          fontSize: 12,
+          fontWeight: '700',
+          color: '#475569',
+          letterSpacing: 0.5,
+          marginBottom: 16,
+        }}
+      >
+        SELECT OPERATIONAL MODE
+      </Text>
 
-        <IndustrialText variant="label" style={{ marginBottom: 24, opacity: 0.6 }}>
-          SELECT OPERATIONAL MODE
-        </IndustrialText>
+      <View style={{ gap: 12 }}>
+        {enabledTypes.map((item) => {
+          const isActive = selected === item.id;
+          return (
+            <TouchableOpacity
+              key={item.id}
+              onPress={() => setSelected(item.id)}
+              activeOpacity={0.8}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: 20,
+                borderRadius: 14,
+                backgroundColor: '#FFFFFF',
+                borderWidth: isActive ? 2 : 1.5,
+                borderColor: isActive ? colors.ventureroot.green : '#E2E8F0',
+              }}
+            >
+              <View
+                style={{
+                  width: 52,
+                  height: 52,
+                  backgroundColor: isActive ? colors.ventureroot.green : '#F1F5F9',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 16,
+                  borderRadius: 12,
+                }}
+              >
+                <item.icon
+                  size={24}
+                  color={isActive ? '#FFFFFF' : colors.ventureroot.green}
+                />
+              </View>
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 }}
-        >
-          <View style={{ gap: 12 }}>
-            {enabledTypes.map((item) => {
-              const isActive = data.accountType === item.id;
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  onPress={() => handleSelect(item.id)}
-                  activeOpacity={0.9}
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontWeight: '800',
+                    fontSize: 14,
+                    marginBottom: 4,
+                    color: '#0F172A',
+                  }}
                 >
-                  <IndustrialCard 
-                    variant={isActive ? "high" : "low"} 
-                    style={{ 
-                      flexDirection: 'row', 
-                      alignItems: 'center', 
-                      padding: 20,
-                      borderColor: isActive ? colors.ventureroot.industrial.primary : theme.outline,
-                      borderWidth: isActive ? 2 : 1
-                    }}
-                  >
-                    <View style={{ 
-                      width: 52, 
-                      height: 52, 
-                      backgroundColor: isActive ? colors.ventureroot.industrial.primary : theme.surfaceHigh,
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      marginRight: 20,
-                      borderRadius: 8
-                    }}>
-                      <item.icon
-                        size={24}
-                        color={isActive ? '#131313' : colors.ventureroot.industrial.primary}
-                      />
-                    </View>
+                  {item.tagline}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: '#64748B',
+                    lineHeight: 16,
+                  }}
+                >
+                  {item.description}
+                </Text>
+              </View>
 
-                    <View style={{ flex: 1 }}>
-                      <IndustrialText style={{ fontWeight: '900', fontSize: 14, marginBottom: 4, color: theme.onSurface }}>
-                        {item.tagline}
-                      </IndustrialText>
-                      <IndustrialText style={{ fontSize: 10, opacity: 0.5, lineHeight: 14 }}>
-                        {item.description}
-                      </IndustrialText>
-                    </View>
-
-                    <ChevronRight size={18} color={theme.onSurface} opacity={0.3} />
-                  </IndustrialCard>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </ScrollView>
+              <ChevronRight size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          );
+        })}
       </View>
-    </SafeAreaView>
+    </OnboardingShell>
   );
 };
 

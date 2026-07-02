@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 import {
   View,
   Text,
@@ -30,6 +30,7 @@ import type { RootStackScreenProps } from '@/navigation/types';
 import { colors } from '@/theme/colors';
 
 const SettingsScreen = ({ navigation }: RootStackScreenProps<'Settings'>) => {
+  const { signOut } = useAuth();
   const [notifications, setNotifications] = useState({
     push: true,
     email: false,
@@ -191,12 +192,12 @@ const SettingsScreen = ({ navigation }: RootStackScreenProps<'Settings'>) => {
               "Are you sure you want to sign out?",
               [
                 { text: "Cancel", style: "cancel" },
-                { 
-                  text: "Sign Out", 
-                  style: "destructive", 
+                {
+                  text: "Sign Out",
+                  style: "destructive",
                   onPress: async () => {
-                    await supabase.auth.signOut();
-                  } 
+                    await signOut();
+                  }
                 }
               ]
             );

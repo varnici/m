@@ -12,11 +12,12 @@ const SALARY_RANGES = [
 ];
 
 const WorkerEmploymentScreen = () => {
-  const { goNext, goBack, step, total } = useOnboardingNav();
-  const [employer, setEmployer] = useState('');
-  const [salaryRange, setSalaryRange] = useState('');
-  const [payDate, setPayDate] = useState('');
-  const [dreamBusiness, setDreamBusiness] = useState('');
+  const { goNext, goBack, step, total, data } = useOnboardingNav();
+
+  const [employer, setEmployer] = useState(data.employer ?? '');
+  const [salaryRange, setSalaryRange] = useState(data.salaryRange ?? '');
+  const [payDate, setPayDate] = useState(data.payDate ?? '');
+  const [dreamBusiness, setDreamBusiness] = useState(data.dreamBusiness ?? '');
 
   const payDateNum = parseInt(payDate, 10);
   const isPayDateValid = payDate.length > 0 && payDateNum >= 1 && payDateNum <= 31;

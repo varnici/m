@@ -6,8 +6,7 @@ let MapboxGL: any = null;
 try {
   MapboxGL = require('@rnmapbox/maps');
 } catch (e) {
-  // Mapbox not available in Expo Go
-  console.warn('Mapbox not available - using fallback UI');
+  // Mapbox not available — fallback UI is used below
 }
 import * as Location from 'expo-location';
 import LottieView from 'lottie-react-native';

@@ -1,55 +1,34 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import OnboardingShell, { OnboardingButton, OnboardingInput } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingNav } from '@/hooks/useOnboardingNav';
+import { validateName, validateDOB, formatDOBInput, NIGERIAN_STATES } from '@/utils/validation';
 import { colors } from '@/theme/colors';
-
-const NIGERIAN_STATES = [
-  'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno',
-  'Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo',
-  'Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa',
-  'Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba',
-  'Yobe','Zamfara',
-];
 
 const GENDERS = ['Male', 'Female', 'Prefer not to say'];
 
 const WorkerProfileScreen = () => {
-  const { goNext, goBack, step, total } = useOnboardingNav();
-  const { width } = useWindowDimensions();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [dob, setDob] = useState('');
-  const [gender, setGender] = useState('');
-  const [street, setStreet] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
+  const { goNext, goBack, step, total, data } = useOnboardingNav();
+
+  const [firstName, setFirstName] = useState(data.firstName ?? '');
+  const [lastName, setLastName] = useState(data.lastName ?? '');
+  const [dob, setDob] = useState(data.dob ?? '');
+  const [gender, setGender] = useState(data.gender ?? '');
+  const [street, setStreet] = useState(data.street ?? '');
+  const [city, setCity] = useState(data.city ?? '');
+  const [state, setState] = useState(data.state ?? '');
   const [showStates, setShowStates] = useState(false);
 
   const alphaOnly = (text: string) => text.replace(/[^a-zA-Z\-\s]/g, '');
 
-  const isOver18 = () => {
-    if (!dob || dob.length !== 10) return true;
-    const [d, m, y] = dob.split('/');
-    if (!d || !m || !y) return true;
-    const birthDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-    const today = new Date();
-    const age = today.getFullYear() - birthDate.getFullYear();
-    return age >= 18;
-  };
-
-  const formatDOB = (text: string) => {
-    const digits = text.replace(/\D/g, '');
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
-  };
+  const firstNameValid = validateName(firstName);
+  const lastNameValid = validateName(lastName);
+  const dobValid = validateDOB(dob);
 
   const canContinue =
-    firstName.trim().length >= 2 &&
-    lastName.trim().length >= 2 &&
-    dob.length === 10 &&
-    isOver18() &&
+    firstNameValid.valid &&
+    lastNameValid.valid &&
+    dobValid.valid &&
     state.length > 0;
 
   return (
@@ -75,6 +54,7 @@ const WorkerProfileScreen = () => {
             onChangeText={(t) => setFirstName(alphaOnly(t))}
             placeholder="First name"
             autoCapitalize="words"
+            error={firstName.length > 0 && !firstNameValid.valid ? firstNameValid.error : undefined}
           />
         </View>
         <View style={{ flex: 1 }}>
@@ -84,6 +64,7 @@ const WorkerProfileScreen = () => {
             onChangeText={(t) => setLastName(alphaOnly(t))}
             placeholder="Last name"
             autoCapitalize="words"
+            error={lastName.length > 0 && !lastNameValid.valid ? lastNameValid.error : undefined}
           />
         </View>
       </View>
@@ -91,11 +72,11 @@ const WorkerProfileScreen = () => {
       <OnboardingInput
         label="DATE OF BIRTH"
         value={dob}
-        onChangeText={(t) => setDob(formatDOB(t))}
+        onChangeText={(t) => setDob(formatDOBInput(t))}
         placeholder="DD/MM/YYYY"
         keyboardType="number-pad"
         maxLength={10}
-        error={dob.length === 10 && !isOver18() ? 'You must be 18 or older to create an investment account.' : undefined}
+        error={dob.length === 10 && !dobValid.valid ? dobValid.error : undefined}
       />
 
       <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569', marginBottom: 8, letterSpacing: 0.5 }}>
