@@ -6,6 +6,9 @@ from app.api.v1.endpoints import (
     worker_module, shopfront, velocity, product_savings, ledger, onboarding,
 )
 from app.api.v1.endpoints.clusters import router as clusters_router
+from app.api.v1.endpoints.otp import router as otp_router
+from app.api.v1.endpoints.admin_metrics import router as admin_metrics_router
+from app.api.v1.endpoints.auth_phone import router as auth_phone_router
 
 api_router = APIRouter()
 api_router.include_router(users.router, prefix="/users", tags=["users"])
@@ -30,4 +33,7 @@ api_router.include_router(velocity.router, prefix="/velocity", tags=["velocity"]
 api_router.include_router(product_savings.router, prefix="/product-savings", tags=["product-savings"])
 api_router.include_router(ledger.router, prefix="/ledger", tags=["ledger"])
 api_router.include_router(onboarding.router, prefix="/onboarding", tags=["onboarding"])
+api_router.include_router(otp_router, prefix="/otp", tags=["otp"])
+api_router.include_router(admin_metrics_router, prefix="/admin/metrics", tags=["admin-metrics"])
+api_router.include_router(auth_phone_router, prefix="/auth/phone", tags=["auth-phone"])
 

@@ -235,6 +235,27 @@ async def proxy_ussd(path: str, request: Request):
     return await _proxy(request, settings.ussd_url, f"v1/{path}")
 
 
+@app.api_route("/v1/otp/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_otp(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/otp/{path}")
+
+
+# Phone OTP is unauthenticated — it's a pre-auth flow that returns a session
+@app.api_route("/v1/auth/phone/{path:path}", methods=["POST"], include_in_schema=False)
+async def proxy_auth_phone(path: str, request: Request):
+    return await _proxy(request, settings.core_banking_url, f"v1/auth/phone/{path}")
+
+
+@app.api_route("/v1/admin/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_admin(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/admin/{path}")
+
+
+@app.api_route("/v1/onboarding/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_onboarding(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/onboarding/{path}")
+
+
 @app.get("/v1/dashboard/{user_id}")
 async def get_dashboard_summary(user_id: str, _sub: str = Depends(require_auth)):
     """

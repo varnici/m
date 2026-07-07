@@ -56,16 +56,18 @@ except ModuleNotFoundError:
 
 from app.tasks.daily_inventory_rollup import run_daily_inventory_rollup
 from app.tasks.savings_tasks import run_auto_sweep_process
+from app.tasks.daily_platform_metrics import run_daily_platform_metrics
 
 @app.on_event("startup")
 def _startup() -> None:
     init_db()
-    
-    # Start the background scheduler for scheduled tasks
+
     scheduler = BackgroundScheduler()
-    # Run the daily inventory rollup at 00:30 every day
+    # 00:15 UTC — platform-wide financial metrics snapshot
+    scheduler.add_job(run_daily_platform_metrics, 'cron', hour=0, minute=15)
+    # 00:30 UTC — inventory rollup
     scheduler.add_job(run_daily_inventory_rollup, 'cron', hour=0, minute=30)
-    # Run the savings auto-sweep at 08:00 every day
+    # 08:00 UTC — savings auto-sweep
     scheduler.add_job(run_auto_sweep_process, 'cron', hour=8, minute=0)
     scheduler.start()
     

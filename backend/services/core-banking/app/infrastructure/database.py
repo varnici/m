@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from app.core.config import sqlalchemy_url
+from app.core.config import sqlalchemy_url, supabase_sqlalchemy_url
 
 
 class Base(DeclarativeBase):
@@ -79,6 +79,45 @@ def init_db() -> None:
 @contextmanager
 def db_session() -> Iterator[Session]:
     db = SessionLocal()()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+_supabase_engine = None
+_SupabaseSessionLocal = None
+
+
+def supabase_engine():
+    global _supabase_engine
+    if _supabase_engine is None:
+        _supabase_engine = create_engine(supabase_sqlalchemy_url(), pool_pre_ping=True)
+    return _supabase_engine
+
+
+def SupabaseSessionLocal():
+    global _SupabaseSessionLocal
+    if _SupabaseSessionLocal is None:
+        _SupabaseSessionLocal = sessionmaker(
+            bind=supabase_engine(), autocommit=False, autoflush=False, expire_on_commit=False
+        )
+    return _SupabaseSessionLocal
+
+
+@contextmanager
+def supabase_db_session() -> Iterator[Session]:
+    """Session bound to the Supabase Postgres instance, not the local `ventureroot` DB.
+
+    Use this for any raw-SQL query against public.profiles, public.savings_plans,
+    public.investments, public.business_clusters, or public.dividend_records —
+    those tables are Supabase-only. Requires SUPABASE_DATABASE_URL in the environment.
+    """
+    db = SupabaseSessionLocal()()
     try:
         yield db
         db.commit()

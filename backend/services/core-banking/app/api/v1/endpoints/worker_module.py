@@ -6,25 +6,47 @@ Tags:   worker-module
 """
 from __future__ import annotations
 
+import functools
 import hashlib
 import hmac
-import os
+import logging
 from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, func, update, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.infrastructure.database import db_session
+from app.core.config import settings
+from app.infrastructure.database import supabase_db_session as db_session
 from app.infrastructure.auth import get_current_user_id
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 MONTHLY_RATE_PCT = Decimal("1.0000")
 EARLY_WITHDRAWAL_PENALTY_PCT = Decimal("3.5000")
+
+
+def _guard(fn):
+    """Convert unhandled DB/connectivity errors into a clean 503 instead of
+    a raw 500 stack trace or (worse) a silently-empty 200. HTTPExceptions
+    raised deliberately by the handler (404, 400, etc.) pass through as-is.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception("worker_module.%s failed", fn.__name__)
+            raise HTTPException(status_code=503, detail="Worker service temporarily unavailable")
+
+    return wrapper
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -331,6 +353,7 @@ def get_dashboard_summary(user_id: str = Depends(get_current_user_id)):
 # ---------------------------------------------------------------------------
 
 @router.get("/marketplace/top-10", response_model=list[MarketplaceItemOut])
+@_guard
 def get_top10_marketplace(
     category: Optional[str] = Query(None, description="Filter by category e.g. FMCG, Retail, Agriculture"),
 ):
@@ -371,6 +394,7 @@ def get_top10_marketplace(
 # ---------------------------------------------------------------------------
 
 @router.post("/savings/configure-rules", response_model=ConfigureRulesOut)
+@_guard
 def configure_savings_rules(payload: ConfigureRulesIn, user_id: str = Depends(get_current_user_id)):
     with db_session() as db:
         result = db.execute(
@@ -400,37 +424,110 @@ def configure_savings_rules(payload: ConfigureRulesIn, user_id: str = Depends(ge
 
 
 # ---------------------------------------------------------------------------
+# POST /worker/savings/create
+# ---------------------------------------------------------------------------
+
+class CreateSavingsPlanIn(BaseModel):
+    target_name: str = Field(..., min_length=1, max_length=120)
+    target_amount: float = Field(..., gt=0)
+    automated_rule: Literal["manual", "salary_direct", "round_up"] = "manual"
+    rule_amount: float = Field(0, ge=0)
+
+
+@router.post("/savings/create", response_model=SavingsPlanOut)
+@_guard
+def create_savings_plan(payload: CreateSavingsPlanIn, user_id: str = Depends(get_current_user_id)):
+    with db_session() as db:
+        row = db.execute(
+            text(
+                "INSERT INTO public.savings_plans "
+                "(user_id, target_name, target_amount, automated_rule, rule_amount) "
+                "VALUES (:uid, :name, :amount, :rule, :rule_amt) "
+                "RETURNING id, target_name, target_amount, current_balance, "
+                "automated_rule, rule_amount, is_achieved"
+            ),
+            {
+                "uid": user_id,
+                "name": payload.target_name,
+                "amount": payload.target_amount,
+                "rule": payload.automated_rule,
+                "rule_amt": payload.rule_amount,
+            },
+        ).mappings().one()
+        db.commit()
+
+    return SavingsPlanOut(
+        id=str(row["id"]),
+        target_name=row["target_name"],
+        target_amount=float(row["target_amount"]),
+        current_balance=float(row["current_balance"]),
+        automated_rule=row["automated_rule"],
+        rule_amount=float(row["rule_amount"]),
+        is_achieved=bool(row["is_achieved"]),
+    )
+
+
+# ---------------------------------------------------------------------------
 # POST /worker/payments/webhook
 # ---------------------------------------------------------------------------
 
-_WEBHOOK_SECRET = os.getenv("PAYMENT_WEBHOOK_SECRET", "dev-secret-change-in-prod")
+DEFAULT_SAVINGS_PLAN_NAME = "General Savings"
 
 
 def _verify_signature(payload_bytes: bytes, signature_header: str) -> bool:
     expected = hmac.new(
-        _WEBHOOK_SECRET.encode(), payload_bytes, hashlib.sha256
+        settings.payment_webhook_secret.encode(), payload_bytes, hashlib.sha256
     ).hexdigest()
     return hmac.compare_digest(expected, signature_header)
 
 
 @router.post("/payments/webhook", response_model=WebhookAckOut)
+@_guard
 async def payments_webhook(
     payload: WebhookPayloadIn,
     x_webhook_signature: str = Header(..., alias="X-Webhook-Signature"),
 ):
     import json
 
+    if not settings.payment_webhook_secret:
+        # Fail closed: no configured secret means no way to trust a caller.
+        # Never fall back to a guessable committed default.
+        raise HTTPException(status_code=503, detail="Webhook not configured")
+
     raw_body = json.dumps(payload.model_dump(), default=str).encode()
     if not _verify_signature(raw_body, x_webhook_signature):
         raise HTTPException(status_code=401, detail="Invalid webhook signature")
 
     with db_session() as db:
+        # Idempotency: refuse to process the same provider event twice
+        # (retried/replayed deliveries would otherwise double-credit).
+        already_processed = db.execute(
+            text("SELECT id FROM public.payment_webhook_events WHERE reference = :ref"),
+            {"ref": payload.reference},
+        ).mappings().one_or_none()
+
+        if already_processed:
+            return WebhookAckOut(
+                received=True,
+                user_id=None,
+                credited_amount_naira=0,
+                message="Event already processed — ignored duplicate delivery.",
+            )
+
         profile_row = db.execute(
             text("SELECT id FROM public.profiles WHERE virtual_account_number = :acct"),
             {"acct": payload.destination_account},
         ).mappings().one_or_none()
 
         if profile_row is None:
+            db.execute(
+                text(
+                    "INSERT INTO public.payment_webhook_events (reference, user_id, amount_kobo) "
+                    "VALUES (:ref, NULL, :amt)"
+                ),
+                {"ref": payload.reference, "amt": payload.amount_kobo},
+            )
+            db.commit()
             return WebhookAckOut(
                 received=True,
                 user_id=None,
@@ -441,7 +538,9 @@ async def payments_webhook(
         user_id = str(profile_row["id"])
         amount_naira = payload.amount_kobo / 100
 
-        # Atomically credit the first non-achieved savings plan, else wallet
+        # Credit the first non-achieved savings plan. If the worker has none
+        # yet, open a default one instead of dropping the money — real funds
+        # received must always land somewhere real, never vanish silently.
         plan_row = db.execute(
             text(
                 "SELECT id FROM public.savings_plans "
@@ -451,18 +550,35 @@ async def payments_webhook(
             {"uid": user_id},
         ).mappings().one_or_none()
 
-        if plan_row:
-            db.execute(
+        if plan_row is None:
+            plan_row = db.execute(
                 text(
-                    "UPDATE public.savings_plans "
-                    "SET current_balance = current_balance + :amt "
-                    "WHERE id = :plan_id"
+                    "INSERT INTO public.savings_plans (user_id, target_name, target_amount) "
+                    "VALUES (:uid, :name, :amount) RETURNING id"
                 ),
-                {"amt": amount_naira, "plan_id": str(plan_row["id"])},
-            )
-            target_table = "savings_plan"
-        else:
-            target_table = "wallet (no active plan)"
+                {
+                    "uid": user_id,
+                    "name": DEFAULT_SAVINGS_PLAN_NAME,
+                    "amount": max(amount_naira * 10, 100_000.0),
+                },
+            ).mappings().one()
+
+        db.execute(
+            text(
+                "UPDATE public.savings_plans "
+                "SET current_balance = current_balance + :amt "
+                "WHERE id = :plan_id"
+            ),
+            {"amt": amount_naira, "plan_id": str(plan_row["id"])},
+        )
+
+        db.execute(
+            text(
+                "INSERT INTO public.payment_webhook_events (reference, user_id, amount_kobo) "
+                "VALUES (:ref, :uid, :amt)"
+            ),
+            {"ref": payload.reference, "uid": user_id, "amt": payload.amount_kobo},
+        )
 
         db.commit()
 
@@ -470,7 +586,7 @@ async def payments_webhook(
         received=True,
         user_id=user_id,
         credited_amount_naira=amount_naira,
-        message=f"₦{amount_naira:,.2f} credited to {target_table}.",
+        message=f"₦{amount_naira:,.2f} credited to savings plan.",
     )
 
 
@@ -479,8 +595,39 @@ async def payments_webhook(
 # ---------------------------------------------------------------------------
 
 @router.post("/investments/create", response_model=InvestmentDetailOut)
+@_guard
 def create_investment(payload: CreateInvestmentIn, user_id: str = Depends(get_current_user_id)):
     with db_session() as db:
+        # An investment must be funded from the worker's own accumulated
+        # savings balance — it cannot be minted from nothing. Debit the
+        # oldest plans first until the requested amount is covered.
+        plans = db.execute(
+            text(
+                "SELECT id, current_balance FROM public.savings_plans "
+                "WHERE user_id = :uid AND current_balance > 0 "
+                "ORDER BY created_at ASC FOR UPDATE"
+            ),
+            {"uid": user_id},
+        ).mappings().all()
+
+        available = sum(float(p["current_balance"]) for p in plans)
+        if payload.amount > available:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient available balance. You have ₦{available:,.2f} available.",
+            )
+
+        remaining = payload.amount
+        for p in plans:
+            if remaining <= 0:
+                break
+            debit = min(remaining, float(p["current_balance"]))
+            db.execute(
+                text("UPDATE public.savings_plans SET current_balance = current_balance - :amt WHERE id = :pid"),
+                {"amt": debit, "pid": str(p["id"])},
+            )
+            remaining -= debit
+
         cluster = db.execute(
             text(
                 "SELECT bc.id, bc.business_name, bc.is_active_for_investment, "
@@ -554,6 +701,7 @@ def create_investment(payload: CreateInvestmentIn, user_id: str = Depends(get_cu
 # ---------------------------------------------------------------------------
 
 @router.get("/investments/portfolio", response_model=PortfolioSummaryOut)
+@_guard
 def get_investment_portfolio(user_id: str = Depends(get_current_user_id)):
     with db_session() as db:
         rows = db.execute(
@@ -640,6 +788,7 @@ def get_investment_portfolio(user_id: str = Depends(get_current_user_id)):
 # ---------------------------------------------------------------------------
 
 @router.get("/investments/{investment_id}/details", response_model=InvestmentDetailOut)
+@_guard
 def get_investment_details(investment_id: str, user_id: str = Depends(get_current_user_id)):
     with db_session() as db:
         inv = db.execute(
@@ -708,10 +857,58 @@ def get_investment_details(investment_id: str, user_id: str = Depends(get_curren
 
 
 # ---------------------------------------------------------------------------
+# GET /worker/dividends/history — all dividend records across every
+# investment a worker holds, for the Dividend History screen. Avoids an
+# N+1 client-side fetch-per-investment pattern.
+# ---------------------------------------------------------------------------
+
+class DividendHistoryItemOut(BaseModel):
+    id: str
+    investment_id: str
+    business_name: str
+    period_date: str
+    amount: float
+    status: str
+    collected_at: Optional[str] = None
+
+
+@router.get("/dividends/history", response_model=list[DividendHistoryItemOut])
+@_guard
+def get_dividend_history(user_id: str = Depends(get_current_user_id)):
+    with db_session() as db:
+        rows = db.execute(
+            text(
+                "SELECT dr.id, dr.investment_id, bc.business_name, dr.period_date, "
+                "dr.amount, dr.status, dr.collected_at "
+                "FROM public.dividend_records dr "
+                "JOIN public.investments i ON i.id = dr.investment_id "
+                "JOIN public.business_clusters bc ON bc.id = i.cluster_id "
+                "WHERE i.investor_id = :uid "
+                "ORDER BY dr.period_date DESC"
+            ),
+            {"uid": user_id},
+        ).mappings().all()
+
+        return [
+            DividendHistoryItemOut(
+                id=str(r["id"]),
+                investment_id=str(r["investment_id"]),
+                business_name=r["business_name"],
+                period_date=str(r["period_date"]),
+                amount=float(r["amount"]),
+                status=r["status"],
+                collected_at=str(r["collected_at"]) if r["collected_at"] else None,
+            )
+            for r in rows
+        ]
+
+
+# ---------------------------------------------------------------------------
 # POST /worker/investments/{investment_id}/collect-dividends
 # ---------------------------------------------------------------------------
 
 @router.post("/investments/{investment_id}/collect-dividends", response_model=CollectDividendOut)
+@_guard
 def collect_dividends(investment_id: str, user_id: str = Depends(get_current_user_id)):
     with db_session() as db:
         inv = db.execute(
@@ -774,6 +971,7 @@ def collect_dividends(investment_id: str, user_id: str = Depends(get_current_use
 # ---------------------------------------------------------------------------
 
 @router.post("/investments/{investment_id}/withdraw", response_model=WithdrawOut)
+@_guard
 def withdraw_investment(investment_id: str, user_id: str = Depends(get_current_user_id)):
     with db_session() as db:
         inv = db.execute(
@@ -864,11 +1062,19 @@ def withdraw_investment(investment_id: str, user_id: str = Depends(get_current_u
 
 
 # ---------------------------------------------------------------------------
-# POST /worker/investments/accrue-dividends  (admin/cron trigger)
+# POST /worker/investments/accrue-dividends  (cron trigger — not a user action)
 # ---------------------------------------------------------------------------
 
 @router.post("/investments/accrue-dividends")
-def trigger_dividend_accrual(user_id: str = Depends(get_current_user_id)):
+@_guard
+def trigger_dividend_accrual(x_cron_secret: str = Header(default="", alias="X-Cron-Secret")):
+    if not settings.worker_cron_secret or not hmac.compare_digest(
+        x_cron_secret, settings.worker_cron_secret
+    ):
+        # Fail closed: this runs platform-wide for every investor, so it must
+        # never be reachable by an ordinary authenticated mobile session.
+        raise HTTPException(status_code=403, detail="Not authorized to trigger accrual")
+
     with db_session() as db:
         result = db.execute(text("SELECT public.accrue_monthly_dividends() AS cnt"))
         count = result.scalar()

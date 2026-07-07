@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     supabase_url: str = ""
     supabase_service_key: str = ""
+    supabase_db_url: str = ""
     api_secret_key: str = "dev_api_secret"
 
     postgres_host: str = "localhost"
@@ -40,6 +41,39 @@ class Settings(BaseSettings):
 
     jwt_secret: str = "dev_secret_only_for_local_use"
     jwt_algorithm: str = "HS256"
+
+    # ── SMS provider ──────────────────────────────────────────────
+    sms_provider: str = "mock"          # 'mock' | 'termii'
+
+    # ── Termii (Nigerian SMS provider) ────────────────────────────
+    termii_api_key: str = ""
+    termii_sender_id: str = "N-Alert"   # generic sender approved for all NG numbers
+    termii_channel: str = "generic"     # 'generic' works without DND approval
+    termii_base_url: str = "https://api.ng.termii.com/api"
+
+    # ── Email (OTP & notifications) ───────────────────────────────
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_name: str = "VentureRoot"
+    smtp_from_email: str = "noreply@ventureroot.com"
+
+    # ── OTP policy ────────────────────────────────────────────────
+    otp_expiry_minutes: int = 10
+    otp_max_per_window: int = 3       # max sends per target per 10-min window
+    otp_max_verify_attempts: int = 5  # failed verify attempts before OTP is voided
+
+    # ── Platform financials (for breakeven calc) ──────────────────
+    platform_fee_rate: float = 0.003   # 0.3%
+    monthly_operating_cost_ngn: float = 150_000.0
+    drp_reserve_rate: float = 0.01     # 1% monthly reserve deducted from merchant interest
+
+    # ── Worker module security ─────────────────────────────────────
+    # No defaults on purpose — endpoints must fail closed (503) rather than
+    # accept a guessable committed default when these are unset.
+    payment_webhook_secret: str = ""
+    worker_cron_secret: str = ""
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -69,3 +103,19 @@ def sqlalchemy_url() -> str:
         f"postgresql+psycopg2://{settings.postgres_user}:{settings.postgres_password}"
         f"@{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"
     )
+
+
+def supabase_sqlalchemy_url() -> str:
+    """Connection string for the Supabase-hosted Postgres instance.
+
+    worker_module.py reads/writes public.profiles, public.savings_plans,
+    public.investments, public.business_clusters, and public.dividend_records
+    directly via raw SQL — those tables live only in Supabase, not in the
+    local `ventureroot` Postgres this service otherwise uses. Without
+    SUPABASE_DATABASE_URL set, those queries silently fail against the wrong
+    database and every worker dashboard renders empty.
+    """
+    override = os.getenv("SUPABASE_DATABASE_URL") or settings.supabase_db_url
+    if override:
+        return override
+    return sqlalchemy_url()

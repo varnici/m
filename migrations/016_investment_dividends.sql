@@ -3,7 +3,9 @@
 -- Migration: 016_investment_dividends.sql
 --
 -- Business rules:
---   • Fixed to 10% monthly dividend on principal
+--   • 1% monthly dividend on principal (see MONTHLY_RATE_PCT in worker_module.py,
+--     which is the source of truth — always passed explicitly on insert, so the
+--     10.0000 column default below is never actually used for real investments)
 --   • Term options: 6 months or 12 months
 --   • Dividends become collectable after each month period
 --   • Early withdrawal penalty: 3.5% of the amount withdrawn before maturity
