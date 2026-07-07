@@ -8,47 +8,53 @@ import {
   useWindowDimensions,
   Animated,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import OnboardingShell, { OnboardingButton } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingNav } from '@/hooks/useOnboardingNav';
 import { Mail, Phone, RefreshCw } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
-import { supabase } from '@/lib/supabase';
+import { otpService, type OtpChannel } from '@/services/otpService';
+import { sendEmailOtp, verifyEmailOtp } from '@/lib/emailOtp';
 
 const OTP_LENGTH = 6;
-const TIMER_SECONDS = 180; // 3 minutes
+const TIMER_SECONDS = 180;
 
 export default function WorkerOTPScreen() {
   const { goNext, goBack, step, total, data } = useOnboardingNav();
   const { width } = useWindowDimensions();
-  const verifyType = data.phone ? 'phone' : 'email';
+
+  // Resolve initial channel + target from onboarding data
+  const initialChannel: OtpChannel = (data.otpChannel as OtpChannel) || 'sms';
+  const initialTarget: string = (data.otpTarget as string) || (data.phone as string) || '';
+
+  // Local state allows mid-flow channel switch without mutating store
+  const [activeChannel, setActiveChannel] = useState<OtpChannel>(initialChannel);
+  const [activeTarget, setActiveTarget] = useState<string>(initialTarget);
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [timer, setTimer] = useState(TIMER_SECONDS);
   const [canResend, setCanResend] = useState(false);
   const [error, setError] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  // Countdown timer
+  // ── Countdown ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (timer <= 0) {
-      setCanResend(true);
-      return;
-    }
-    const interval = setInterval(() => {
-      setTimer((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(interval);
+    setTimer(TIMER_SECONDS);
+    setCanResend(false);
+  }, [activeTarget]);
+
+  useEffect(() => {
+    if (timer <= 0) { setCanResend(true); return; }
+    const id = setInterval(() => setTimer((p) => p - 1), 1000);
+    return () => clearInterval(id);
   }, [timer]);
 
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   const triggerShake = useCallback(() => {
     Animated.sequence([
@@ -60,6 +66,7 @@ export default function WorkerOTPScreen() {
     ]).start();
   }, [shakeAnim]);
 
+  // ── OTP box input ──────────────────────────────────────────────────────────
   const handleChange = useCallback(
     (text: string, index: number) => {
       setError(false);
@@ -67,20 +74,13 @@ export default function WorkerOTPScreen() {
       const newOtp = [...otp];
       newOtp[index] = digit;
       setOtp(newOtp);
-
-      if (digit && index < OTP_LENGTH - 1) {
-        inputRefs.current[index + 1]?.focus();
-      }
-
-      // Auto-verify when all digits entered
+      if (digit && index < OTP_LENGTH - 1) inputRefs.current[index + 1]?.focus();
       if (digit && index === OTP_LENGTH - 1) {
         const code = newOtp.join('');
-        if (code.length === OTP_LENGTH) {
-          verifyCode(code);
-        }
+        if (code.length === OTP_LENGTH) verifyCode(code);
       }
     },
-    [otp]
+    [otp],
   );
 
   const handleKeyPress = useCallback(
@@ -92,66 +92,110 @@ export default function WorkerOTPScreen() {
         inputRefs.current[index - 1]?.focus();
       }
     },
-    [otp]
+    [otp],
   );
 
+  // ── Verify ─────────────────────────────────────────────────────────────────
   const verifyCode = useCallback(
     async (code: string) => {
-      setVerifying(true);
-      const phone = data.phone as string | undefined;
-      if (!phone) {
-        setVerifying(false);
-        Alert.alert('Error', 'Phone number not found. Please go back and re-enter it.');
+      if (!activeTarget) {
+        Alert.alert('Error', 'Verification target not found. Please go back and re-enter your details.');
         return;
       }
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        phone,
-        token: code,
-        type: 'phone_change',
-      });
-      setVerifying(false);
-      if (verifyError) {
+      setVerifying(true);
+      try {
+        if (activeChannel === 'email') {
+          await verifyEmailOtp(activeTarget, code);
+        } else {
+          await otpService.verifyOtp(activeTarget, activeChannel, code);
+        }
+        const patch: Record<string, any> = {
+          otpVerified: true,
+          otpChannel: activeChannel,
+          otpTarget: activeTarget,
+        };
+        if (activeChannel === 'sms') patch.phoneVerified = true;
+        if (activeChannel === 'email') patch.emailVerified = true;
+        goNext(patch);
+      } catch (err: any) {
         setError(true);
         triggerShake();
-      } else {
-        goNext({ otpVerified: true, phoneVerified: true });
+        if (err.message) Alert.alert('Verification failed', err.message);
+      } finally {
+        setVerifying(false);
       }
     },
-    [goNext, triggerShake, data.phone]
+    [goNext, triggerShake, activeTarget, activeChannel],
   );
 
-  const handleResend = useCallback(async () => {
-    const phone = data.phone as string | undefined;
-    if (phone) {
-      const { error: resendError } = await supabase.auth.updateUser({ phone });
-      if (resendError) {
-        Alert.alert('Could not resend', resendError.message);
-        return;
+  const handleContinue = useCallback(() => {
+    const code = otp.join('');
+    if (code.length === OTP_LENGTH) verifyCode(code);
+  }, [otp, verifyCode]);
+
+  // ── Resend ─────────────────────────────────────────────────────────────────
+  const doResend = useCallback(async (channel: OtpChannel, target: string) => {
+    try {
+      if (channel === 'email') {
+        await sendEmailOtp(target);
+      } else {
+        await otpService.sendOtp(target, channel, 'phone_verify');
       }
+    } catch (err: any) {
+      Alert.alert('Could not resend', err.message || 'Please try again later.');
+      return false;
     }
+    return true;
+  }, []);
+
+  const handleResend = useCallback(async () => {
+    const ok = await doResend(activeChannel, activeTarget);
+    if (!ok) return;
     setTimer(TIMER_SECONDS);
     setCanResend(false);
     setOtp(Array(OTP_LENGTH).fill(''));
     setError(false);
     inputRefs.current[0]?.focus();
-  }, [data.phone]);
+  }, [activeChannel, activeTarget, doResend]);
 
-  const handleContinue = useCallback(() => {
-    const code = otp.join('');
-    if (code.length === OTP_LENGTH) {
-      verifyCode(code);
+  // ── Switch channel ─────────────────────────────────────────────────────────
+  const emailTarget = (data.email as string | undefined)?.trim().toLowerCase();
+  const phoneTarget = data.otpChannel === 'email'
+    ? (data.phone as string | undefined)
+    : undefined;
+
+  const alternateChannel: OtpChannel = activeChannel === 'sms' ? 'email' : 'sms';
+  const alternateTarget = activeChannel === 'sms' ? emailTarget : phoneTarget;
+  const canSwitch = !!alternateTarget;
+
+  const handleSwitchChannel = useCallback(async () => {
+    if (!alternateTarget) return;
+    setSwitching(true);
+    const ok = await doResend(alternateChannel, alternateTarget);
+    if (ok) {
+      setActiveChannel(alternateChannel);
+      setActiveTarget(alternateTarget);
+      setOtp(Array(OTP_LENGTH).fill(''));
+      setError(false);
+      inputRefs.current[0]?.focus();
     }
-  }, [otp, verifyCode]);
+    setSwitching(false);
+  }, [alternateChannel, alternateTarget, doResend]);
 
   const isComplete = otp.every((d) => d !== '');
   const boxSize = Math.min(48, (width - 80) / OTP_LENGTH - 8);
+
+  // ── Subtitle description ───────────────────────────────────────────────────
+  const sentDescription = activeChannel === 'sms'
+    ? `phone number ${activeTarget}`
+    : `email address ${activeTarget}`;
 
   return (
     <OnboardingShell
       currentStep={step}
       totalSteps={total}
       title="Verify your account"
-      subtitle={`Enter the 6-digit code sent to your ${verifyType === 'email' ? 'email address' : 'phone number'}.`}
+      subtitle={`Enter the 6-digit code sent to your ${activeChannel === 'email' ? 'email address' : 'phone number'}.`}
       onBack={goBack}
       footer={
         <OnboardingButton
@@ -162,35 +206,31 @@ export default function WorkerOTPScreen() {
       }
     >
       <View style={{ alignItems: 'center', marginTop: 24 }}>
-        {/* Verification type indicator */}
-        <View style={styles.typeIndicator}>
-          {verifyType === 'email' ? (
-            <Mail size={18} color={colors.ventureroot.green} />
-          ) : (
-            <Phone size={18} color={colors.ventureroot.green} />
-          )}
-          <Text style={styles.typeText}>
-            {verifyType === 'email' ? 'Email verification' : 'SMS verification'}
+        {/* Channel badge */}
+        <View style={[
+          styles.typeIndicator,
+          activeChannel === 'email' && { backgroundColor: '#EFF6FF' },
+        ]}>
+          {activeChannel === 'email'
+            ? <Mail size={18} color="#3B82F6" />
+            : <Phone size={18} color={colors.ventureroot.green} />}
+          <Text style={[
+            styles.typeText,
+            activeChannel === 'email' && { color: '#2563EB' },
+          ]}>
+            {activeChannel === 'email' ? `Email code → ${activeTarget}` : `SMS code → ${activeTarget}`}
           </Text>
         </View>
 
-        {/* OTP Boxes */}
-        <Animated.View
-          style={[
-            styles.otpRow,
-            { transform: [{ translateX: shakeAnim }] },
-          ]}
-        >
+        {/* OTP boxes */}
+        <Animated.View style={[styles.otpRow, { transform: [{ translateX: shakeAnim }] }]}>
           {Array.from({ length: OTP_LENGTH }).map((_, index) => (
             <TextInput
               key={index}
               ref={(ref) => { inputRefs.current[index] = ref; }}
               style={[
                 styles.otpBox,
-                {
-                  width: boxSize,
-                  height: boxSize + 8,
-                },
+                { width: boxSize, height: boxSize + 8 },
                 otp[index] !== '' && styles.otpBoxFilled,
                 error && styles.otpBoxError,
               ]}
@@ -206,28 +246,48 @@ export default function WorkerOTPScreen() {
           ))}
         </Animated.View>
 
-        {/* Error message */}
         {error && (
-          <Text style={styles.errorText}>
-            Invalid code. Please check and try again.
-          </Text>
+          <Text style={styles.errorText}>Invalid code. Please check and try again.</Text>
         )}
 
         {/* Timer / Resend */}
         <View style={styles.timerContainer}>
-          {canResend ? (
-            <TouchableOpacity
-              onPress={handleResend}
-              style={styles.resendButton}
-              accessibilityRole="button"
-            >
-              <RefreshCw size={14} color={colors.ventureroot.green} />
-              <Text style={styles.resendText}>Resend OTP</Text>
-            </TouchableOpacity>
+          {switching ? (
+            <ActivityIndicator size="small" color={colors.ventureroot.green} />
+          ) : canResend ? (
+            <View style={{ alignItems: 'center', gap: 10 }}>
+              <TouchableOpacity onPress={handleResend} style={styles.resendButton}>
+                <RefreshCw size={14} color={colors.ventureroot.green} />
+                <Text style={styles.resendText}>Resend OTP</Text>
+              </TouchableOpacity>
+
+              {/* Channel switch */}
+              {canSwitch && (
+                <TouchableOpacity
+                  onPress={handleSwitchChannel}
+                  style={[
+                    styles.resendButton,
+                    {
+                      backgroundColor: activeChannel === 'sms' ? '#EFF6FF' : 'rgba(0,77,44,0.05)',
+                      marginTop: 4,
+                    },
+                  ]}
+                >
+                  {activeChannel === 'sms'
+                    ? <Mail size={14} color="#3B82F6" />
+                    : <Phone size={14} color={colors.ventureroot.green} />}
+                  <Text style={[
+                    styles.resendText,
+                    { color: activeChannel === 'sms' ? '#2563EB' : colors.ventureroot.green },
+                  ]}>
+                    {activeChannel === 'sms' ? 'No signal? Try email instead' : 'Try SMS instead'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           ) : (
             <Text style={styles.timerText}>
-              Resend code in{' '}
-              <Text style={styles.timerBold}>{formatTime(timer)}</Text>
+              Resend code in <Text style={styles.timerBold}>{formatTime(timer)}</Text>
             </Text>
           )}
         </View>
@@ -235,8 +295,7 @@ export default function WorkerOTPScreen() {
 
       <View style={{ marginTop: 'auto', paddingBottom: 12 }}>
         <Text style={styles.helperText}>
-          Didn't receive the code? Check your spam folder or request a new one
-          after the timer expires.
+          Code sent to {sentDescription}. Check your spam folder if using email. Request a new one after the timer expires.
         </Text>
       </View>
     </OnboardingShell>
@@ -252,12 +311,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
     marginBottom: 32,
+    maxWidth: '90%',
   },
   typeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#004D2C',
     marginLeft: 8,
+    flexShrink: 1,
   },
   otpRow: {
     flexDirection: 'row',
@@ -307,12 +368,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     backgroundColor: '#F0FDF4',
     borderRadius: 20,
+    gap: 8,
   },
   resendText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#004D2C',
-    marginLeft: 8,
   },
   helperText: {
     fontSize: 12,

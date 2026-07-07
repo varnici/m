@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,6 +26,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { workerService } from '@/services/workerService';
 import { useWorkerStore, selectActivePlans } from '@/store/workerStore';
 import type { RootStackScreenProps } from '@/navigation/types';
+
+const DEFAULT_TARGET_AMOUNT = 500000;
 
 const fmt = (n: number) =>
   `₦${n.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -60,11 +63,28 @@ export default function SavingsLaunchpadScreen({
   navigation,
 }: RootStackScreenProps<'Worker95Savings'>) {
   const plans = useWorkerStore(selectActivePlans);
-  const { updateSavingsPlanRule } = useWorkerStore();
+  const { updateSavingsPlanRule, addSavingsPlan } = useWorkerStore();
   const queryClient = useQueryClient();
 
   // Pick first non-achieved plan as the focal target
   const activePlan = plans.find((p) => !p.is_achieved) ?? plans[0] ?? null;
+
+  const [targetNameInput, setTargetNameInput] = useState('My First Business Fund');
+
+  const { mutate: createPlan, isLoading: isCreatingPlan } = useMutation({
+    mutationFn: () =>
+      workerService.createSavingsPlan({
+        target_name: targetNameInput.trim() || 'My First Business Fund',
+        target_amount: DEFAULT_TARGET_AMOUNT,
+      }),
+    onSuccess: (plan) => {
+      addSavingsPlan(plan);
+      queryClient.invalidateQueries(['worker-dashboard']);
+    },
+    onError: () => {
+      Alert.alert('Error', 'Failed to create savings target. Please try again.');
+    },
+  });
 
   // Automation toggles (local state — committed via API on confirm)
   const [salaryDirect, setSalaryDirect] = useState(
@@ -143,8 +163,27 @@ export default function SavingsLaunchpadScreen({
             <Target size={40} color="#D1D5DB" />
             <Text style={styles.noPlanText}>No savings target configured yet.</Text>
             <Text style={styles.noPlanHint}>
-              Contact support or use the dashboard to create your first business savings target.
+              Give your first business fund a name to get started.
             </Text>
+            <TextInput
+              style={styles.createInput}
+              value={targetNameInput}
+              onChangeText={setTargetNameInput}
+              placeholder="e.g. My First Business Fund"
+              placeholderTextColor="#9CA3AF"
+              maxLength={120}
+            />
+            <TouchableOpacity
+              style={[styles.confirmBtn, isCreatingPlan && styles.confirmBtnDisabled, { width: '100%' }]}
+              onPress={() => createPlan()}
+              disabled={isCreatingPlan}
+            >
+              {isCreatingPlan ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.confirmBtnText}>Create Savings Target</Text>
+              )}
+            </TouchableOpacity>
           </View>
         ) : (
           <>
@@ -306,9 +345,21 @@ const styles = StyleSheet.create({
   title: { fontSize: 17, fontWeight: '700', color: '#111827' },
   subtitle: { fontSize: 12, color: '#9CA3AF', marginTop: 1 },
 
-  noPlanCard: { flex: 1, alignItems: 'center', paddingVertical: 80, gap: 10 },
+  noPlanCard: { flex: 1, alignItems: 'center', paddingVertical: 80, paddingHorizontal: 24, gap: 10 },
   noPlanText: { fontSize: 16, fontWeight: '600', color: '#374151' },
-  noPlanHint: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', maxWidth: 280 },
+  noPlanHint: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', maxWidth: 280, marginBottom: 8 },
+  createInput: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 14,
+    color: '#111827',
+    marginBottom: 16,
+  },
 
   targetCard: { borderRadius: 20, padding: 22, marginBottom: 24 },
   targetLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 13, marginBottom: 4 },

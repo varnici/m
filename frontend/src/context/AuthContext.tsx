@@ -9,6 +9,8 @@ type AuthContextType = {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
+  needsPasswordReset: boolean;
+  clearPasswordReset: () => void;
   signOut: () => Promise<void>;
 };
 
@@ -16,6 +18,8 @@ export const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
   isLoading: true,
+  needsPasswordReset: false,
+  clearPasswordReset: () => {},
   signOut: async () => {},
 });
 
@@ -25,6 +29,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [needsPasswordReset, setNeedsPasswordReset] = useState(false);
   // Ref tracks the active user ID without stale closure issues
   const activeUserIdRef = useRef<string | null>(null);
 
@@ -48,6 +53,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           activeUserIdRef.current = null;
           setSession(null);
           setUser(null);
+          return;
+        }
+
+        // Password recovery deep link — route to ResetPassword screen
+        if (event === 'PASSWORD_RECOVERY') {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setNeedsPasswordReset(true);
           return;
         }
 
@@ -80,7 +93,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, isLoading, signOut }}>
+    <AuthContext.Provider value={{
+      session, user, isLoading,
+      needsPasswordReset,
+      clearPasswordReset: () => setNeedsPasswordReset(false),
+      signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );

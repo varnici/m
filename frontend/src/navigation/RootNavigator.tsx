@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { colors } from '@/theme/colors';
 
 import AuthNavigator from './AuthNavigator';
+import ResetPasswordScreen from '@/screens/auth/ResetPasswordScreen';
 import MainTabNavigator from './MainTabNavigator';
 import WorkerTabNavigator from './WorkerTabNavigator';
 import ComingSoonScreen from '@/screens/ComingSoonScreen';
@@ -83,13 +84,13 @@ import ShopProductDetailScreen from '@/screens/shop/ShopProductDetailScreen';
 import VentureRouteScreen from '@/screens/VentureRouteScreen';
 import ShopfrontScreen from '@/screens/shopfront/ShopfrontScreen';
 import ProductSavingsScreen from '@/screens/savings/ProductSavingsScreen';
-import Worker95Navigator from '@/navigation/Worker95Navigator';
 import FinancialLedgerScreen from '@/screens/worker/FinancialLedgerScreen';
 import Worker95BusinessDetailScreen from '@/screens/worker/Worker95BusinessDetailScreen';
 import Worker95InvestConfirmScreen from '@/screens/worker/Worker95InvestConfirmScreen';
-import Worker95SalaryConfigScreen from '@/screens/worker/Worker95SalaryConfigScreen';
 import Worker95ProfileScreen from '@/screens/worker/Worker95ProfileScreen';
 import Worker95DividendsScreen from '@/screens/worker/Worker95DividendsScreen';
+import InvestmentPortfolioScreen from '@/screens/worker/InvestmentPortfolioScreen';
+import InvestmentDetailScreen from '@/screens/worker/InvestmentDetailScreen';
 
 import AccountTypeScreen from '@/screens/onboarding/retail/AccountTypeScreen';
 import PhoneRegistrationScreen from '@/screens/onboarding/retail/PhoneRegistrationScreen';
@@ -194,7 +195,7 @@ const ONBOARDING_SCREENS = {
 const SESSION_BACKGROUND_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
 const RootNavigator = () => {
-  const { session, isLoading: authLoading, signOut } = useAuth();
+  const { session, isLoading: authLoading, signOut, needsPasswordReset } = useAuth();
   const { isLocked, securityType, setIsLocked, backgroundedAt, setBackgroundedAt } = useSecurityStore();
   const accountType = useUserProfileStore((s) => s.accountType);
   const onboardingComplete = useOnboardingStore((s) => s.isComplete);
@@ -244,7 +245,9 @@ const RootNavigator = () => {
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {showLock ? (
+      {needsPasswordReset ? (
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ animation: 'fade' }} />
+      ) : showLock ? (
         <Stack.Screen name="SecurityLock" component={SecurityLockScreen} options={{ animation: 'fade' }} />
       ) : !session ? (
         <Stack.Screen name="Auth" component={AuthNavigator} />
@@ -332,10 +335,10 @@ const RootNavigator = () => {
           <Stack.Screen name="Shopfront" component={ShopfrontScreen} />
           <Stack.Screen name="ProductSavings" component={ProductSavingsScreen} />
 
-          <Stack.Screen name="Worker95Module" component={Worker95Navigator} />
           <Stack.Screen name="Worker95BusinessDetail" component={Worker95BusinessDetailScreen} />
           <Stack.Screen name="Worker95InvestConfirm" component={Worker95InvestConfirmScreen} />
-          <Stack.Screen name="Worker95SalaryConfig" component={Worker95SalaryConfigScreen} />
+          <Stack.Screen name="Worker95Portfolio" component={InvestmentPortfolioScreen as any} />
+          <Stack.Screen name="Worker95InvestmentDetail" component={InvestmentDetailScreen as any} />
           <Stack.Screen name="Worker95Ledger" component={FinancialLedgerScreen} />
           <Stack.Screen name="Worker95Profile" component={Worker95ProfileScreen} />
           <Stack.Screen name="Worker95Dividends" component={Worker95DividendsScreen} />

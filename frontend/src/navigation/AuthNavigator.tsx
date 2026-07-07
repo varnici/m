@@ -10,6 +10,11 @@ import BVNVerificationScreen from '@/screens/auth/BVNVerificationScreen';
 import PINSetupScreen from '@/screens/auth/PINSetupScreen';
 import PatternSetupScreen from '@/screens/auth/PatternSetupScreen';
 import BiometricSetupScreen from '@/screens/auth/BiometricSetupScreen';
+import ForgotPasswordScreen from '@/screens/auth/ForgotPasswordScreen';
+import ResetPasswordScreen from '@/screens/auth/ResetPasswordScreen';
+import EmailEntryScreen from '@/screens/auth/EmailEntryScreen';
+import PhoneEntryScreen from '@/screens/auth/PhoneEntryScreen';
+import OtpEntryScreen from '@/components/otp/OtpEntryScreen';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -29,6 +34,11 @@ const AuthNavigator = () => {
       <Stack.Screen name="PINSetup" component={PINSetupScreen} />
       <Stack.Screen name="PatternSetup" component={PatternSetupScreen} />
       <Stack.Screen name="BiometricSetup" component={BiometricSetupScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+      <Stack.Screen name="EmailEntry" component={EmailEntryScreen} />
+      <Stack.Screen name="PhoneEntry" component={PhoneEntryScreen} />
+      <Stack.Screen name="OtpEntry" component={OtpEntryScreen} />
     </Stack.Navigator>
   );
 };

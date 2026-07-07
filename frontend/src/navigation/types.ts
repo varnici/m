@@ -6,6 +6,11 @@ export type AuthStackParamList = {
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: undefined;
+  EmailEntry: undefined;
+  PhoneEntry: undefined;
+  OtpEntry: { channel: 'email' | 'phone'; target: string; display?: string };
   RoleSelection: undefined;
   BVNVerification: undefined;
   PINSetup: undefined;
@@ -67,13 +72,20 @@ export type WorkerTabParamList = {
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Onboarding: NavigatorScreenParams<OnboardingStackParamList>;
-  Main: NavigatorScreenParams<MainTabParamList>;
+  // "Main" resolves to MainTabNavigator (retail) or WorkerTabNavigator (nine_to_five)
+  // depending on account type — accept either tab's params for nested navigation.
+  Main: NavigatorScreenParams<MainTabParamList> | NavigatorScreenParams<WorkerTabParamList>;
 
   // Nested navigator screen names are listed here because many screens use the
   // root navigation prop for cross-stack shortcuts.
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: undefined;
+  EmailEntry: undefined;
+  PhoneEntry: undefined;
+  OtpEntry: { channel: 'email' | 'phone'; target: string; display?: string };
   RoleSelection: undefined;
   BVNVerification: undefined;
   PINSetup: undefined;
@@ -165,10 +177,10 @@ export type RootStackParamList = {
   StaffActivity: undefined;
 
   // Worker95 detail screens (pushed from WorkerTabNavigator)
-  Worker95Module: undefined;
   Worker95BusinessDetail: { item: any };
   Worker95InvestConfirm: { item: any };
-  Worker95SalaryConfig: undefined;
+  Worker95Portfolio: undefined;
+  Worker95InvestmentDetail: { investmentId: string };
   Worker95Ledger: undefined;
   Worker95Profile: undefined;
   Worker95Dividends: undefined;

@@ -81,6 +81,11 @@ const RegisterScreen = ({ navigation }: RootStackScreenProps<'Register'>) => {
       return;
     }
 
+    // Clear any stale persisted state from a previous user BEFORE signUp fires
+    // onAuthStateChange so the navigator always sees accountType=null for new accounts.
+    useUserProfileStore.getState().clear();
+    useOnboardingStore.getState().resetOnboarding();
+
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -110,10 +115,7 @@ const RegisterScreen = ({ navigation }: RootStackScreenProps<'Register'>) => {
         return;
       }
 
-      // Clear any stale persisted state from a previous user so
-      // RootNavigator sees accountType=null and routes to RoleSelection.
-      useUserProfileStore.getState().clear();
-      useOnboardingStore.getState().resetOnboarding();
+      // Session is active — RootNavigator will route to RoleSelection (accountType cleared above).
     } catch (error: any) {
       Alert.alert('Registration failed', error.message || 'Could not create account.');
     } finally {

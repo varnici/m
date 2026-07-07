@@ -218,7 +218,7 @@ export default function InvestmentPortfolioScreen({ navigation }: any) {
         <Text style={styles.sectionTitle}>Your Investments</Text>
         <TouchableOpacity
           style={styles.newInvestBtn}
-          onPress={() => navigation.navigate('Worker95Marketplace')}
+          onPress={() => navigation.navigate('Main', { screen: 'WorkerMarketplace' } as any)}
         >
           <Plus size={14} color="#059669" />
           <Text style={styles.newInvestBtnText}>New</Text>
@@ -236,7 +236,7 @@ export default function InvestmentPortfolioScreen({ navigation }: any) {
       </Text>
       <TouchableOpacity
         style={styles.emptyBtn}
-        onPress={() => navigation.navigate('Worker95Marketplace')}
+        onPress={() => navigation.navigate('Main', { screen: 'WorkerMarketplace' } as any)}
       >
         <Text style={styles.emptyBtnText}>Browse Businesses</Text>
       </TouchableOpacity>

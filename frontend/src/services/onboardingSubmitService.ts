@@ -13,21 +13,11 @@ export async function submitWorkerOnboarding(
   userId: string,
 ): Promise<SubmitResult> {
   try {
+    // profiles table only has: id, full_name, bvn_verified, virtual_account_number, virtual_account_bank, created_at
     const { error: profileError } = await supabase
       .from('profiles')
       .update({
-        full_name: `${data.firstName} ${data.lastName}`.trim(),
-        first_name: data.firstName,
-        last_name: data.lastName,
-        date_of_birth: data.dob,
-        gender: data.gender,
-        email: data.email,
-        phone: data.phone,
-        street_address: data.street,
-        city: data.city,
-        state: data.state,
-        account_type: 'nine_to_five',
-        onboarding_completed_at: new Date().toISOString(),
+        full_name: `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim() || undefined,
       })
       .eq('id', userId);
 
@@ -35,11 +25,23 @@ export async function submitWorkerOnboarding(
 
     useUserProfileStore.getState().setAccountType('nine_to_five' as AccountTypeId);
 
+    const now = new Date().toISOString();
+
     const workerPayload = {
       user_id: userId,
+      full_name: `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim(),
+      first_name: data.firstName,
+      last_name: data.lastName,
+      date_of_birth: data.dob,
+      gender: data.gender,
+      email: data.email,
+      phone: data.phone,
+      street_address: data.street,
+      city: data.city,
+      state: data.state,
       employer: data.employer,
       salary_range: data.salaryRange,
-      pay_date: parseInt(data.payDate, 10),
+      pay_date: data.payDate ? parseInt(data.payDate, 10) : null,
       dream_business: data.dreamBusiness || 'My First Business Fund',
       bvn_hash: data.bvn ? '***SUBMITTED***' : null,
       nin_hash: data.nin ? '***SUBMITTED***' : null,
@@ -47,7 +49,7 @@ export async function submitWorkerOnboarding(
       risk_score: data.riskScore,
       pin_set: data.pinSet ?? false,
       otp_verified: data.otpVerified ?? false,
-      onboarding_completed_at: new Date().toISOString(),
+      onboarding_completed_at: now,
     };
 
     const { data: existingWorker, error: existingError } = await supabase
@@ -71,6 +73,24 @@ export async function submitWorkerOnboarding(
       if (insertError) throw insertError;
     }
 
+    // Seed a starting savings target so the dashboard has something real to
+    // show on first login, instead of a permanently empty state. Non-fatal:
+    // a worker can always create one later if this fails.
+    const { data: existingPlan } = await supabase
+      .from('savings_plans')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!existingPlan) {
+      const { error: planError } = await supabase.from('savings_plans').insert({
+        user_id: userId,
+        target_name: workerPayload.dream_business,
+        target_amount: 500000,
+      });
+      if (planError) console.error('Failed to seed starting savings plan:', planError);
+    }
+
     return { success: true };
   } catch (err: any) {
     console.error('Worker onboarding submission error:', err);
@@ -83,15 +103,11 @@ export async function submitRetailOnboarding(
   userId: string,
 ): Promise<SubmitResult> {
   try {
+    // profiles table only has: id, full_name, bvn_verified, virtual_account_number, virtual_account_bank, created_at
     const { error: profileError } = await supabase
       .from('profiles')
       .update({
-        full_name: data.fullName,
-        date_of_birth: data.dateOfBirth,
-        gender: data.gender,
-        nationality: data.nationality,
-        email: data.email,
-        nin: data.idType === 'NIN' ? data.idNumber : null,
+        full_name: data.fullName || undefined,
       })
       .eq('id', userId);
 
@@ -101,16 +117,18 @@ export async function submitRetailOnboarding(
       useUserProfileStore.getState().setAccountType(data.accountType as AccountTypeId);
     }
 
+    const now = new Date().toISOString();
+
     const businessPayload = {
       owner_id: userId,
       account_type: data.accountType,
-      name: data.businessName,
+      business_name: data.businessName,
       trading_name: data.tradingName,
       years_in_operation: data.yearsInOperation,
       ownership_type: data.ownershipType,
       employee_count: data.employee_count,
       registration_status: data.registrationStatus,
-      primary_category: data.primaryCategory,
+      category: data.primaryCategory,
       is_physical_store: data.isPhysicalStore,
       state: data.state,
       lga: data.lga,
@@ -126,6 +144,13 @@ export async function submitRetailOnboarding(
       id_type: data.idType,
       id_number: data.idNumber,
       id_expiry: data.idExpiry,
+      full_name: data.fullName,
+      date_of_birth: data.dateOfBirth,
+      gender: data.gender,
+      nationality: data.nationality,
+      email: data.email,
+      phone: data.phone,
+      nin: data.idType === 'NIN' ? data.idNumber : null,
       estimated_inventory_value: data.estimatedInventoryValue,
       sales_tier: data.salesTier,
       terms_accepted: data.termsAccepted,
@@ -133,7 +158,7 @@ export async function submitRetailOnboarding(
       leader_endorsement_id: data.leaderEndorsementId,
       pos_option: data.posOption,
       pos_terminal_id: data.posTerminalId,
-      onboarding_completed_at: new Date().toISOString(),
+      onboarding_completed_at: now,
     };
 
     const { data: existingBusiness, error: existingBusinessError } = await supabase
@@ -159,7 +184,6 @@ export async function submitRetailOnboarding(
       if (insertError) throw insertError;
     }
 
-    // Sync to backend API
     try {
       await onboardingApi.submitAllSteps('merchant_sme', [
         { name: 'basic_info', data: { full_name: data.fullName, email: data.email, phone: data.phone } },
@@ -184,13 +208,11 @@ export async function submitDistributorOnboarding(
   userId: string,
 ): Promise<SubmitResult> {
   try {
+    // profiles table only has: id, full_name, bvn_verified, virtual_account_number, virtual_account_bank, created_at
     const { error: profileError } = await supabase
       .from('profiles')
       .update({
-        full_name: data.directorFullName ?? data.fullName,
-        date_of_birth: data.dob,
-        account_type: 'distributor',
-        onboarding_completed_at: new Date().toISOString(),
+        full_name: data.directorFullName ?? data.fullName ?? undefined,
       })
       .eq('id', userId);
 
@@ -198,10 +220,12 @@ export async function submitDistributorOnboarding(
 
     useUserProfileStore.getState().setAccountType('distributor' as AccountTypeId);
 
+    const now = new Date().toISOString();
+
     const distributorPayload = {
       owner_id: userId,
       account_type: 'distributor',
-      name: data.companyName,
+      business_name: data.companyName,
       cac_reg_number: data.rcNumber,
       tin: data.tin,
       director_name: data.directorFullName,
@@ -217,7 +241,7 @@ export async function submitDistributorOnboarding(
       longitude: data.gpsLng,
       product_categories: data.selectedCategories ?? [],
       terms_accepted: data.termsAccepted ?? true,
-      onboarding_completed_at: new Date().toISOString(),
+      onboarding_completed_at: now,
     };
 
     const { data: existingBusiness, error: existingError } = await supabase
@@ -265,12 +289,11 @@ export async function submitLogisticsOnboarding(
   userId: string,
 ): Promise<SubmitResult> {
   try {
+    // profiles table only has: id, full_name, bvn_verified, virtual_account_number, virtual_account_bank, created_at
     const { error: profileError } = await supabase
       .from('profiles')
       .update({
-        full_name: data.fullName,
-        account_type: 'logistics',
-        onboarding_completed_at: new Date().toISOString(),
+        full_name: data.fullName || undefined,
       })
       .eq('id', userId);
 
@@ -278,10 +301,12 @@ export async function submitLogisticsOnboarding(
 
     useUserProfileStore.getState().setAccountType('logistics' as AccountTypeId);
 
+    const now = new Date().toISOString();
+
     const logisticsPayload = {
       owner_id: userId,
       account_type: 'logistics',
-      name: data.companyName,
+      business_name: data.companyName,
       company_type: data.companyType,
       cac_reg_number: data.rcNumber,
       fleet_size: data.fleetSize,
@@ -291,7 +316,7 @@ export async function submitLogisticsOnboarding(
       insurance_provider: data.insuranceProvider,
       insurance_policy_number: data.insurancePolicyNumber,
       terms_accepted: true,
-      onboarding_completed_at: new Date().toISOString(),
+      onboarding_completed_at: now,
     };
 
     const { data: existing, error: existingError } = await supabase

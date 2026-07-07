@@ -100,7 +100,7 @@ export default function Worker95ProfileScreen({
           icon: Calendar,
           label: 'Salary Automation',
           desc: 'Configure sweep & round-up rules',
-          onPress: () => navigation.navigate('Worker95SalaryConfig'),
+          onPress: () => navigation.navigate('Main', { screen: 'WorkerSavings' } as any),
           color: '#059669',
           bg: '#D1FAE5',
         },
@@ -108,7 +108,7 @@ export default function Worker95ProfileScreen({
           icon: TrendingUp,
           label: 'Investment Preferences',
           desc: 'Risk appetite & category filters',
-          onPress: () => navigation.navigate('WorkerMarketplace' as any),
+          onPress: () => navigation.navigate('Main', { screen: 'WorkerMarketplace' } as any),
           color: '#3B82F6',
           bg: '#DBEAFE',
         },
@@ -121,7 +121,13 @@ export default function Worker95ProfileScreen({
           icon: Shield,
           label: 'BVN & Identity',
           desc: bvnVerified ? 'Verified ✓' : 'Verification pending',
-          onPress: () => {},
+          onPress: () =>
+            Alert.alert(
+              'BVN & Identity',
+              bvnVerified
+                ? 'Your identity has been verified.'
+                : 'Your identity verification is still pending. We’ll notify you once it’s confirmed.',
+            ),
           color: bvnVerified ? '#059669' : '#EF4444',
           bg: bvnVerified ? '#D1FAE5' : '#FEE2E2',
         },

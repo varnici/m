@@ -132,13 +132,13 @@ export default function Worker95InvestConfirmScreen({
           <View style={styles.successActions}>
             <TouchableOpacity
               style={styles.primaryBtn}
-              onPress={() => navigation.navigate('Worker95Dashboard')}
+              onPress={() => navigation.navigate('Worker95Portfolio')}
             >
               <Text style={styles.primaryBtnText}>View My Portfolio</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.secondaryBtn}
-              onPress={() => navigation.navigate('Worker95Marketplace')}
+              onPress={() => navigation.navigate('Main', { screen: 'WorkerMarketplace' } as any)}
             >
               <Text style={styles.secondaryBtnText}>Invest in Another Business</Text>
             </TouchableOpacity>

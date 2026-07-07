@@ -118,25 +118,6 @@ const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!email.trim()) {
-      Alert.alert('Email required', 'Please enter your email address first.');
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: 'https://ventureroot.com/reset-password',
-      });
-      if (error) throw error;
-      Alert.alert('Recovery Sent', 'Check your email for the password reset link.');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Could not send recovery email.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <IndustrialPage>
@@ -179,8 +160,8 @@ const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
               theme={theme}
               isDark={isDark}
             />
-            <TouchableOpacity 
-              onPress={handleForgotPassword}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ForgotPassword')}
               style={{ alignSelf: 'flex-end', marginTop: -spacing.sm, marginBottom: spacing.md }}
             >
               <IndustrialText variant="label" style={{ fontSize: 10, color: colors.ventureroot.industrial.primary }}>
@@ -198,9 +179,18 @@ const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
           </View>
         </IndustrialCard>
 
-        <TouchableOpacity 
+        <TouchableOpacity
+          onPress={() => navigation.navigate('EmailEntry')}
+          style={{ marginTop: 16, padding: 12, alignItems: 'center' }}
+        >
+          <IndustrialText variant="label" style={{ opacity: 0.5, fontSize: 11 }}>
+            FORGOT PASSWORD? <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, fontSize: 11 }}>SIGN IN WITH EMAIL CODE</IndustrialText>
+          </IndustrialText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           onPress={() => navigation.navigate('Register')}
-          style={{ marginTop: 24, padding: 16, alignItems: 'center' }}
+          style={{ marginTop: 8, padding: 16, alignItems: 'center' }}
         >
           <IndustrialText variant="label" style={{ opacity: 0.4 }}>
             NEW TO VENTUREROOT? <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary }}>CREATE ACCOUNT</IndustrialText>

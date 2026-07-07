@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -17,6 +18,8 @@ import {
   Award,
   Zap,
 } from 'lucide-react-native';
+import { useQuery } from '@tanstack/react-query';
+import { workerService } from '@/services/workerService';
 import { useWorkerStore, selectActiveInvestments } from '@/store/workerStore';
 import type { RootStackScreenProps } from '@/navigation/types';
 
@@ -34,76 +37,52 @@ function fmtDate(iso: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Build a flat dividend event list from active investments
+// Map real backend dividend records onto the row shape this screen renders.
+// dividend_records.status is 'accrued' | 'available' | 'collected' — both
+// 'accrued' and 'available' mean "not yet collected" from the worker's view.
 // ---------------------------------------------------------------------------
 interface DividendEvent {
   id: string;
   businessName: string;
-  category: string;
-  principal: number;
+  principal: number | null;
   dividendAmount: number;
-  yieldPct: number;
+  yieldPct: number | null;
   paymentDate: string;
-  status: 'Paid' | 'Pending' | 'Projected';
+  status: 'Paid' | 'Pending';
 }
 
-function buildDividendTimeline(investments: ReturnType<typeof selectActiveInvestments>): DividendEvent[] {
-  const events: DividendEvent[] = [];
+function mapDividendHistory(
+  records: Array<{
+    id: string;
+    investment_id: string;
+    business_name: string;
+    period_date: string;
+    amount: number;
+    status: 'accrued' | 'available' | 'collected';
+  }>,
+  investments: ReturnType<typeof selectActiveInvestments>
+): DividendEvent[] {
+  const byId = new Map(investments.map((inv) => [inv.id, inv]));
 
-  investments.forEach((inv) => {
-    // Paid (historical) — simulate 3 past payments
-    for (let i = 3; i >= 1; i--) {
-      const d = new Date(inv.created_at);
-      d.setMonth(d.getMonth() + i);
-      events.push({
-        id: `${inv.id}-past-${i}`,
-        businessName: inv.business_name,
-        category: '',
-        principal: inv.principal_amount,
-        dividendAmount: inv.principal_amount * inv.current_yield_pct / 100,
-        yieldPct: inv.current_yield_pct,
-        paymentDate: d.toISOString(),
-        status: 'Paid',
-      });
-    }
-    // Current month — pending
-    const nextPayment = new Date();
-    nextPayment.setDate(1);
-    nextPayment.setMonth(nextPayment.getMonth() + 1);
-    events.push({
-      id: `${inv.id}-pending`,
-      businessName: inv.business_name,
-      category: '',
-      principal: inv.principal_amount,
-      dividendAmount: inv.principal_amount * inv.current_yield_pct / 100,
-      yieldPct: inv.current_yield_pct,
-      paymentDate: nextPayment.toISOString(),
-      status: 'Pending',
-    });
-    // +2 months projected
-    const proj = new Date(nextPayment);
-    proj.setMonth(proj.getMonth() + 1);
-    events.push({
-      id: `${inv.id}-projected`,
-      businessName: inv.business_name,
-      category: '',
-      principal: inv.principal_amount,
-      dividendAmount: inv.principal_amount * inv.current_yield_pct / 100,
-      yieldPct: inv.current_yield_pct,
-      paymentDate: proj.toISOString(),
-      status: 'Projected',
-    });
-  });
-
-  return events.sort(
-    (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
-  );
+  return records
+    .map((r) => {
+      const inv = byId.get(r.investment_id);
+      return {
+        id: r.id,
+        businessName: r.business_name,
+        principal: inv?.principal_amount ?? null,
+        dividendAmount: r.amount,
+        yieldPct: inv?.current_yield_pct ?? null,
+        paymentDate: r.period_date,
+        status: r.status === 'collected' ? ('Paid' as const) : ('Pending' as const),
+      };
+    })
+    .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
 }
 
 const STATUS_CFG = {
-  Paid:      { bg: '#D1FAE5', text: '#065F46', dot: '#059669' },
-  Pending:   { bg: '#FEF3C7', text: '#92400E', dot: '#FBBF24' },
-  Projected: { bg: '#EDE9FE', text: '#5B21B6', dot: '#7C3AED' },
+  Paid:    { bg: '#D1FAE5', text: '#065F46', dot: '#059669' },
+  Pending: { bg: '#FEF3C7', text: '#92400E', dot: '#FBBF24' },
 };
 
 // ---------------------------------------------------------------------------
@@ -126,10 +105,12 @@ const DividendRow = React.memo(({ item }: { item: DividendEvent }) => {
             <Calendar size={11} color="#9CA3AF" />
             <Text style={styles.dateText}>{fmtDate(item.paymentDate)}</Text>
           </View>
-          <View style={styles.rowMeta}>
-            <TrendingUp size={11} color="#9CA3AF" />
-            <Text style={styles.dateText}>{item.yieldPct.toFixed(2)}% on {fmt(item.principal)}</Text>
-          </View>
+          {item.yieldPct !== null && item.principal !== null && (
+            <View style={styles.rowMeta}>
+              <TrendingUp size={11} color="#9CA3AF" />
+              <Text style={styles.dateText}>{item.yieldPct.toFixed(2)}% on {fmt(item.principal)}</Text>
+            </View>
+          )}
         </View>
       </View>
       <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
@@ -179,15 +160,22 @@ export default function Worker95DividendsScreen({
   const investments = useWorkerStore(selectActiveInvestments);
   const summary = useWorkerStore((s) => s.summary);
 
-  const timeline = useMemo(() => buildDividendTimeline(investments), [investments]);
+  const { data: records = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ['worker-dividend-history'],
+    queryFn: () => workerService.getDividendHistory(),
+    staleTime: 1000 * 60 * 3,
+  });
+
+  const timeline = useMemo(() => mapDividendHistory(records, investments), [records, investments]);
 
   const totalEarned = summary?.total_dividends_earned ?? 0;
   const cumMonthly = summary?.cumulative_monthly_dividends ?? 0;
 
-  const nextPayment = useMemo(() => {
-    const pending = timeline.find((e) => e.status === 'Pending');
-    return pending ? pending.paymentDate : null;
-  }, [timeline]);
+  const nextPending = useMemo(
+    () => timeline.find((e) => e.status === 'Pending') ?? null,
+    [timeline]
+  );
+  const nextPayment = nextPending?.paymentDate ?? null;
 
   const keyExtractor = useCallback((item: DividendEvent) => item.id, []);
   const renderItem = useCallback(({ item }: { item: DividendEvent }) => (
@@ -216,7 +204,7 @@ export default function Worker95DividendsScreen({
           <View style={styles.heroStatDivider} />
           <View style={styles.heroStat}>
             <Text style={styles.heroStatVal}>{nextPayment ? fmtDate(nextPayment) : '—'}</Text>
-            <Text style={styles.heroStatLabel}>Next Payout</Text>
+            <Text style={styles.heroStatLabel}>Oldest Uncollected</Text>
           </View>
         </View>
       </LinearGradient>
@@ -233,14 +221,14 @@ export default function Worker95DividendsScreen({
 
       <EarningsChart investments={investments} />
 
-      {/* Next payout alert */}
-      {nextPayment && (
+      {/* Uncollected dividend alert */}
+      {nextPending && (
         <View style={styles.nextPayoutCard}>
           <Zap size={16} color="#FBBF24" />
           <Text style={styles.nextPayoutText}>
-            Next dividend of approx.{' '}
-            <Text style={styles.nextPayoutBold}>{fmt(cumMonthly)}</Text>{' '}
-            expected on {fmtDate(nextPayment)}.
+            You have <Text style={styles.nextPayoutBold}>{fmt(nextPending.dividendAmount)}</Text>{' '}
+            available to collect from {fmtDate(nextPending.paymentDate)} — visit the investment's
+            portfolio detail to collect it.
           </Text>
         </View>
       )}
@@ -258,7 +246,7 @@ export default function Worker95DividendsScreen({
       </Text>
       <TouchableOpacity
         style={styles.emptyBtn}
-        onPress={() => navigation.navigate('Worker95Marketplace')}
+        onPress={() => navigation.navigate('Main', { screen: 'WorkerMarketplace' } as any)}
       >
         <Text style={styles.emptyBtnText}>Browse Investments</Text>
       </TouchableOpacity>
@@ -277,16 +265,29 @@ export default function Worker95DividendsScreen({
         </View>
       </View>
 
-      <FlashList
-        data={timeline}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        estimatedItemSize={80}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmpty}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+      {isLoading ? (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color="#059669" />
+        </View>
+      ) : isError ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyDesc}>Couldn't load dividend history.</Text>
+          <TouchableOpacity style={styles.emptyBtn} onPress={() => refetch()}>
+            <Text style={styles.emptyBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlashList
+          data={timeline}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          estimatedItemSize={80}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={ListEmpty}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   );
 }

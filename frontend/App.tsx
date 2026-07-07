@@ -19,6 +19,7 @@ installGlobalErrorHandler();
 // Bypass React Native 0.81 Fabric DevTools context proxy noise during startup.
 LogBox.ignoreLogs([
   "Couldn't find a navigation context",
+  "AreaView has been deprecated",
 ]);
 
 const queryClient = new QueryClient({

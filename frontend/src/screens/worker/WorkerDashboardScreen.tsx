@@ -29,15 +29,22 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { workerService } from '@/services/workerService';
 import { useWorkerStore, selectActivePlans, selectActiveInvestments } from '@/store/workerStore';
-import VelocityScoreCard from '@/components/ui/VelocityScoreCard';
 import type { RootStackScreenProps } from '@/navigation/types';
-import AppHeader from '@/components/ui/AppHeader';
 
 const fmt = (n: number) =>
   `₦${n.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const pct = (current: number, target: number) =>
   target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+
+const timeOfDayGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning,';
+  if (hour < 17) return 'Good afternoon,';
+  return 'Good evening,';
+};
+
+const firstName = (fullName?: string) => (fullName || '').trim().split(/\s+/)[0] || 'there';
 
 export default function WorkerDashboardScreen({
   navigation,
@@ -68,6 +75,12 @@ export default function WorkerDashboardScreen({
     }
   }, [summary]);
 
+  const isNewAccount =
+    !!summary &&
+    (summary.net_portfolio_value ?? 0) === 0 &&
+    investments.length === 0 &&
+    plans.length === 0;
+
   if (isLoading && !summary) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -91,8 +104,7 @@ export default function WorkerDashboardScreen({
   }
 
   return (
-    <SafeAreaView style={styles.root} edges={['bottom', 'left', 'right']}>
-      <AppHeader title="Dashboard" showBack={false} />
+    <SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
@@ -107,8 +119,8 @@ export default function WorkerDashboardScreen({
         {/* ── Header ── */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Good day,</Text>
-            <Text style={styles.name}>{summary?.full_name ?? 'Worker'}</Text>
+            <Text style={styles.greeting}>{timeOfDayGreeting()}</Text>
+            <Text style={styles.name}>{firstName(summary?.full_name)}</Text>
           </View>
           <TouchableOpacity
             style={styles.briefcaseIcon}
@@ -122,27 +134,28 @@ export default function WorkerDashboardScreen({
         <LinearGradient colors={['#064E3B', '#059669']} style={styles.portfolioCard}>
           <Text style={styles.portfolioLabel}>Net Portfolio Value</Text>
           <Text style={styles.portfolioValue}>{fmt(summary?.net_portfolio_value ?? 0)}</Text>
-          <View style={styles.portfolioRow}>
-            <View style={styles.portfolioStat}>
-              <Text style={styles.portfolioStatLabel}>Monthly Dividends</Text>
-              <Text style={styles.portfolioStatValue}>
-                {fmt(summary?.cumulative_monthly_dividends ?? 0)}
-              </Text>
+          {isNewAccount ? (
+            <Text style={styles.portfolioHint}>
+              Fund your account below to make your first investment.
+            </Text>
+          ) : (
+            <View style={styles.portfolioRow}>
+              <View style={styles.portfolioStat}>
+                <Text style={styles.portfolioStatLabel}>Monthly Dividends</Text>
+                <Text style={styles.portfolioStatValue}>
+                  {fmt(summary?.cumulative_monthly_dividends ?? 0)}
+                </Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.portfolioStat}>
+                <Text style={styles.portfolioStatLabel}>Savings Balance</Text>
+                <Text style={styles.portfolioStatValue}>
+                  {fmt(summary?.total_savings_balance ?? 0)}
+                </Text>
+              </View>
             </View>
-            <View style={styles.divider} />
-            <View style={styles.portfolioStat}>
-              <Text style={styles.portfolioStatLabel}>Savings Balance</Text>
-              <Text style={styles.portfolioStatValue}>
-                {fmt(summary?.total_savings_balance ?? 0)}
-              </Text>
-            </View>
-          </View>
+          )}
         </LinearGradient>
-
-        {/* ── Sales Velocity Score ── */}
-        <View style={styles.section}>
-          <VelocityScoreCard onPress={() => navigation.navigate('SalesVelocity')} />
-        </View>
 
         {/* ── Virtual Account Funding Block ── */}
         <View style={styles.section}>
@@ -184,7 +197,7 @@ export default function WorkerDashboardScreen({
               <Text style={styles.emptyText}>No active investments yet.</Text>
               <TouchableOpacity
                 style={styles.emptyAction}
-                onPress={() => navigation.navigate('Worker95Marketplace')}
+                onPress={() => navigation.navigate('WorkerMarketplace')}
               >
                 <Text style={styles.emptyActionText}>Browse Marketplace</Text>
               </TouchableOpacity>
@@ -300,7 +313,7 @@ export default function WorkerDashboardScreen({
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.ledgerNavBtn, { marginTop: 10 }]}
-          onPress={() => navigation.navigate('Worker95SalaryConfig')}
+          onPress={() => navigation.navigate('WorkerSavings')}
         >
           <Text style={styles.ledgerNavText}>Manage Salary Automation</Text>
           <ChevronRight size={18} color="#059669" />
@@ -329,6 +342,7 @@ const styles = StyleSheet.create({
   portfolioCard: { borderRadius: 20, padding: 22, marginBottom: 20 },
   portfolioLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 13, marginBottom: 4 },
   portfolioValue: { color: '#fff', fontSize: 32, fontWeight: '800', letterSpacing: -0.5, marginBottom: 18 },
+  portfolioHint: { color: 'rgba(255,255,255,0.8)', fontSize: 12.5, marginTop: -8 },
   portfolioRow: { flexDirection: 'row', alignItems: 'center' },
   portfolioStat: { flex: 1 },
   portfolioStatLabel: { color: 'rgba(255,255,255,0.65)', fontSize: 11, marginBottom: 2 },

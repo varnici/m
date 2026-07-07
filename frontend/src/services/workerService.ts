@@ -156,6 +156,23 @@ export interface WithdrawResponse {
   message: string;
 }
 
+export interface CreateSavingsPlanPayload {
+  target_name: string;
+  target_amount: number;
+  automated_rule?: 'manual' | 'salary_direct' | 'round_up';
+  rule_amount?: number;
+}
+
+export interface DividendHistoryItem {
+  id: string;
+  investment_id: string;
+  business_name: string;
+  period_date: string;
+  amount: number;
+  status: 'accrued' | 'available' | 'collected';
+  collected_at: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // Service calls
 // ---------------------------------------------------------------------------
@@ -177,6 +194,19 @@ class WorkerService extends BaseService {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+    return response.json();
+  }
+
+  async createSavingsPlan(payload: CreateSavingsPlanPayload): Promise<WorkerSavingsPlan> {
+    const response = await this.fetchWithAuth(`${BASE}/savings/create`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.json();
+  }
+
+  async getDividendHistory(): Promise<DividendHistoryItem[]> {
+    const response = await this.fetchWithAuth(`${BASE}/dividends/history`);
     return response.json();
   }
 

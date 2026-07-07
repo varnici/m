@@ -18,7 +18,6 @@ import {
   BarChart3,
   Calendar,
   Package,
-  Users,
   Zap,
   ArrowRight,
   Info,
@@ -30,67 +29,11 @@ const { width: SW } = Dimensions.get('window');
 const fmt = (n: number) =>
   `₦${n.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-// ---------------------------------------------------------------------------
-// Mock monthly turnover bars (last 6 months)
-// ---------------------------------------------------------------------------
-const MOCK_TURNOVER_MONTHS = [
-  { month: 'Jan', value: 8200000 },
-  { month: 'Feb', value: 9100000 },
-  { month: 'Mar', value: 10500000 },
-  { month: 'Apr', value: 9800000 },
-  { month: 'May', value: 11200000 },
-  { month: 'Jun', value: 12500000 },
-];
-
 const RISK_META = {
   Low:    { color: '#059669', bg: '#D1FAE5', label: 'Low Risk', desc: 'Stable turnover with consistent demand. Suitable for conservative investors.' },
   Medium: { color: '#D97706', bg: '#FEF3C7', label: 'Medium Risk', desc: 'Moderate volatility. Good for investors seeking balanced returns.' },
   High:   { color: '#EF4444', bg: '#FEE2E2', label: 'High Risk', desc: 'Higher volatility. Suitable for experienced investors only.' },
 };
-
-// ---------------------------------------------------------------------------
-// Bar chart component — no external library
-// ---------------------------------------------------------------------------
-function TurnoverChart({ data }: { data: typeof MOCK_TURNOVER_MONTHS }) {
-  const max = Math.max(...data.map((d) => d.value));
-  const barWidth = (SW - 80) / data.length - 8;
-
-  return (
-    <View style={chartStyles.container}>
-      <Text style={chartStyles.title}>6-Month Turnover Trend</Text>
-      <View style={chartStyles.chart}>
-        {data.map((item, idx) => {
-          const h = Math.max(8, (item.value / max) * 100);
-          const isLatest = idx === data.length - 1;
-          return (
-            <View key={item.month} style={[chartStyles.barWrap, { width: barWidth }]}>
-              <Text style={chartStyles.barValue}>
-                ₦{(item.value / 1000000).toFixed(1)}M
-              </Text>
-              <View
-                style={[
-                  chartStyles.bar,
-                  { height: h, backgroundColor: isLatest ? '#059669' : '#A7F3D0' },
-                ]}
-              />
-              <Text style={chartStyles.barLabel}>{item.month}</Text>
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-const chartStyles = StyleSheet.create({
-  container: { marginBottom: 4 },
-  title: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 14 },
-  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 130 },
-  barWrap: { alignItems: 'center', gap: 4 },
-  barValue: { fontSize: 9, color: '#9CA3AF', textAlign: 'center' },
-  bar: { width: '100%', borderRadius: 4 },
-  barLabel: { fontSize: 11, color: '#6B7280', fontWeight: '500' },
-});
 
 // ---------------------------------------------------------------------------
 // Main screen — receives MarketplaceItem via route params
@@ -100,7 +43,7 @@ export default function Worker95BusinessDetailScreen({
   route,
 }: RootStackScreenProps<'Worker95BusinessDetail'>) {
   const item = route.params?.item;
-  const [activeTab, setActiveTab] = useState<'overview' | 'ledger' | 'investors'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'investors'>('overview');
 
   if (!item) {
     return (
@@ -117,18 +60,14 @@ export default function Worker95BusinessDetailScreen({
 
   const risk = RISK_META[item.risk_rating as keyof typeof RISK_META] ?? RISK_META.Medium;
 
-  // Computed from seed data
-  const totalInvestors = Math.floor(12 + Math.random() * 88);
-  const totalPooled = item.rolling_30_day_turnover * 0.15;
+  // Annualized projection of the real monthly rate — a mathematical
+  // extrapolation, not a separately-reported figure.
   const avgReturnAllTime = (item.projected_monthly_roi * 12).toFixed(1);
-
-  const MOCK_LEDGER = [
-    { date: 'Jun 01', event: 'Monthly inventory restocking', amount: item.rolling_30_day_turnover * 0.28, type: 'Inflow' },
-    { date: 'Jun 08', event: 'Bulk distribution payout', amount: item.rolling_30_day_turnover * 0.19, type: 'Outflow' },
-    { date: 'Jun 15', event: 'Retail sales deposit', amount: item.rolling_30_day_turnover * 0.31, type: 'Inflow' },
-    { date: 'Jun 22', event: 'Supplier payment', amount: item.rolling_30_day_turnover * 0.14, type: 'Outflow' },
-    { date: 'Jun 30', event: 'Monthly profit distribution', amount: item.rolling_30_day_turnover * item.projected_monthly_roi / 100, type: 'Dividend' },
-  ];
+  const lastUpdatedLabel = new Date(item.last_updated_at).toLocaleDateString('en-NG', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 
   return (
     <SafeAreaView style={styles.root}>
@@ -178,7 +117,7 @@ export default function Worker95BusinessDetailScreen({
 
         {/* ── Tab bar ── */}
         <View style={styles.tabBar}>
-          {(['overview', 'ledger', 'investors'] as const).map((t) => (
+          {(['overview', 'investors'] as const).map((t) => (
             <TouchableOpacity
               key={t}
               style={[styles.tab, activeTab === t && styles.tabActive]}
@@ -194,18 +133,18 @@ export default function Worker95BusinessDetailScreen({
         {/* ── Overview Tab ── */}
         {activeTab === 'overview' && (
           <View style={styles.tabContent}>
-            <TurnoverChart data={MOCK_TURNOVER_MONTHS} />
-
             <View style={styles.metricsGrid}>
               {[
-                { icon: Package, label: 'SKUs Tracked', value: `${Math.floor(40 + Math.random() * 160)}` },
-                { icon: Users, label: 'Active Investors', value: `${totalInvestors}` },
-                { icon: BarChart3, label: 'Capital Pooled', value: `₦${(totalPooled / 1000000).toFixed(1)}M` },
-                { icon: Calendar, label: 'Operating Since', value: '2021' },
+                { icon: BarChart3, label: '30-Day Turnover', value: fmt(item.rolling_30_day_turnover) },
+                { icon: TrendingUp, label: 'Monthly ROI', value: `${item.projected_monthly_roi.toFixed(2)}%` },
+                { icon: Calendar, label: 'Category', value: item.category },
+                { icon: Package, label: 'Risk Rating', value: risk.label },
               ].map((m) => (
                 <View key={m.label} style={styles.metricCard}>
                   <m.icon size={18} color="#059669" />
-                  <Text style={styles.metricValue}>{m.value}</Text>
+                  <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit>
+                    {m.value}
+                  </Text>
                   <Text style={styles.metricLabel}>{m.label}</Text>
                 </View>
               ))}
@@ -214,61 +153,10 @@ export default function Worker95BusinessDetailScreen({
             <View style={styles.infoCard}>
               <Info size={16} color="#3B82F6" />
               <Text style={styles.infoText}>
-                Inventory performance data is pulled live from the VentureRoot Layer 2 merchant integration.
-                Data is refreshed every 24 hours.
+                Figures reflect this business's most recently reported 30-day turnover, last
+                updated {lastUpdatedLabel}. Detailed per-transaction reporting isn't available yet.
               </Text>
             </View>
-          </View>
-        )}
-
-        {/* ── Ledger Tab ── */}
-        {activeTab === 'ledger' && (
-          <View style={styles.tabContent}>
-            <Text style={styles.ledgerNote}>
-              Showing aggregated business cash flow for the current month. Individual transaction details are
-              anonymised per merchant privacy policy.
-            </Text>
-            {MOCK_LEDGER.map((entry, idx) => (
-              <View key={idx} style={styles.ledgerRow}>
-                <View style={styles.ledgerLeft}>
-                  <Text style={styles.ledgerDate}>{entry.date}</Text>
-                  <View
-                    style={[
-                      styles.ledgerTypeBadge,
-                      {
-                        backgroundColor:
-                          entry.type === 'Inflow' ? '#D1FAE5' :
-                          entry.type === 'Dividend' ? '#FEF3C7' : '#FEE2E2',
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.ledgerTypeText,
-                        {
-                          color:
-                            entry.type === 'Inflow' ? '#065F46' :
-                            entry.type === 'Dividend' ? '#92400E' : '#991B1B',
-                        },
-                      ]}
-                    >
-                      {entry.type}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.ledgerMid}>
-                  <Text style={styles.ledgerEvent}>{entry.event}</Text>
-                </View>
-                <Text
-                  style={[
-                    styles.ledgerAmount,
-                    { color: entry.type === 'Outflow' ? '#EF4444' : '#059669' },
-                  ]}
-                >
-                  {entry.type === 'Outflow' ? '-' : '+'}{fmt(entry.amount)}
-                </Text>
-              </View>
-            ))}
           </View>
         )}
 
@@ -277,31 +165,20 @@ export default function Worker95BusinessDetailScreen({
           <View style={styles.tabContent}>
             <View style={styles.investorStatRow}>
               <View style={styles.investorStat}>
-                <Text style={styles.investorStatVal}>{totalInvestors}</Text>
-                <Text style={styles.investorStatLabel}>Active Investors</Text>
-              </View>
-              <View style={styles.investorStat}>
-                <Text style={styles.investorStatVal}>{fmt(totalPooled)}</Text>
-                <Text style={styles.investorStatLabel}>Total Capital Pooled</Text>
-              </View>
-              <View style={styles.investorStat}>
-                <Text style={styles.investorStatVal}>₦10k</Text>
+                <Text style={styles.investorStatVal}>₦10,000</Text>
                 <Text style={styles.investorStatLabel}>Min. Entry</Text>
               </View>
-            </View>
-
-            <View style={styles.poolBar}>
-              <Text style={styles.poolBarLabel}>Pool utilisation</Text>
-              <View style={styles.poolTrack}>
-                <View style={[styles.poolFill, { width: '68%' }]} />
+              <View style={styles.investorStat}>
+                <Text style={styles.investorStatVal}>{avgReturnAllTime}%</Text>
+                <Text style={styles.investorStatLabel}>Projected Annual Return</Text>
               </View>
-              <Text style={styles.poolPct}>68% filled</Text>
             </View>
 
             <View style={styles.infoCard}>
               <Zap size={16} color="#FBBF24" />
               <Text style={styles.infoText}>
-                Investors receive monthly dividends on the 1st of each month, automatically credited to their VentureRoot portfolio.
+                Dividends accrue monthly on your principal and become available to collect or
+                withdraw from your portfolio once credited.
               </Text>
             </View>
           </View>
@@ -369,26 +246,10 @@ const styles = StyleSheet.create({
   infoCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#EFF6FF', borderRadius: 12, padding: 14, marginTop: 16, borderWidth: 1, borderColor: '#BFDBFE' },
   infoText: { flex: 1, fontSize: 12, color: '#1D4ED8', lineHeight: 18 },
 
-  ledgerNote: { fontSize: 12, color: '#9CA3AF', marginBottom: 14, fontStyle: 'italic' },
-  ledgerRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, gap: 10, borderWidth: 1, borderColor: '#F3F4F6' },
-  ledgerLeft: { gap: 4, alignItems: 'flex-start', width: 56 },
-  ledgerDate: { fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
-  ledgerTypeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  ledgerTypeText: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase' },
-  ledgerMid: { flex: 1 },
-  ledgerEvent: { fontSize: 12, color: '#374151', lineHeight: 17 },
-  ledgerAmount: { fontSize: 13, fontWeight: '700' },
-
   investorStatRow: { flexDirection: 'row', gap: 10 },
   investorStat: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 14, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#E5E7EB' },
   investorStatVal: { fontSize: 16, fontWeight: '800', color: '#111827' },
   investorStatLabel: { fontSize: 10, color: '#9CA3AF', textAlign: 'center' },
-
-  poolBar: { backgroundColor: '#fff', borderRadius: 14, padding: 16, marginTop: 12, borderWidth: 1, borderColor: '#E5E7EB' },
-  poolBarLabel: { fontSize: 13, color: '#374151', fontWeight: '600', marginBottom: 10 },
-  poolTrack: { height: 8, backgroundColor: '#E5E7EB', borderRadius: 4, overflow: 'hidden', marginBottom: 6 },
-  poolFill: { height: 8, backgroundColor: '#059669', borderRadius: 4 },
-  poolPct: { fontSize: 12, color: '#059669', fontWeight: '600' },
 
   investBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,

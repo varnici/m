@@ -39,6 +39,7 @@ interface WorkerState {
     rule: 'manual' | 'salary_direct' | 'round_up',
     ruleAmount: number
   ) => void;
+  addSavingsPlan: (plan: WorkerSavingsPlan) => void;
   clearCache: () => void;
 }
 
@@ -76,6 +77,14 @@ export const useWorkerStore = create<WorkerState>((set, get) => ({
       p.id === planId ? { ...p, automated_rule: rule, rule_amount: ruleAmount } : p
     );
     set({ summary: { ...summary, active_savings_plans: updated } });
+  },
+
+  addSavingsPlan: (plan) => {
+    const { summary } = get();
+    if (!summary) return;
+    set({
+      summary: { ...summary, active_savings_plans: [...summary.active_savings_plans, plan] },
+    });
   },
 
   clearCache: () =>

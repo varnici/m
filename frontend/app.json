@@ -3,6 +3,7 @@
     "name": "VentureRoot",
     "slug": "VentureRoot",
     "version": "1.0.0",
+    "scheme": "ventureroot",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
