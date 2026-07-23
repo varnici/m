@@ -45,6 +45,8 @@ import CreatePurchaseOrderScreen from '@/screens/inventory/CreatePurchaseOrderSc
 import AddSupplierScreen from '@/screens/inventory/AddSupplierScreen';
 import PurchaseOrderDetailScreen from '@/screens/inventory/PurchaseOrderDetailScreen';
 import InventoryReconciliationScreen from '@/screens/inventory/InventoryReconciliationScreen';
+import TradeOrderScreen from '@/screens/inventory/TradeOrderScreen';
+import RetailPOSScreen from '@/screens/inventory/RetailPOSScreen';
 import LowStockAlertsScreen from '@/screens/inventory/LowStockAlertsScreen';
 import StaffActivityScreen from '@/screens/inventory/StaffActivityScreen';
 
@@ -65,14 +67,13 @@ import LoanDashboardScreen from '@/screens/loans/LoanDashboardScreen';
 import ActiveLoanScreen from '@/screens/loans/ActiveLoanScreen';
 import ApplyLoanScreen from '@/screens/loans/ApplyLoanScreen';
 import ContractViewerScreen from '@/screens/loans/ContractViewerScreen';
-import CreditDashboardScreen from '@/screens/credit/CreditDashboardScreen';
-import CreditBreakdownScreen from '@/screens/credit/CreditBreakdownScreen';
 
 import SalesDashboardScreen from '@/screens/sales/SalesDashboardScreen';
 import RecordSaleScreen from '@/screens/sales/RecordSaleScreen';
 import ReceiptScreen from '@/screens/sales/ReceiptScreen';
 import SalesHistoryScreen from '@/screens/sales/SalesHistoryScreen';
 import SalesVelocityScreen from '@/screens/sales/SalesVelocityScreen';
+import AdminMetricsDashboard from '@/screens/admin/AdminMetricsDashboard';
 
 import ClusterPickupScreen from '@/screens/pools/ClusterPickupScreen';
 import PoolDetailScreen from '@/screens/pools/PoolDetailScreen';
@@ -292,6 +293,8 @@ const RootNavigator = () => {
           <Stack.Screen name="AIInsights" component={AIInsightsScreen} />
           <Stack.Screen name="AIAssistant" component={AIAssistantScreen} />
           <Stack.Screen name="InventoryReconciliation" component={InventoryReconciliationScreen} />
+          <Stack.Screen name="TradeOrder" component={TradeOrderScreen} />
+          <Stack.Screen name="RetailPOS" component={RetailPOSScreen} />
           <Stack.Screen name="LowStockAlerts" component={LowStockAlertsScreen} />
           <Stack.Screen name="StaffActivity" component={StaffActivityScreen} />
 
@@ -315,14 +318,13 @@ const RootNavigator = () => {
           <Stack.Screen name="ActiveLoan" component={ActiveLoanScreen} />
           <Stack.Screen name="ApplyLoan" component={ApplyLoanScreen} />
           <Stack.Screen name="ContractViewer" component={ContractViewerScreen} />
-          <Stack.Screen name="CreditDashboard" component={CreditDashboardScreen} />
-          <Stack.Screen name="CreditBreakdown" component={CreditBreakdownScreen} />
 
           <Stack.Screen name="SalesDashboard" component={SalesDashboardScreen} />
           <Stack.Screen name="RecordSale" component={RecordSaleScreen} />
           <Stack.Screen name="Receipt" component={ReceiptScreen} />
           <Stack.Screen name="SalesHistory" component={SalesHistoryScreen} />
           <Stack.Screen name="SalesVelocity" component={SalesVelocityScreen} />
+          <Stack.Screen name="AdminMetrics" component={AdminMetricsDashboard} />
 
           <Stack.Screen name="ClusterPickup" component={ClusterPickupScreen} />
           <Stack.Screen name="PoolDetail" component={PoolDetailScreen} />

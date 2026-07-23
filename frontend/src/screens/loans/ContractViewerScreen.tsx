@@ -35,11 +35,19 @@ const ContractViewerScreen = ({
     try {
       // Convert amount (Naira) to kobo for backend
       const amountKobo = amount * 100;
-      await loanService.createLoan(user.id, purpose, 1, amountKobo);
+      const application = await loanService.createLoan(user.id, amountKobo, purpose, 1);
 
       // Invalidate queries so that dashboard components and wallet refresh automatically
       await queryClient.invalidateQueries({ queryKey: ['loanDashboard', user.id] });
       await queryClient.invalidateQueries({ queryKey: ['dashboard', user.id] });
+
+      if (application?.status === 'rejected') {
+        Alert.alert(
+          'Application Not Approved',
+          application.rejection_reason || 'This request could not be approved right now.',
+        );
+        return;
+      }
 
       Alert.alert(
         'Loan Disbursed! 🎉',

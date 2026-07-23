@@ -25,10 +25,11 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.infrastructure.auth import get_current_user_id
 from app.models.inventory import SalesTransaction, SalesTransactionItem, StockMovement
-from app.models.loan import Loan
-from app.models.repayment import Repayment
+from app.models.loan_application import LoanApplication
+from app.models.loan_repayment_schedule import LoanRepaymentSchedule
 from app.models.wallet import Wallet
 from app.models.velocity_score import VelocityScore
+from app.services import loan_application_service
 
 
 router = APIRouter()
@@ -36,8 +37,6 @@ router = APIRouter()
 WEIGHT_SALES = 0.40
 WEIGHT_RESTOCK = 0.30
 WEIGHT_REPAYMENT = 0.30
-
-BASE_CREDIT_PER_POINT = 5000_00  # 5,000 naira per score point, in kobo
 
 
 class VelocityScoreOut(BaseModel):
@@ -84,25 +83,23 @@ def _calc_restock_consistency(db: Session, user_id: str, window_days: int = 30) 
 
 
 def _calc_repayment_ratio(db: Session, user_id: str) -> float:
-    total_due = db.execute(
-        select(func.count(Repayment.id))
-        .join(Loan, Loan.id == Repayment.loan_id)
-        .where(Loan.user_id == user_id)
-    ).scalar() or 0
+    """On-time ratio across installments that have reached their due date —
+    future installments haven't had a chance to be on-time or late yet."""
+    today = datetime.now(timezone.utc).date()
+    schedules = db.execute(
+        select(LoanRepaymentSchedule)
+        .join(LoanApplication, LoanApplication.id == LoanRepaymentSchedule.loan_application_id)
+        .where(LoanApplication.user_id == user_id, LoanRepaymentSchedule.due_date <= today)
+    ).scalars().all()
 
-    if total_due == 0:
+    if not schedules:
         return 1.0
 
-    on_time = db.execute(
-        select(func.count(Repayment.id))
-        .join(Loan, Loan.id == Repayment.loan_id)
-        .where(
-            Loan.user_id == user_id,
-            Repayment.status == "completed",
-        )
-    ).scalar() or 0
-
-    return round(float(on_time) / float(total_due), 4)
+    on_time = sum(
+        1 for s in schedules
+        if s.status == "paid" and s.paid_at is not None and s.paid_at.date() <= s.due_date
+    )
+    return round(on_time / len(schedules), 4)
 
 
 def _compute_score(db: Session, user_id: str) -> dict:
@@ -119,7 +116,13 @@ def _compute_score(db: Session, user_id: str) -> dict:
     )
     score = round(min(raw_score, 100.0), 1)
 
-    credit_limit_kobo = int(score * BASE_CREDIT_PER_POINT)
+    # credit_limit_kobo used to be derived independently from this score
+    # (score * 5,000 naira/point) — a different formula from, and often a
+    # different number than, what actually gates loan disbursement. Now
+    # sourced from the same percentile-rank eligibility check loans.py uses,
+    # so this card and the loan application flow can't show conflicting
+    # numbers for the same thing.
+    credit_limit_kobo = loan_application_service.check_eligibility(db, user_id)["credit_limit_kobo"]
 
     return {
         "score": score,

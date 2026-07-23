@@ -153,12 +153,13 @@ export type RootStackParamList = {
   ContractViewer: { amount: number; purpose: string };
   SalesHistory: undefined;
   SalesVelocity: undefined;
-  CreditDashboard: undefined;
-  CreditBreakdown: undefined;
+  AdminMetrics: undefined;
   ClusterPickup: undefined;
   PoolDetail: { poolId: number };
   PoolList: undefined;
   InventoryReconciliation: { storeId: string };
+  TradeOrder: { storeId?: string };
+  RetailPOS: { storeId?: string };
   Shop: undefined;
   Cart: undefined;
   Checkout: { totalKobo: number };

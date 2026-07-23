@@ -29,6 +29,9 @@ from app.schemas.inventory_schemas import (
     StockReservationAction,
     StockReservationCreate,
     StockReservationOut,
+    StocktakeCountIn,
+    StocktakeReconcileItem,
+    StocktakeReconcileOut,
     LedgerEntry,
     ReconciliationResult,
     ProductDetailOut
@@ -50,6 +53,8 @@ class StockService:
 
     def _process_domain_inventory_command(self, payload: StockMovementCreate) -> None:
         movement_value = payload.movement_type.value if hasattr(payload.movement_type, "value") else str(payload.movement_type)
+        if movement_value == "loss":
+            movement_value = "damage"
         movement_type = InventoryMovementType(movement_value)
         command_id = str(uuid4())
         
@@ -115,6 +120,7 @@ class StockService:
         handlers = {
             "sale": self._handle_depletion,
             "damage": self._handle_depletion,
+            "loss": self._handle_depletion,
             "purchase": self._handle_replenishment,
             "return": self._handle_replenishment,
             "transfer": self._handle_transfer,
@@ -393,6 +399,122 @@ class StockService:
         max_level = product.maximum_stock_level or 0
         if max_level > 0 and stock.quantity_on_hand <= (max_level * self.AUTO_RESTOCK_THRESHOLD_PCT):
             logger.info(f"Restock recommended for product {stock.product_id}")
+
+    def reconcile_physical_counts(
+        self,
+        store_id: str,
+        counts: List[StocktakeCountIn],
+    ) -> StocktakeReconcileOut:
+        """Apply a physical stocktake and persist expected/actual variance."""
+        now = datetime.now(timezone.utc)
+        audit_ref = f"stocktake-{now.strftime('%Y%m%d%H%M%S')}"
+        items: List[StocktakeReconcileItem] = []
+        total_missing = 0
+        total_overage = 0
+
+        try:
+            for count in counts:
+                product = self.db.query(Product).filter(
+                    Product.id == count.product_id,
+                    Product.owner_id == self.owner_id,
+                    Product.is_active == True,
+                ).first()
+                if not product:
+                    raise ValueError(f"Product {count.product_id} not found")
+
+                stock = self.db.query(StockLevel).filter(
+                    StockLevel.product_id == product.id,
+                    StockLevel.store_id == store_id,
+                ).first()
+                if not stock:
+                    stock = StockLevel(
+                        product_id=product.id,
+                        store_id=store_id,
+                        quantity_on_hand=0,
+                        quantity_reserved=0,
+                    )
+                    self.db.add(stock)
+                    self.db.flush()
+
+                expected_amount = int(stock.quantity_on_hand or 0)
+                actual_amount = int(count.actual_amount)
+                discrepancy_qty = expected_amount - actual_amount
+                delta = actual_amount - expected_amount
+
+                if delta > 0:
+                    self.record_stock_movement(
+                        StockMovementCreate(
+                            product_id=product.id,
+                            to_store_id=store_id,
+                            movement_type="adjustment",
+                            quantity=delta,
+                            reference_id=audit_ref,
+                            reference_type="stocktake",
+                            input_method="audit",
+                            notes="Physical stocktake overage adjustment",
+                        ),
+                        should_commit=False,
+                    )
+                elif delta < 0:
+                    self.record_stock_movement(
+                        StockMovementCreate(
+                            product_id=product.id,
+                            from_store_id=store_id,
+                            movement_type="damage",
+                            quantity=abs(delta),
+                            reference_id=audit_ref,
+                            reference_type="stocktake",
+                            input_method="audit",
+                            notes="Physical stocktake shrinkage adjustment",
+                        ),
+                        should_commit=False,
+                    )
+
+                stock = self.db.query(StockLevel).filter(
+                    StockLevel.product_id == product.id,
+                    StockLevel.store_id == store_id,
+                ).first()
+                if stock:
+                    stock.last_counted_at = now
+                    stock.updated_at = now
+
+                product.expected_amount = expected_amount
+                product.actual_amount = actual_amount
+                product.discrepancy_qty = discrepancy_qty
+                product.updated_at = now
+
+                if discrepancy_qty > 0:
+                    variance_status = "shrinkage"
+                    total_missing += discrepancy_qty
+                elif discrepancy_qty < 0:
+                    variance_status = "overage"
+                    total_overage += abs(discrepancy_qty)
+                else:
+                    variance_status = "matched"
+
+                items.append(
+                    StocktakeReconcileItem(
+                        product_id=product.id,
+                        sku=product.sku,
+                        product_name=product.name,
+                        expected_amount=expected_amount,
+                        actual_amount=actual_amount,
+                        discrepancy_qty=discrepancy_qty,
+                        variance_status=variance_status,
+                    )
+                )
+
+            self.db.commit()
+            return StocktakeReconcileOut(
+                reconciled_count=len(items),
+                discrepancies_count=sum(1 for item in items if item.discrepancy_qty != 0),
+                total_missing=total_missing,
+                total_overage=total_overage,
+                items=items,
+            )
+        except Exception:
+            self.db.rollback()
+            raise
 
     def get_stock_movements(
         self,

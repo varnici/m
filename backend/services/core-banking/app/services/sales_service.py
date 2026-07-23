@@ -110,7 +110,7 @@ class SalesService:
                 if reservation_id:
                     self.stock_service.commit_stock_reservation(
                         reservation_id=reservation_id,
-                        payload=StockReservationAction(quantity=item_payload.quantity_sold),
+                        payload=StockReservationAction(action="confirm", quantity=item_payload.quantity_sold),
                         should_commit=False
                     )
                 else:
@@ -121,19 +121,38 @@ class SalesService:
                         quantity=item_payload.quantity_sold,
                         purpose="sale",
                         reference_id=transaction.id,
-                        reference_type="auto_sale_reservation"
+                        reference_type="sales_order"
                     )
                     res = self.stock_service.reserve_stock(res_payload, should_commit=False)
                     self.stock_service.commit_stock_reservation(
                         reservation_id=res.id,
-                        payload=StockReservationAction(quantity=item_payload.quantity_sold),
+                        payload=StockReservationAction(action="confirm", quantity=item_payload.quantity_sold),
                         should_commit=False
                     )
 
             transaction.total_amount_kobo = total_amount
+
+            # Credit the seller's wallet for the sale — net of any discount
+            # given to the customer, since that portion was never collected.
+            # This was previously missing entirely from this flow (the only
+            # code path that called wallet_service.process_sale_proceeds was
+            # the legacy /v1/sales endpoint, which has no real callers), so
+            # every sale recorded through the actual app never reached the
+            # seller's spendable balance — breaking savings, loan repayment
+            # capacity, and general spending for every real user.
+            net_proceeds = max(0, total_amount - (transaction.discount_amount_kobo or 0))
+            if net_proceeds > 0:
+                from app.services import wallet_service
+                wallet_service.process_sale_proceeds(
+                    self.db,
+                    user_id=self.owner_id,
+                    amount_kobo=net_proceeds,
+                    sale_id=transaction.id,
+                )
+
             self.db.commit()
             self.db.refresh(transaction)
-            
+
             # Update Real-Time Sales Metrics for today's dashboard immediately
             try:
                 from datetime import date
@@ -144,12 +163,12 @@ class SalesService:
             
             # 5. Fetch Smart Savings Suggestion
             savings_service = SavingsService(self.db, self.owner_id)
-            suggestion = savings_service.suggest_savings(transaction.total_amount_kobo)
+            suggestion = savings_service.suggest_savings(transaction.id)
             
             response = self.get_sales_transaction_by_id(transaction.id)
             if suggestion:
                 response.savings_suggestion = SavingsSuggestion(
-                    title=suggestion["title"],
+                    title=suggestion["goal_title"],
                     message=suggestion["message"],
                     suggested_amount_kobo=suggestion["suggested_amount_kobo"],
                     goal_id=suggestion.get("goal_id")
@@ -219,119 +238,3 @@ class SalesService:
             "status": "success",
             "total_amount": result.total_amount_kobo
         }
-
-# ── Legacy Compatibility Layer ───────────────────────────────────────────────
-
-def record_sale(
-    db: Session,
-    user_id: str,
-    product_sku: str,
-    quantity: int,
-    unit_price_kobo: int,
-    channel: str = "manual",
-) -> Any:
-    """
-    Legacy compatibility function. 
-    Now creates a SalesTransaction under the hood to consolidate data.
-    """
-    from app.services.inventory_service_v2 import InventoryServiceV2
-    
-    # 1. Resolve product by SKU
-    product = db.query(Product).filter(
-        Product.owner_id == user_id,
-        Product.sku == product_sku
-    ).first()
-    
-    if not product:
-        raise ValueError(f"Product with SKU {product_sku} not found")
-
-    # 2. Use modern service to create transaction
-    import asyncio
-    service = SalesService(db, user_id)
-    
-    payload = SalesTransactionCreate(
-        owner_id=user_id,
-        items=[
-            SalesTransactionItemCreate(
-                product_id=product.id,
-                quantity_sold=quantity,
-                unit_price_kobo=unit_price_kobo
-            )
-        ],
-        payment_method="cash", # Default for legacy
-        notes=f"Legacy sale via SKU: {product_sku}, channel: {channel}"
-    )
-    
-    # Since this is a sync function called from a sync endpoint, 
-    # we run the async method in a loop or use a sync wrapper.
-    # For now, we'll implement a sync version or just call it directly if possible.
-    # Given the project context, we'll use a simplified sync implementation here.
-    
-    # [Simplified Sync Implementation for Legacy]
-    transaction = SalesTransaction(
-        owner_id=user_id,
-        total_amount_kobo=quantity * unit_price_kobo,
-        payment_method="cash",
-        notes=payload.notes
-    )
-    db.add(transaction)
-    db.flush()
-    
-    item = SalesTransactionItem(
-        sale_id=transaction.id,
-        product_id=product.id,
-        quantity_sold=quantity,
-        unit_price_kobo=unit_price_kobo,
-        line_total_kobo=quantity * unit_price_kobo
-    )
-    db.add(item)
-    
-    # Process sale proceeds to wallet
-    from app.services.wallet_service import process_sale_proceeds
-    process_sale_proceeds(db, user_id=user_id, amount_kobo=quantity * unit_price_kobo, sale_id=transaction.id)
-    
-    db.commit()
-
-    db.refresh(transaction)
-    
-    # Update Real-Time Sales Metrics for today's dashboard immediately
-    try:
-        from datetime import date
-        from app.tasks.daily_sales_rollup import calculate_daily_sales_rollup
-        calculate_daily_sales_rollup(date.today())
-    except Exception as e:
-        logger.error(f"Failed to update daily sales metrics in real-time: {e}")
-    
-    # Return in legacy format
-    return {
-        "id": transaction.id,
-        "user_id": user_id,
-        "product_sku": product_sku,
-        "quantity": quantity,
-        "unit_price_kobo": unit_price_kobo,
-        "channel": channel,
-        "sold_at": transaction.transaction_date
-    }
-
-def list_sales_legacy(db: Session, user_id: str) -> List[Dict[str, Any]]:
-    """Lists recent sales in legacy format by joining modern tables."""
-    results = db.query(SalesTransaction, SalesTransactionItem, Product)\
-        .join(SalesTransactionItem, SalesTransaction.id == SalesTransactionItem.sale_id)\
-        .join(Product, SalesTransactionItem.product_id == Product.id)\
-        .filter(SalesTransaction.owner_id == user_id)\
-        .order_by(SalesTransaction.transaction_date.desc())\
-        .limit(100)\
-        .all()
-        
-    return [
-        {
-            "id": tx.id,
-            "user_id": user_id,
-            "product_sku": p.sku,
-            "quantity": item.quantity_sold,
-            "unit_price_kobo": item.unit_price_kobo,
-            "channel": "manual",
-            "sold_at": tx.transaction_date
-        }
-        for tx, item, p in results
-    ]

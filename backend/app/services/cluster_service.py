@@ -3,12 +3,13 @@ Clustering Service - Geospatial grouping of retailers into logistics routes
 Implements the "Route Joiner" - groups retailers within 2km radius with shared manufacturer source
 """
 
-import math
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime
 from uuid import uuid4
 
+import numpy as np
+from sklearn.neighbors import BallTree
 from sqlalchemy import text, select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +32,8 @@ class ClusterService:
     - Designates lead retailer based on SalesVelocityScore
     - Implements Medallion Architecture (Bronze→Silver→Gold)
     """
+
+    EARTH_RADIUS_KM = 6371.0
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -135,48 +138,8 @@ class ClusterService:
         )
 
     # ========================================================================
-    # GEOSPATIAL UTILITIES - OPTIMIZED
+    # GEOSPATIAL UTILITIES - BallTree (haversine metric)
     # ========================================================================
-
-    @staticmethod
-    def _haversine_distance(
-        lat1: float, lon1: float, lat2: float, lon2: float
-    ) -> float:
-        """
-        Calculate distance between two GPS coordinates using Haversine formula.
-        Returns distance in kilometers.
-        
-        NOTE: Made static for 10% performance improvement (no self lookup).
-        """
-        R = 6371  # Earth radius in km
-
-        lat1_rad = math.radians(lat1)
-        lat2_rad = math.radians(lat2)
-        delta_lat = math.radians(lat2 - lat1)
-        delta_lon = math.radians(lon2 - lon1)
-
-        a = (
-            math.sin(delta_lat / 2) ** 2
-            + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
-        )
-        c = 2 * math.asin(math.sqrt(a))
-
-        return R * c
-
-    @staticmethod
-    def _get_geohash_cell(lat: float, lon: float, precision: int = 2) -> Tuple[int, int]:
-        """
-        OPTIMIZATION: Spatial grid hash for O(1) proximity lookup.
-        
-        Instead of calculating distance for every pair (O(n²)),
-        we use a grid system to only check nearby cells.
-        
-        precision=2 means each cell is ~1.2km x ~1.2km at equator.
-        """
-        # Simple grid hash: divide world into cells
-        cell_lat = int((lat + 90) * 10 ** precision) // precision
-        cell_lon = int((lon + 180) * 10 ** precision) // precision
-        return (cell_lat, cell_lon)
 
     async def _perform_geospatial_clustering(
         self,
@@ -186,86 +149,67 @@ class ClusterService:
     ) -> List[List[dict]]:
         """
         Cluster retailers by geospatial proximity.
-        
-        OPTIMIZED Algorithm:
-        1. Build spatial grid (O(n))
-        2. For each unclustered request, check only nearby grid cells (O(1) per cell)
-        3. Calculate distance only for nearby candidates (O(m) where m << n)
-        
-        Performance: O(n²) → O(n) for typical data distribution.
+
+        Algorithm:
+        1. Build a BallTree spatial index over all valid coordinates (O(n log n))
+        2. Greedily pick the highest-priority unclustered request as a seed
+        3. Query the tree for every unclustered point within radius_km of the
+           seed in a single O(log n) call, then cap the cluster size
+        4. Repeat until every request is clustered
+
+        NOTE: A prior hand-rolled implementation used a fixed-size grid hash
+        (~1.2km cells, hardcoded regardless of radius_km) and only scanned the
+        3x3 neighboring cells. That silently missed valid neighbors whenever
+        radius_km exceeded ~1.8km. BallTree.query_radius is exact for any
+        radius and still O(log n) per query.
         """
-        clusters = []
-        unclustered_indices = set(range(len(requests)))
-        
-        # OPTIMIZATION: Build spatial grid index (O(n))
-        grid: Dict[Tuple[int, int], List[int]] = {}
-        for idx, req in enumerate(requests):
-            lat = float(req.get("delivery_latitude", 0))
-            lon = float(req.get("delivery_longitude", 0))
-            if lat == 0 and lon == 0:
-                continue
-            
-            # Get grid cell for this point
-            cell = self._get_geohash_cell(lat, lon, precision=2)
-            if cell not in grid:
-                grid[cell] = []
-            grid[cell].append(idx)
-        
-        while unclustered_indices:
-            # Find seed request (highest priority/sales velocity)
-            seed_idx = max(unclustered_indices, key=lambda i: requests[i].get("priority", 0))
-            seed = requests[seed_idx]
-            
-            # Extract seed coordinates
-            seed_lat = float(seed.get("delivery_latitude", 0))
-            seed_lon = float(seed.get("delivery_longitude", 0))
-            
-            if seed_lat == 0 and seed_lon == 0:
-                unclustered_indices.remove(seed_idx)
-                continue
-            
-            cluster = [seed]
-            unclustered_indices.remove(seed_idx)
-            
-            # OPTIMIZATION: Only check nearby grid cells, not all requests
-            seed_cell = self._get_geohash_cell(seed_lat, seed_lon, precision=2)
-            nearby_cells = [
-                (seed_cell[0] + dx, seed_cell[1] + dy)
-                for dx in [-1, 0, 1]
-                for dy in [-1, 0, 1]
+        # Requests without a real delivery location (0,0) can't be placed —
+        # matches prior behavior of dropping them from clustering.
+        valid_positions = [
+            idx
+            for idx, req in enumerate(requests)
+            if not (
+                float(req.get("delivery_latitude", 0)) == 0
+                and float(req.get("delivery_longitude", 0)) == 0
+            )
+        ]
+        if not valid_positions:
+            return []
+
+        coords_rad = np.radians(
+            [
+                (
+                    float(requests[idx]["delivery_latitude"]),
+                    float(requests[idx]["delivery_longitude"]),
+                )
+                for idx in valid_positions
             ]
-            
-            # Collect candidates from nearby cells only
-            candidates = []
-            for cell in nearby_cells:
-                if cell in grid:
-                    candidates.extend(grid[cell])
-            
-            # Remove duplicates and seed
-            candidates = set(candidates) & unclustered_indices
-            
-            # Now calculate actual distance only for nearby candidates
-            radius_decimal = float(radius_km)
-            for idx in sorted(candidates):  # Sort for deterministic ordering
-                if len(cluster) >= max_retailers_per_route:
-                    break
-                
-                req = requests[idx]
-                req_lat = float(req.get("delivery_latitude", 0))
-                req_lon = float(req.get("delivery_longitude", 0))
-                
-                if req_lat == 0 and req_lon == 0:
-                    continue
-                
-                # Only compute distance for nearby candidates
-                distance = self._haversine_distance(seed_lat, seed_lon, req_lat, req_lon)
-                
-                if distance <= radius_decimal:
-                    cluster.append(req)
-                    unclustered_indices.remove(idx)
-            
-            clusters.append(cluster)
-        
+        )
+        tree = BallTree(coords_rad, metric="haversine")
+        radius_rad = float(radius_km) / self.EARTH_RADIUS_KM
+        priorities = [requests[idx].get("priority", 0) for idx in valid_positions]
+
+        unclustered = set(range(len(valid_positions)))  # positions into coords_rad
+        clusters: List[List[dict]] = []
+
+        while unclustered:
+            # Seed = highest priority/sales velocity among unclustered
+            seed_pos = max(unclustered, key=lambda p: priorities[p])
+
+            neighbor_positions = tree.query_radius(
+                coords_rad[seed_pos : seed_pos + 1], r=radius_rad
+            )[0]
+
+            ordered = [seed_pos] + sorted(
+                p for p in neighbor_positions if p != seed_pos and p in unclustered
+            )
+            cluster_positions = ordered[:max_retailers_per_route]
+
+            unclustered.difference_update(cluster_positions)
+            clusters.append(
+                [requests[valid_positions[p]] for p in cluster_positions]
+            )
+
         return clusters
 
     # ========================================================================

@@ -34,10 +34,10 @@ def run_auto_sweep_process():
             
             logger.info(f"Processing auto-save for goal {goal.id} (user {goal.user_id})")
             
-            # Record the auto-save transaction
-            # In a production environment, this would call a payment gateway
-            # For this module, we simulate the deposit
-            
+            # Record the auto-save transaction. record_transaction() debits the
+            # user's real wallet balance before crediting the goal — a goal
+            # with insufficient wallet funds simply doesn't sweep this cycle,
+            # rather than faking a deposit that never happened.
             service = SavingsService(db, goal.user_id)
             try:
                 service.record_transaction(
@@ -46,7 +46,7 @@ def run_auto_sweep_process():
                         amount_kobo=goal.auto_save_amount_kobo,
                         transaction_type=SavingsTransactionType.DEPOSIT.value,
                         notes="Auto-Sweep contribution",
-                        metadata={"type": "auto_sweep"}
+                        transaction_metadata={"type": "auto_sweep"}
                     )
                 )
                 logger.info(f"Successfully processed auto-save for goal {goal.id}")

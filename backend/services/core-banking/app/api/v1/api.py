@@ -1,14 +1,13 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
-    artisans, dashboard, loans, marketplace, sales, transport, users, wallet,
-    inventory, analytics, ai, savings, automation, credit, transactions,
+    artisans, dashboard, loans, marketplace, transport, users, wallet,
+    inventory, analytics, ai, savings, automation, transactions,
     worker_module, shopfront, velocity, product_savings, ledger, onboarding,
 )
 from app.api.v1.endpoints.clusters import router as clusters_router
 from app.api.v1.endpoints.otp import router as otp_router
 from app.api.v1.endpoints.admin_metrics import router as admin_metrics_router
-from app.api.v1.endpoints.auth_phone import router as auth_phone_router
 
 api_router = APIRouter()
 api_router.include_router(users.router, prefix="/users", tags=["users"])
@@ -16,8 +15,6 @@ api_router.include_router(wallet.router, prefix="/wallet", tags=["wallet"])
 api_router.include_router(transactions.router, prefix="/transactions", tags=["transactions"])
 api_router.include_router(savings.router, prefix="/budget-best", tags=["budget-best"])
 api_router.include_router(automation.router, prefix="/automation", tags=["automation"])
-api_router.include_router(credit.router, prefix="/credit", tags=["credit"])
-api_router.include_router(sales.router, prefix="/sales", tags=["sales"])
 api_router.include_router(loans.router, prefix="/loans", tags=["loans"])
 api_router.include_router(marketplace.router, prefix="/marketplace", tags=["marketplace"])
 api_router.include_router(artisans.router, prefix="/artisans", tags=["artisans"])
@@ -35,5 +32,4 @@ api_router.include_router(ledger.router, prefix="/ledger", tags=["ledger"])
 api_router.include_router(onboarding.router, prefix="/onboarding", tags=["onboarding"])
 api_router.include_router(otp_router, prefix="/otp", tags=["otp"])
 api_router.include_router(admin_metrics_router, prefix="/admin/metrics", tags=["admin-metrics"])
-api_router.include_router(auth_phone_router, prefix="/auth/phone", tags=["auth-phone"])
 

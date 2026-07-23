@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String, JSON
+from sqlalchemy import Boolean, DateTime, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database import Base
@@ -43,6 +43,8 @@ class User(Base):
     # bronze | silver | gold | platinum
     trust_level: Mapped[str] = mapped_column(String, nullable=False, default="bronze")
 
+    is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -50,12 +52,8 @@ class User(Base):
     )
 
     wallet = relationship("Wallet", back_populates="user", uselist=False, cascade="all, delete-orphan")
-    credit_scores = relationship("CreditScore", back_populates="user", cascade="all, delete-orphan")
     sales_metrics = relationship("SalesMetrics", back_populates="user", cascade="all, delete-orphan")
     inventory_metrics = relationship("InventoryMetrics", back_populates="user", cascade="all, delete-orphan")
     loan_metrics = relationship("LoanMetrics", back_populates="user", cascade="all, delete-orphan")
     loan_applications = relationship("LoanApplication", back_populates="user", cascade="all, delete-orphan")
-    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
-    messages = relationship("Message", back_populates="user", cascade="all, delete-orphan")
-    support_tickets = relationship("SupportTicket", back_populates="user", cascade="all, delete-orphan")
 

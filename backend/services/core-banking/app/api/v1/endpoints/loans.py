@@ -1,131 +1,66 @@
-from __future__ import annotations
-
-from typing import List
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 
+from app.core.rate_limit import limiter
 from app.infrastructure.database import db_session
 from app.infrastructure.auth import get_current_user_id
-from app.models.loan import Loan
-from app.models.user import User
-from app.schemas.loan_schemas import LoanCreate, LoanOut, RepaymentCreate, RepaymentOut
-from app.services.loan_service import apply_repayment, create_loan
+from app.models.loan_application import LoanApplication
+from app.schemas.loan_schemas import (
+    LoanApplicationCreate,
+    LoanApplicationOut,
+    LoanTransactionOut,
+    RepaymentCreate,
+)
+from app.services import loan_application_service
 
 router = APIRouter()
 
 
-@router.post("", response_model=LoanOut)
-def create(payload: LoanCreate, user_id: str = Depends(get_current_user_id)):
+@router.post("", response_model=LoanApplicationOut)
+@limiter.limit("10/hour")
+def create(request: Request, payload: LoanApplicationCreate, user_id: str = Depends(get_current_user_id)):
     with db_session() as db:
-        user = db.get(User, user_id)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        loan = create_loan(
-            db,
-            user_id=user_id,
-            product_sku=payload.product_sku,
-            product_qty=payload.product_qty,
-            principal_kobo=payload.principal_kobo,
-            trust_level=user.trust_level,
-        )
-        return loan
+        try:
+            return loan_application_service.create_application(
+                db,
+                user_id=user_id,
+                amount_kobo=payload.amount_kobo,
+                purpose=payload.purpose,
+                term_months=payload.term_months,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("", response_model=list[LoanOut])
+@router.get("", response_model=list[LoanApplicationOut])
 def list_loans(user_id: str = Depends(get_current_user_id)):
     with db_session() as db:
-        q = select(Loan).where(Loan.user_id == user_id).order_by(Loan.created_at.desc())
+        q = (
+            select(LoanApplication)
+            .where(LoanApplication.user_id == user_id)
+            .order_by(LoanApplication.applied_at.desc())
+        )
         return list(db.execute(q).scalars().all())
 
 
 @router.get("/dashboard", response_model=dict)
 def get_loan_dashboard(user_id: str = Depends(get_current_user_id)):
     with db_session() as db:
-        user = db.get(User, user_id)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        from app.models.wallet import Wallet
-        wallet = db.execute(
-            select(Wallet).where(Wallet.user_id == user_id)
-        ).scalar_one_or_none()
-
-        available_credit = wallet.available_credit_kobo if wallet and wallet.available_credit_kobo else 0
-        credit_in_use = wallet.total_debt_kobo if wallet else 0
-
-        active_loans_query = select(Loan).where(
-            Loan.user_id == user_id,
-            Loan.status.in_(['active', 'pending'])
-        ).order_by(Loan.created_at.desc())
-
-        active_loans = db.execute(active_loans_query).scalars().all()
-        active_loans_data = []
-
-        for loan in active_loans:
-            active_loans_data.append({
-                "id": loan.id,
-                "product_name": loan.product_sku,
-                "loan_amount": loan.principal_kobo,
-                "outstanding": loan.total_due_kobo - loan.repaid_kobo,
-                "status": loan.status,
-                "due_date": loan.next_repayment_date.isoformat() if loan.next_repayment_date else None,
-                "insured": False,
-                "icon": "💰"
-            })
-
-        history_loans_query = select(Loan).where(
-            Loan.user_id == user_id,
-            Loan.status.in_(['closed', 'paid', 'defaulted'])
-        ).order_by(Loan.created_at.desc()).limit(10)
-
-        history_loans = db.execute(history_loans_query).scalars().all()
-        loan_history = []
-
-        for loan in history_loans:
-            loan_history.append({
-                "id": loan.id,
-                "product_name": loan.product_sku,
-                "month": loan.created_at.strftime("%b %Y"),
-                "amount": loan.principal_kobo,
-                "status": "Paid" if loan.status == "closed" else loan.status.title()
-            })
-
-        return {
-            "available_credit": available_credit,
-            "credit_in_use": credit_in_use,
-            "active_loans": active_loans_data,
-            "loan_history": loan_history
-        }
+        return loan_application_service.get_dashboard(db, user_id)
 
 
-@router.get("/{loan_id}/contract")
-def get_loan_contract(loan_id: str, user_id: str = Depends(get_current_user_id)):
+@router.post("/{loan_id}/repay", response_model=LoanTransactionOut)
+@limiter.limit("20/hour")
+def repay(request: Request, loan_id: str, payload: RepaymentCreate, user_id: str = Depends(get_current_user_id)):
     with db_session() as db:
-        loan = db.get(Loan, loan_id)
-        if not loan:
+        application = db.get(LoanApplication, loan_id)
+        if not application:
             raise HTTPException(status_code=404, detail="Loan not found")
-        if loan.user_id != user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        return {
-            "loan_id": loan_id,
-            "contract_url": f"/contracts/{loan_id}.pdf",
-            "status": "Contract generation pending",
-            "message": "Contract PDF will be available soon"
-        }
-
-
-@router.post("/{loan_id}/repay", response_model=RepaymentOut)
-def repay(loan_id: str, payload: RepaymentCreate, user_id: str = Depends(get_current_user_id)):
-    with db_session() as db:
-        loan = db.get(Loan, loan_id)
-        if not loan:
-            raise HTTPException(status_code=404, detail="Loan not found")
-        if loan.user_id != user_id:
+        if application.user_id != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
         try:
-            rep = apply_repayment(db, loan=loan, amount_kobo=payload.amount_kobo)
+            return loan_application_service.apply_repayment(
+                db, application=application, amount_kobo=payload.amount_kobo
+            )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        return rep

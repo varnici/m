@@ -22,7 +22,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.infrastructure.database import db_session
-from app.models.loan import Loan
+from app.models.loan_application import LoanApplication
+from app.models.loan_repayment_schedule import LoanRepaymentSchedule
 from app.models.platform_metrics import DailySystemMetrics
 
 
@@ -60,17 +61,25 @@ def _stv_status(days: float) -> str:
 
 # ── Metric calculations ───────────────────────────────────────────────────────
 
-def _calc_npl(db: Session) -> tuple[Decimal, Decimal, Decimal]:
-    """Returns (total_active_portfolio, total_overdue, npl_rate %)"""
+def _calc_npl(db: Session, as_of: date) -> tuple[Decimal, Decimal, Decimal]:
+    """Returns (total_active_portfolio, total_overdue, npl_rate %).
+
+    "Overdue" is computed dynamically from unpaid installments past their due
+    date, rather than a separately-stored loan status — there's no scheduled
+    job that would otherwise keep such a status column in sync."""
     active_total = db.execute(
-        select(func.coalesce(func.sum(Loan.principal_kobo), 0)).where(
-            Loan.status.in_(["active", "disbursed"])
+        select(func.coalesce(func.sum(LoanApplication.amount_kobo), 0)).where(
+            LoanApplication.status == "disbursed"
         )
     ).scalar() or 0
 
     overdue_total = db.execute(
-        select(func.coalesce(func.sum(Loan.principal_kobo), 0)).where(
-            Loan.status == "overdue"
+        select(func.coalesce(func.sum(LoanRepaymentSchedule.amount_kobo), 0))
+        .join(LoanApplication, LoanApplication.id == LoanRepaymentSchedule.loan_application_id)
+        .where(
+            LoanApplication.status == "disbursed",
+            LoanRepaymentSchedule.status != "paid",
+            LoanRepaymentSchedule.due_date < as_of,
         )
     ).scalar() or 0
 
@@ -103,28 +112,43 @@ def compute_daily_snapshot(target_date: date) -> None:
     with db_session() as db:
         try:
             # ── Credit Risk ──────────────────────────────────────
-            active_portfolio, overdue_portfolio, npl_rate = _calc_npl(db)
+            active_portfolio, overdue_portfolio, npl_rate = _calc_npl(db, target_date)
             drp_cash, drp_ratio = _calc_drp(active_portfolio, npl_rate)
 
             # STV — placeholder until POS sales table is queryable;
             # uses loan turnover as proxy (outstanding / daily repayments)
             avg_repayment_per_day = db.execute(
-                select(func.coalesce(func.avg(Loan.principal_kobo), 0)).where(
-                    Loan.status == "active"
+                select(func.coalesce(func.avg(LoanApplication.amount_kobo), 0)).where(
+                    LoanApplication.status == "disbursed"
                 )
             ).scalar() or 1
             stv_days = float(active_portfolio * 100 / avg_repayment_per_day / 30) \
                 if avg_repayment_per_day else 0.0
 
             # ── Liquidity (early liquidations) ───────────────────
-            # Count loans marked 'early_liquidated' this calendar month
+            # Proxy for "early liquidation": fully repaid this month, with the
+            # final payment landing more than 7 days before its final
+            # installment's due date. There's no separately-stored status for
+            # this — it's derived from the repayment schedule directly.
             month_start = target_date.replace(day=1)
-            early_liq_amount = db.execute(
-                select(func.coalesce(func.sum(Loan.principal_kobo), 0)).where(
-                    Loan.status == "early_liquidated",
-                    Loan.updated_at >= month_start,
+            closed_this_month = db.execute(
+                select(LoanApplication).where(
+                    LoanApplication.status == "closed",
+                    LoanApplication.disbursed_at.is_not(None),
+                    LoanApplication.disbursed_at >= datetime.combine(month_start, datetime.min.time(), tzinfo=timezone.utc),
                 )
-            ).scalar() or 0
+            ).scalars().all()
+
+            early_liq_amount = 0
+            for application in closed_this_month:
+                schedules = application.repayment_schedules
+                if not schedules:
+                    continue
+                last_due = max(s.due_date for s in schedules)
+                paid_dates = [s.paid_at.date() for s in schedules if s.paid_at is not None]
+                if paid_dates and max(paid_dates) < last_due - timedelta(days=7):
+                    early_liq_amount += application.amount_kobo
+
             early_liq_ngn = Decimal(str(early_liq_amount)) / 100
             elr = (early_liq_ngn / active_portfolio * 100) if active_portfolio > 0 else Decimal("0")
 

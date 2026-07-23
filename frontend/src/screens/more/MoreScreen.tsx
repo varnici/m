@@ -9,7 +9,6 @@ import {
   Boxes,
   Camera,
   ChevronRight,
-  CreditCard,
   FileText,
   History,
   Landmark,
@@ -29,9 +28,15 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import AppHeader from '@/components/ui/AppHeader';
+import { useUserProfileStore } from '@/store/userProfileStore';
+import type { AccountTypeId } from '@/config/accountTypes';
+
+// Account types that run physical stock and get inventory-related menu items.
+const INVENTORY_ACCOUNT_TYPES: AccountTypeId[] = ['retail', 'distributor', 'logistics', 'manufactural'];
 
 const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
   const { signOut, user } = useAuth();
+  const accountType = useUserProfileStore((s) => s.accountType);
   const userName = user?.email
     ? user.email.split('@')[0].split(/[._-]/).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     : 'Chidi Okonkwo';
@@ -44,6 +49,7 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
       icon: typeof Settings;
       color: string;
       route: keyof RootStackParamList;
+      accountTypes?: AccountTypeId[];
     }>;
   }> = [
     {
@@ -54,21 +60,20 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
         { label: 'Apply for Loan', caption: 'Request working capital', icon: FileText, color: '#EA580C', route: 'ApplyLoan' },
         { label: 'Repayment', caption: 'Pay loan obligations', icon: ReceiptText, color: '#DC2626', route: 'Repayment' },
         { label: 'Withdrawal', caption: 'Move money to bank', icon: Landmark, color: '#059669', route: 'Withdrawal' },
-        { label: 'Credit Score', caption: 'Trust score and drivers', icon: CreditCard, color: '#6366F1', route: 'CreditDashboard' },
         { label: 'Savings Goals', caption: 'Buckets and targets', icon: Landmark, color: '#0EA5E9', route: 'SavingsGoals' },
       ],
     },
     {
       title: 'Operations',
       items: [
-        { label: 'Inventory', caption: 'Stock dashboard and alerts', icon: Boxes, color: '#D97706', route: 'InventoryManager' },
+        { label: 'Inventory', caption: 'Stock dashboard and alerts', icon: Boxes, color: '#D97706', route: 'InventoryManager', accountTypes: INVENTORY_ACCOUNT_TYPES },
         { label: 'Products', caption: 'View and manage products', icon: PackageSearch, color: '#7C3AED', route: 'ProductList' },
         { label: 'Low Stock Alerts', caption: 'Critical restock list', icon: Shield, color: '#EF4444', route: 'LowStockAlerts' },
         { label: 'Purchase Orders', caption: 'Supplier ordering workflow', icon: FileText, color: '#0891B2', route: 'PurchaseOrders' },
         { label: 'Add Supplier', caption: 'Create supplier records', icon: Store, color: '#0F766E', route: 'AddSupplier' },
         { label: 'Scan stock in', caption: 'Point camera at barcode', icon: Camera, color: '#4F46E5', route: 'ScanShelve' },
         { label: 'Voice stock in', caption: 'Hold button & speak', icon: Mic, color: '#059669', route: 'VoiceStock' },
-        { label: 'AI Insights', caption: 'Inventory recommendations', icon: Bot, color: '#16A34A', route: 'AIInsights' },
+        { label: 'AI Insights', caption: 'Inventory recommendations', icon: Bot, color: '#16A34A', route: 'AIInsights', accountTypes: INVENTORY_ACCOUNT_TYPES },
         { label: 'AI Assistant', caption: 'Ask the business intelligence agent', icon: Bot, color: '#059669', route: 'AIAssistant' },
         { label: 'Sales', caption: 'Daily sales and velocity', icon: TrendingUp, color: '#2563EB', route: 'SalesDashboard' },
         { label: 'Record Sale', caption: 'Create a new receipt', icon: ReceiptText, color: '#16A34A', route: 'RecordSale' },
@@ -203,30 +208,36 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
            </View>
         </TouchableOpacity>
 
-        {navigationSections.map((section) => (
-          <View key={section.title} className="mb-6">
-            <Text className="text-gray-900 font-bold text-base mb-3 px-1">{section.title}</Text>
-            <View className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              {section.items.map((item, idx) => (
-                <TouchableOpacity
-                  key={item.route}
-                  className={`flex-row items-center p-4 ${idx < section.items.length - 1 ? 'border-b border-gray-50' : ''}`}
-                  onPress={() => navigation.navigate(item.route as any)}
-                  activeOpacity={0.75}
-                >
-                  <View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: `${item.color}18` }}>
-                    <item.icon size={20} color={item.color} />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-gray-800 font-bold text-sm">{item.label}</Text>
-                    <Text className="text-gray-400 text-[10px] mt-0.5">{item.caption}</Text>
-                  </View>
-                  <ChevronRight size={20} color="#D1D5DB" />
-                </TouchableOpacity>
-              ))}
+        {navigationSections.map((section) => {
+          const visibleItems = section.items.filter(
+            (item) => !item.accountTypes || (accountType && item.accountTypes.includes(accountType)),
+          );
+          if (visibleItems.length === 0) return null;
+          return (
+            <View key={section.title} className="mb-6">
+              <Text className="text-gray-900 font-bold text-base mb-3 px-1">{section.title}</Text>
+              <View className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {visibleItems.map((item, idx) => (
+                  <TouchableOpacity
+                    key={item.route}
+                    className={`flex-row items-center p-4 ${idx < visibleItems.length - 1 ? 'border-b border-gray-50' : ''}`}
+                    onPress={() => navigation.navigate(item.route as any)}
+                    activeOpacity={0.75}
+                  >
+                    <View className="w-10 h-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: `${item.color}18` }}>
+                      <item.icon size={20} color={item.color} />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-gray-800 font-bold text-sm">{item.label}</Text>
+                      <Text className="text-gray-400 text-[10px] mt-0.5">{item.caption}</Text>
+                    </View>
+                    <ChevronRight size={20} color="#D1D5DB" />
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
 
         {/* Sign Out */}
         <TouchableOpacity 

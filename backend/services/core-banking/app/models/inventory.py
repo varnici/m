@@ -108,6 +108,15 @@ class Product(Base):
     quantity_sold: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     quantity_on_credit: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
+    # Dual-channel sales and stock verification fields
+    trade_price_kobo: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    expected_amount: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    actual_amount: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    discrepancy_qty: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    monthly_velocity: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    days_of_supply: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    trade_moq: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+
     # Marketplace compatibility fields
     unit_price_kobo: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     estate: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -129,6 +138,23 @@ class Product(Base):
     
     # Self-referential relationship for parent-child products
     children = relationship("Product", backref=backref("parent", remote_side=[id]), cascade="all, delete-orphan")
+
+    @property
+    def retail_price_kobo(self) -> int:
+        return self.selling_price_kobo
+
+    @property
+    def retail_margin_pct(self) -> float:
+        if self.selling_price_kobo <= 0:
+            return 0.0
+        return round(((self.selling_price_kobo - self.cost_price_kobo) / self.selling_price_kobo) * 100, 2)
+
+    @property
+    def trade_margin_pct(self) -> float:
+        trade_price = self.trade_price_kobo or self.selling_price_kobo
+        if trade_price <= 0:
+            return 0.0
+        return round(((trade_price - self.cost_price_kobo) / trade_price) * 100, 2)
 
 
 class Supplier(Base):
@@ -356,3 +382,66 @@ class InventorySnapshot(Base):
 
     owner = relationship("User")
     store = relationship("Store")
+
+
+class TradeClient(Base):
+    """A business owner's own B2B customer (not another platform account)."""
+    __tablename__ = "trade_clients"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
+    owner_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_name: Mapped[str] = mapped_column(String, nullable=False)
+    vat_number: Mapped[str | None] = mapped_column(String, nullable=True)
+    delivery_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String, nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String, nullable=True)
+    default_payment_terms: Mapped[str] = mapped_column(String, default="immediate")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    owner = relationship("User")
+
+
+class TradeOrder(Base):
+    """Persisted B2B order/invoice — carries the Hold/Allocate -> Finalize/Dispatch
+    lifecycle. Each line's stock_service reservation id is stored on TradeOrderLine
+    so dispatch commits the SAME reservation instead of re-reserving from scratch."""
+    __tablename__ = "trade_orders"
+    __table_args__ = (
+        CheckConstraint("total_kobo >= 0", name="ck_trade_orders_total_non_negative"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
+    owner_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    client_id: Mapped[str] = mapped_column(String, ForeignKey("trade_clients.id", ondelete="RESTRICT"), nullable=False, index=True)
+    store_id: Mapped[str] = mapped_column(String, ForeignKey("stores.id", ondelete="RESTRICT"), nullable=False)
+    status: Mapped[str] = mapped_column(String, default="draft")  # draft, held, dispatched, cancelled
+    payment_terms: Mapped[str] = mapped_column(String, default="immediate")  # immediate, net30
+    total_kobo: Mapped[int] = mapped_column(BigInteger, default=0)
+    sale_id: Mapped[str | None] = mapped_column(String, ForeignKey("sales_transactions.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    client = relationship("TradeClient")
+    store = relationship("Store")
+    lines = relationship("TradeOrderLine", back_populates="order", cascade="all, delete-orphan")
+
+
+class TradeOrderLine(Base):
+    __tablename__ = "trade_order_lines"
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_trade_order_lines_quantity_positive"),
+        CheckConstraint("unit_price_kobo >= 0", name="ck_trade_order_lines_unit_price_non_negative"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
+    trade_order_id: Mapped[str] = mapped_column(String, ForeignKey("trade_orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id: Mapped[str] = mapped_column(String, ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_price_kobo: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    reservation_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    order = relationship("TradeOrder", back_populates="lines")
+    product = relationship("Product")

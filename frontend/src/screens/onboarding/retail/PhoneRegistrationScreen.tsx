@@ -16,7 +16,6 @@ import { validatePhone, formatPhoneInput } from '@/utils/validation';
 import { ShieldCheck, Phone, Mail, ArrowRight } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import { otpService, type OtpChannel } from '@/services/otpService';
-import { sendEmailOtp, verifyEmailOtp } from '@/lib/emailOtp';
 
 const OTP_LENGTH = 6;
 const COUNTDOWN_SECONDS = 180;
@@ -88,11 +87,7 @@ const PhoneRegistrationScreen = () => {
   const doSendOtp = async (targetChannel: OtpChannel, target: string, display: string) => {
     setSending(true);
     try {
-      if (targetChannel === 'email') {
-        await sendEmailOtp(target);
-      } else {
-        await otpService.sendOtp(target, targetChannel, 'phone_verify');
-      }
+      await otpService.sendOtp(target, targetChannel, 'phone_verify');
       setSentChannel(targetChannel);
       setSentTarget(target);
       setSentTo(display);
@@ -139,11 +134,7 @@ const PhoneRegistrationScreen = () => {
     if (otp.length < OTP_LENGTH) return;
     setVerifying(true);
     try {
-      if (sentChannel === 'email') {
-        await verifyEmailOtp(sentTarget, otp);
-      } else {
-        await otpService.verifyOtp(sentTarget, sentChannel, otp);
-      }
+      await otpService.verifyOtp(sentTarget, sentChannel, otp);
       const patch: Record<string, any> = {
         phoneVerified: sentChannel === 'sms',
         emailVerified: sentChannel === 'email',

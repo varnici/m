@@ -15,7 +15,6 @@ import { validatePhone, formatPhoneInput } from '@/utils/validation';
 import { Phone, CheckCircle2, Mail, ArrowRight } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import { otpService, type OtpChannel } from '@/services/otpService';
-import { sendEmailOtp } from '@/lib/emailOtp';
 
 export default function WorkerPhoneScreen() {
   const { goNext, goBack, step, total, data } = useOnboardingNav();
@@ -51,7 +50,7 @@ export default function WorkerPhoneScreen() {
         goNext({ phone: fullPhone, otpTarget: fullPhone, otpChannel: 'sms' });
       } else {
         const target = email.trim().toLowerCase();
-        await sendEmailOtp(target);
+        await otpService.sendOtp(target, 'email', 'phone_verify');
         goNext({ email: target, otpTarget: target, otpChannel: 'email' });
       }
     } catch (err: any) {

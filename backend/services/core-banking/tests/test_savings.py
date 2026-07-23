@@ -3,6 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from app.infrastructure.database import Base
 from app.models.user import User
+from app.models.wallet import Wallet
 from app.models.inventory import SalesTransaction
 from app.models.savings import SavingsGoal, SavingsGoalStatus, SavingsTransaction, SavingsTransactionType, SavingsStreak
 from app.services.savings_service import SavingsService
@@ -12,20 +13,28 @@ from app.schemas.savings_schemas import SavingsGoalCreate, SavingsTransactionCre
 def db_session():
     """Create in-memory SQLite test database with necessary tables and seed mock users."""
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
-    
+
     # Recreate tables (importing models ensures SQLAlchemy registers them on Base)
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
-    
+
     SessionLocal = sessionmaker(bind=engine)
     session = SessionLocal()
-    
+
     # Seed mock users because of ForeignKey constraints
     user1 = User(id="test-user-123", phone="+2348000000001", full_name="Test User 1")
     user2 = User(id="test-user-streak", phone="+2348000000002", full_name="Streak User")
     session.add_all([user1, user2])
     session.commit()
-    
+
+    # Seed wallets: savings deposits now genuinely debit the real wallet, so
+    # each test user needs funds available (matches production, where every
+    # user has a wallet created at signup).
+    wallet1 = Wallet(user_id=user1.id, balance_kobo=1_000_000)
+    wallet2 = Wallet(user_id=user2.id, balance_kobo=1_000_000)
+    session.add_all([wallet1, wallet2])
+    session.commit()
+
     yield session
     session.close()
 

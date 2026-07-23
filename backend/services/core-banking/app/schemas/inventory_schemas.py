@@ -69,6 +69,13 @@ class ProductCreate(BaseModel):
     expenses_kobo: int = Field(default=0, ge=0)
     quantity_sold: int = Field(default=0, ge=0)
     quantity_on_credit: int = Field(default=0, ge=0)
+    trade_price_kobo: int = Field(default=0, ge=0)
+    expected_amount: int = Field(default=0, ge=0)
+    actual_amount: int = Field(default=0, ge=0)
+    discrepancy_qty: int = Field(default=0)
+    monthly_velocity: int = Field(default=0, ge=0)
+    days_of_supply: int = Field(default=0, ge=0)
+    trade_moq: int = Field(default=1, ge=1)
 
 
 class ProductUpdate(BaseModel):
@@ -85,6 +92,28 @@ class ProductUpdate(BaseModel):
     expenses_kobo: Optional[int] = None
     quantity_sold: Optional[int] = None
     quantity_on_credit: Optional[int] = None
+    trade_price_kobo: Optional[int] = None
+    expected_amount: Optional[int] = None
+    actual_amount: Optional[int] = None
+    discrepancy_qty: Optional[int] = None
+    monthly_velocity: Optional[int] = None
+    days_of_supply: Optional[int] = None
+    trade_moq: Optional[int] = None
+
+
+class StockLevelOut(BaseModel):
+    """Response schema for stock level."""
+    id: str
+    product_id: str
+    store_id: str
+    quantity_on_hand: int
+    quantity_reserved: int
+    quantity_available: int
+    last_counted_at: Optional[datetime]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class ProductOut(BaseModel):
@@ -111,6 +140,20 @@ class ProductOut(BaseModel):
     expenses_kobo: int = 0
     quantity_sold: int = 0
     quantity_on_credit: int = 0
+    retail_price_kobo: int = 0
+    trade_price_kobo: int = 0
+    retail_margin_pct: float = 0.0
+    trade_margin_pct: float = 0.0
+    expected_amount: int = 0
+    actual_amount: int = 0
+    discrepancy_qty: int = 0
+    monthly_velocity: int = 0
+    days_of_supply: int = 0
+    trade_moq: int = 1
+    # Aggregated across stock levels (and, for the list endpoint, reservations) —
+    # populated by ProductService, not stored directly on the Product row.
+    total_quantity_on_hand: int = 0
+    total_reserved_quantity: int = 0
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -138,26 +181,19 @@ class ProductDetailOut(ProductOut):
     """Detailed product response with relationships."""
     category: Optional[CategoryOut] = None
     current_stock: int = 0
+    stock_by_location: List[StockLevelOut] = []
+    total_inventory_value_kobo: int = 0
+    profit_per_unit_kobo: int = 0
+    margin_percentage: Decimal = Decimal("0")
+    is_dead_stock: bool = False
+    children: List[ProductOut] = []
+    demand_forecast: List[DemandForecastPoint] = []
+    ai_intelligence: List[ProductIntelligence] = []
 
 
 # ============================================================================
 # STOCK SCHEMAS
 # ============================================================================
-
-class StockLevelOut(BaseModel):
-    """Response schema for stock level."""
-    id: str
-    product_id: str
-    store_id: str
-    quantity_on_hand: int
-    quantity_reserved: int
-    quantity_available: int
-    last_counted_at: Optional[datetime]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
 
 class StockMovementCreate(BaseModel):
     """Schema for creating a stock movement."""
@@ -205,27 +241,40 @@ class StockReservationCreate(BaseModel):
     quantity: int = Field(..., ge=1)
     reference_type: str = Field(..., pattern=r"^(sales_order|purchase_order|transfer)$")
     reference_id: str
+    purpose: str = Field(default="sale")
+    notes: Optional[str] = None
+    expires_at: Optional[datetime] = None
 
 
 class StockReservationAction(BaseModel):
     """Schema for managing a reservation."""
     action: str = Field(..., pattern=r"^(confirm|cancel|adjust)$")
     quantity: Optional[int] = None
+    notes: Optional[str] = None
 
 
 class StockReservationOut(BaseModel):
     """Response schema for stock reservation."""
     id: str
+    owner_id: Optional[str] = None
     product_id: str
     store_id: str
+    purpose: str = "sale"
     quantity: int
+    quantity_reserved: int = 0
+    quantity_committed: int = 0
+    quantity_released: int = 0
     reference_type: str
-    reference_id: str
+    reference_id: Optional[str]
+    notes: Optional[str] = None
+    expires_at: Optional[datetime] = None
     status: str
     created_at: datetime
+    updated_at: Optional[datetime] = None
+    released_at: Optional[datetime] = None
+    committed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================
@@ -375,6 +424,7 @@ class PurchaseOrderCreate(BaseModel):
     items: List[PurchaseOrderItemCreate] = Field(..., min_length=1)
     notes: Optional[str] = None
     expected_delivery_date: Optional[date] = None
+    po_number: Optional[str] = None
 
 
 class PurchaseOrderUpdate(BaseModel):
@@ -556,10 +606,47 @@ class SalesTransactionOut(BaseModel):
 # ============================================================================
 
 class ReconciliationResult(BaseModel):
-    """Result of a reconciliation operation."""
+    """A single ledger-vs-stock reconciliation row."""
+    product_id: str
+    sku: Optional[str] = None
+    name: Optional[str] = None
+    current_on_hand: int = 0
+    ledger_sum: int = 0
+    drift: int = 0
+    status: str = "reconciled"
+    timestamp: datetime
+
+
+class StocktakeCountIn(BaseModel):
+    """Physical stock count for one product."""
+    product_id: str
+    actual_amount: int = Field(..., ge=0)
+
+
+class StocktakeReconcileRequest(BaseModel):
+    """Payload for applying a physical stocktake."""
+    store_id: str
+    counts: List[StocktakeCountIn] = Field(..., min_length=1)
+
+
+class StocktakeReconcileItem(BaseModel):
+    """Result of reconciling one product against a physical count."""
+    product_id: str
+    sku: str
+    product_name: str
+    expected_amount: int
+    actual_amount: int
+    discrepancy_qty: int
+    variance_status: str
+
+
+class StocktakeReconcileOut(BaseModel):
+    """Result of applying a physical stocktake."""
     reconciled_count: int
-    discrepancies: List[Dict[str, Any]] = []
-    total_variance_kobo: int
+    discrepancies_count: int
+    total_missing: int
+    total_overage: int
+    items: List[StocktakeReconcileItem] = []
 
 
 # ============================================================================
@@ -682,3 +769,75 @@ class SalesIntegrityReportOut(BaseModel):
     critical_flags: int = 0
     total_flags: int = 0
     product_scores: List[ProductIntegrityOut] = []
+
+
+# ============================================================================
+# TRADE (B2B) SCHEMAS
+# ============================================================================
+
+class TradeClientCreate(BaseModel):
+    """Schema for creating a B2B trade client."""
+    company_name: str = Field(..., min_length=1)
+    vat_number: Optional[str] = None
+    delivery_address: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    default_payment_terms: str = Field(default="immediate", pattern=r"^(immediate|net30)$")
+
+
+class TradeClientOut(BaseModel):
+    """Response schema for a trade client."""
+    id: str
+    owner_id: str
+    company_name: str
+    vat_number: Optional[str] = None
+    delivery_address: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    default_payment_terms: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TradeOrderLineCreate(BaseModel):
+    """Schema for a single line on a trade order."""
+    product_id: str
+    quantity: int = Field(..., ge=1)
+    unit_price_kobo: int = Field(..., ge=0)
+
+
+class TradeOrderCreate(BaseModel):
+    """Schema for creating a draft trade order."""
+    client_id: str
+    store_id: str
+    payment_terms: str = Field(default="immediate", pattern=r"^(immediate|net30)$")
+    lines: List[TradeOrderLineCreate] = Field(..., min_length=1)
+
+
+class TradeOrderLineOut(BaseModel):
+    """Response schema for a trade order line."""
+    id: str
+    product_id: str
+    quantity: int
+    unit_price_kobo: int
+    reservation_id: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TradeOrderOut(BaseModel):
+    """Response schema for a trade order."""
+    id: str
+    owner_id: str
+    client_id: str
+    store_id: str
+    status: str
+    payment_terms: str
+    total_kobo: int
+    sale_id: Optional[str] = None
+    lines: List[TradeOrderLineOut] = []
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

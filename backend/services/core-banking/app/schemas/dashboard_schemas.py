@@ -7,19 +7,6 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, model_validator
 
 
-class CreditScoreOut(BaseModel):
-    """Response schema for credit score."""
-    id: str
-    user_id: str
-    score: int
-    risk_level: str
-    factors: List[Dict[str, Any]]
-    calculated_at: datetime
-    expires_at: datetime
-
-    class Config:
-        from_attributes = True
-
 class UserProfile(BaseModel):
     id: str
     full_name: Optional[str] = None
@@ -44,29 +31,6 @@ class WalletState(BaseModel):
         from_attributes = True
 
 
-class CreditScoreDetail(BaseModel):
-    id: Optional[str] = None
-    user_id: Optional[str] = None
-    total_score: int = 0
-    tier: str = "Bronze"
-    calculated_at: Optional[datetime] = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def map_credit_score_fields(cls, data):
-        if isinstance(data, dict):
-            mapped = dict(data)
-            mapped.setdefault("total_score", mapped.get("score", 0))
-            mapped.setdefault("tier", str(mapped.get("risk_level", "Bronze")).title())
-            return mapped
-
-        return {
-            "id": getattr(data, "id", None),
-            "user_id": getattr(data, "user_id", None),
-            "total_score": getattr(data, "score", 0),
-            "tier": str(getattr(data, "risk_level", "Bronze")).title(),
-            "calculated_at": getattr(data, "calculated_at", None),
-        }
 
     class Config:
         from_attributes = True
@@ -148,7 +112,6 @@ class CommunityStats(BaseModel):
 class DashboardSummary(BaseModel):
     user: UserProfile
     wallet: WalletState
-    credit_score: Optional[CreditScoreDetail]
     today_sales: Optional[SalesMetricsSummary]
     recent_activity: List[TransactionSummary]
     market_ticker: List[MarketTickerItem] = []

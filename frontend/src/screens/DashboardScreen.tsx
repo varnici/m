@@ -44,6 +44,11 @@ import { BusinessMetrics } from '@/data/mockData';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardService } from '@/services/dashboardService';
+import { useUserProfileStore } from '@/store/userProfileStore';
+import type { AccountTypeId } from '@/config/accountTypes';
+
+// Account types that run physical stock and get inventory-related quick actions.
+const INVENTORY_ACCOUNT_TYPES: AccountTypeId[] = ['retail', 'distributor', 'logistics', 'manufactural'];
 
 // ─── Quick Access Grid Config ───────────────────────────────
 
@@ -59,10 +64,11 @@ const QUICK_ACCESS_ITEMS: Array<{
   bgColor: string;
   iconColor: string;
   route: keyof RootStackParamList;
+  accountTypes?: AccountTypeId[];
 }> = [
   { icon: Banknote, label: 'Loans', bgColor: '#D1FAE5', iconColor: '#004D2C', route: 'LoanDashboard' },
   { icon: BarChart3, label: 'Sales', bgColor: '#DBEAFE', iconColor: '#2563EB', route: 'SalesDashboard' },
-  { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706', route: 'InventoryManager' },
+  { icon: Package, label: 'Inventory', bgColor: '#FEF3C7', iconColor: '#D97706', route: 'InventoryManager', accountTypes: INVENTORY_ACCOUNT_TYPES },
   { icon: Truck, label: 'Logistics', bgColor: '#E0F2FE', iconColor: '#0369A1', route: 'VentureRoute' },
   { icon: Users, label: 'Group Buy', bgColor: '#FCE7F3', iconColor: '#DB2777', route: 'PoolList' },
   { icon: Shield, label: 'Insurance', bgColor: '#FEE2E2', iconColor: '#EF4444', route: 'InsuranceSummary' },
@@ -97,9 +103,14 @@ const DashboardScreen = ({
   navigation,
 }: RootStackScreenProps<'Dashboard'>) => {
   const { user } = useAuth();
+  const accountType = useUserProfileStore((s) => s.accountType);
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [activeIntelTab, setActiveIntelTab] = useState('For You');
   const { width: screenWidth } = useWindowDimensions();
+
+  const visibleQuickAccessItems = QUICK_ACCESS_ITEMS.filter(
+    (item) => !item.accountTypes || (accountType && item.accountTypes.includes(accountType)),
+  );
 
   const { 
     data, 
@@ -131,6 +142,7 @@ const DashboardScreen = ({
   const defaultWallet = {
     balance_kobo: 0,
     daily_change_kobo: 0,
+    credit_limit_kobo: 0,
     available_credit_kobo: 0,
     total_debt_kobo: 0,
     next_repayment_date: null,
@@ -139,7 +151,6 @@ const DashboardScreen = ({
   const defaultDashboard = {
     user: defaultUser,
     wallet: defaultWallet,
-    credit_score: { total_score: 0, tier: 'Bronze' },
     today_sales: { total_amount_kobo: 0, vs_yesterday_percent: 0 },
     sales_streak: { streak_days: 0, total_days: 7, points_earned: 0, next_reward_tier: 'Silver' },
     community_stats: { total_members: 14400 },
@@ -153,7 +164,6 @@ const DashboardScreen = ({
     ...(data || {}),
     user: { ...defaultUser, ...(data?.user || {}) },
     wallet: { ...defaultWallet, ...(data?.wallet || {}) },
-    credit_score: { ...defaultDashboard.credit_score, ...(data?.credit_score || {}) },
     today_sales: { ...defaultDashboard.today_sales, ...(data?.today_sales || {}) },
     sales_streak: { ...defaultDashboard.sales_streak, ...(data?.sales_streak || {}) },
     community_stats: { ...defaultDashboard.community_stats, ...(data?.community_stats || {}) },
@@ -252,16 +262,18 @@ const DashboardScreen = ({
 
         {/* ═══ STAT CARDS ROW ═══ */}
         <View className="flex-row px-4 py-4 gap-3">
-          <TouchableOpacity 
-            className="flex-1" 
-            onPress={() => navigation.navigate('CreditDashboard')}
+          <TouchableOpacity
+            className="flex-1"
+            onPress={() => navigation.navigate('LoanDashboard')}
           >
             <StatCard
-                title="CREDIT SCORE"
-                value={dashboard.credit_score?.total_score.toString() || '--'}
-                subtitle="/1000"
-                progress={{ current: dashboard.credit_score?.total_score || 0, max: 1000 }}
-                badge={`${dashboard.credit_score?.tier || 'Bronze'} · Explore →`}
+                title="AVAILABLE CREDIT"
+                value={`₦${((dashboard.wallet.available_credit_kobo || 0) / 100).toLocaleString()}`}
+                progress={{
+                  current: dashboard.wallet.total_debt_kobo || 0,
+                  max: dashboard.wallet.credit_limit_kobo || 1,
+                }}
+                badge="Apply for financing →"
             />
           </TouchableOpacity>
           <TouchableOpacity 
@@ -292,7 +304,7 @@ const DashboardScreen = ({
             </TouchableOpacity>
           </View>
           <View className="flex-row flex-wrap justify-between">
-            {QUICK_ACCESS_ITEMS.map((item, index) => {
+            {visibleQuickAccessItems.map((item, index) => {
               const columns = screenWidth < 360 ? 3 : 4;
               const itemWidth = `${100 / columns}%` as const;
               return (

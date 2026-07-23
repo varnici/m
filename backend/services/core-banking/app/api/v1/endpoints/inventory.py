@@ -38,6 +38,8 @@ from app.schemas.inventory_schemas import (
     StockReservationCreate,
     StockReservationAction,
     StockReservationOut,
+    StocktakeReconcileRequest,
+    StocktakeReconcileOut,
     OutboxMessageOut,
     OutboxProcessResult,
     OutboxReplayResult,
@@ -75,10 +77,16 @@ from app.schemas.inventory_schemas import (
     ActivityLogOut,
     StaffSummaryOut,
     SalesIntegrityReportOut,
+    # Trade (B2B) schemas
+    TradeClientCreate,
+    TradeClientOut,
+    TradeOrderCreate,
+    TradeOrderOut,
 )
 from app.models import Product, StockLevel, Store, InventorySnapshot, PurchaseOrder, InventoryReservationModel, ActivityLog
 from app.models.user import User
 from app.services.activity_log_service import ActivityLogService, SalesIntegrityService
+from app.services.trade_service import TradeClientService, TradeOrderService
 
 router = APIRouter(tags=["inventory"])
 logger = logging.getLogger(__name__)
@@ -510,6 +518,26 @@ def create_sale(
         logger.exception("Sale processing failed for owner_id=%s", owner_id)
         raise HTTPException(status_code=500, detail="Internal server error while processing sale.")
 
+@router.post("/sales/process", response_model=SalesTransactionOut, status_code=201)
+def process_sale(
+    payload: SalesTransactionCreate,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Compatibility endpoint for POS/trade screens that call /sales/process."""
+    service = SalesService(db, owner_id)
+    try:
+        result = service.create_sales_transaction(payload)
+        invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+        return result
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        logger.exception("Sale processing failed for owner_id=%s", owner_id)
+        raise HTTPException(status_code=500, detail="Internal server error while processing sale.")
+
 @router.get("/sales/{tx_id}", response_model=SalesTransactionOut)
 def get_sale(
     tx_id: str,
@@ -532,6 +560,90 @@ def update_sale(
     result = service.update_sales_transaction(tx_id, payload)
     invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
     return result
+
+@router.post("/trade-clients", response_model=TradeClientOut, status_code=201)
+def create_trade_client(
+    payload: TradeClientCreate,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Create a B2B trade client for the Trade Invoicing Desk."""
+    service = TradeClientService(db, owner_id)
+    return service.create_client(payload)
+
+@router.get("/trade-clients", response_model=List[TradeClientOut])
+def list_trade_clients(
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """List this owner's registered B2B trade clients."""
+    service = TradeClientService(db, owner_id)
+    return service.list_clients()
+
+@router.post("/trade-orders", response_model=TradeOrderOut, status_code=201)
+def create_trade_order(
+    payload: TradeOrderCreate,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Create a draft trade order. Rejects any line below the product's Trade_MOQ."""
+    service = TradeOrderService(db, owner_id)
+    try:
+        return service.create_order(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@router.get("/trade-orders", response_model=List[TradeOrderOut])
+def list_trade_orders(
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """List this owner's trade orders (draft, held, dispatched)."""
+    service = TradeOrderService(db, owner_id)
+    return service.list_orders()
+
+@router.get("/trade-orders/{order_id}", response_model=TradeOrderOut)
+def get_trade_order(
+    order_id: str,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Fetch a single trade order."""
+    service = TradeOrderService(db, owner_id)
+    try:
+        return service.get_order_out(order_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+@router.post("/trade-orders/{order_id}/hold", response_model=TradeOrderOut)
+def hold_trade_order(
+    order_id: str,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Save Draft / Hold Stock — reserves stock for every line."""
+    service = TradeOrderService(db, owner_id)
+    try:
+        result = service.hold_order(order_id)
+        invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@router.post("/trade-orders/{order_id}/dispatch", response_model=TradeOrderOut)
+def dispatch_trade_order(
+    order_id: str,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Generate Invoice & Approve Dispatch — commits held stock and creates the sale."""
+    service = TradeOrderService(db, owner_id)
+    try:
+        result = service.dispatch_order(order_id)
+        invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @router.get("/analytics/ledger", response_model=List[LedgerEntry])
 def get_inventory_analytics_ledger(
@@ -673,6 +785,21 @@ def commit_reservation(
     result = service.commit_stock_reservation(reservation_id, payload)
     invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
     return result
+
+@router.post("/stock/reconcile-counts", response_model=StocktakeReconcileOut)
+def reconcile_physical_counts(
+    payload: StocktakeReconcileRequest,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Apply manager-entered physical counts and update stock balances."""
+    service = StockService(db, owner_id)
+    try:
+        result = service.reconcile_physical_counts(payload.store_id, payload.counts)
+        invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @router.get("/stock", response_model=List[StockLevelOut])
 def get_stock_levels(

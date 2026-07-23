@@ -9,9 +9,9 @@ type RouteName = keyof RootStackParamList;
 const STEP_SEQUENCES: Record<string, RouteName[]> = {
   nine_to_five: [
     'WorkerEmail',
-    // 'WorkerPhone',  // OTP — skipped until SMS/email OTP is production-ready
+    'WorkerPhone',
     'WorkerPassword',
-    // 'WorkerOTP',    // OTP — skipped until SMS/email OTP is production-ready
+    'WorkerOTP',
     'WorkerProfile',
     'WorkerEmployment',
     'WorkerIdentity',
@@ -21,7 +21,7 @@ const STEP_SEQUENCES: Record<string, RouteName[]> = {
     'WorkerCompletion',
   ],
   retail: [
-    // 'OnboardingPhone',  // OTP — skipped until SMS/email OTP is production-ready
+    'OnboardingPhone',
     'OnboardingBasicInfo',
     'OnboardingShopInfo',
     'OnboardingCategory',
@@ -40,6 +40,7 @@ const STEP_SEQUENCES: Record<string, RouteName[]> = {
     'OnboardingReview',
   ],
   distributor: [
+    'OnboardingPhone',
     'DistributorCompany',
     'DistributorOperations',
     'DistributorDirector',
@@ -47,6 +48,7 @@ const STEP_SEQUENCES: Record<string, RouteName[]> = {
     'DistributorTerms',
   ],
   logistics: [
+    'OnboardingPhone',
     'LogisticsCompany',
     'LogisticsFleet',
     'LogisticsDriver',

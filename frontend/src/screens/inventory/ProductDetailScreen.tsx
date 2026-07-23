@@ -125,6 +125,8 @@ export const ProductDetailScreen = ({ route, navigation }: any) => {
     );
   }
 
+  const discrepancyQty = product.discrepancy_qty ?? 0;
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -247,6 +249,87 @@ export const ProductDetailScreen = ({ route, navigation }: any) => {
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Margin %</Text>
           <Text style={styles.metricValueSuccess}>{product.margin_percentage}%</Text>
+        </View>
+      </View>
+
+      {/* Stock Verification: Expected (system) vs Actual (last physical count) */}
+      <Text style={styles.sectionTitle}>Stock Verification</Text>
+      {discrepancyQty !== 0 && (
+        <View
+          style={[
+            styles.alertBanner,
+            { backgroundColor: discrepancyQty > 0 ? '#FEF2F2' : '#EFF6FF' },
+            { borderColor: discrepancyQty > 0 ? '#FECACA' : '#BFDBFE', marginHorizontal: 16 },
+          ]}
+        >
+          <Ionicons
+            name="warning"
+            size={20}
+            color={discrepancyQty > 0 ? '#991B1B' : '#1D4ED8'}
+          />
+          <Text style={[styles.alertText, { color: discrepancyQty > 0 ? '#991B1B' : '#1D4ED8' }]}>
+            {discrepancyQty > 0
+              ? `${discrepancyQty} units missing since the last stock count (possible theft or damage)`
+              : `${Math.abs(discrepancyQty)} extra units found since the last stock count`}
+          </Text>
+        </View>
+      )}
+      <View style={styles.metricsGrid}>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Expected Stock (System)</Text>
+          <Text style={styles.metricValue}>{product.expected_amount ?? 0}</Text>
+        </View>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Actual Stock (Last Count)</Text>
+          <Text style={styles.metricValue}>{product.actual_amount ?? 0}</Text>
+        </View>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Difference</Text>
+          <Text
+            style={
+              discrepancyQty === 0
+                ? styles.metricValueSuccess
+                : [styles.metricValue, { color: discrepancyQty > 0 ? '#DC2626' : '#2563EB' }]
+            }
+          >
+            {discrepancyQty > 0 ? '-' : discrepancyQty < 0 ? '+' : ''}
+            {Math.abs(discrepancyQty)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Wholesale (Trade) pricing and terms, alongside sales-speed forecasting */}
+      <Text style={styles.sectionTitle}>Wholesale Pricing & Sales Speed</Text>
+      <View style={styles.metricsGrid}>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Wholesale Price</Text>
+          <Text style={styles.metricValue}>
+            ₦{((product.trade_price_kobo ?? product.selling_price_kobo) / 100).toFixed(2)}
+          </Text>
+        </View>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Wholesale Margin %</Text>
+          <Text style={styles.metricValueSuccess}>{(product.trade_margin_pct ?? 0).toFixed(1)}%</Text>
+        </View>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Min. Wholesale Order Qty</Text>
+          <Text style={styles.metricValue}>{product.trade_moq ?? 1}</Text>
+        </View>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Units Sold / Month</Text>
+          <Text style={styles.metricValue}>{product.monthly_velocity ?? 0}</Text>
+        </View>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Days Until Out of Stock</Text>
+          <Text
+            style={
+              (product.days_of_supply ?? 0) > 0 && (product.days_of_supply ?? 0) <= 7
+                ? [styles.metricValue, { color: '#DC2626' }]
+                : styles.metricValue
+            }
+          >
+            {product.days_of_supply ? `${product.days_of_supply} days` : '—'}
+          </Text>
         </View>
       </View>
 

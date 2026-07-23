@@ -44,8 +44,11 @@ export interface ProductIntelligence {
 export interface Product {
   id: string;
   sku: string;
+  barcode?: string;
+  qr_code?: string;
   name: string;
   description?: string;
+  brand?: string;
   owner_id?: string;
   category_id?: string;
   unit_of_measure: string;
@@ -60,6 +63,16 @@ export interface Product {
   expenses_kobo: number;
   quantity_sold: number;
   quantity_on_credit: number;
+  retail_price_kobo?: number;
+  trade_price_kobo?: number;
+  retail_margin_pct?: number;
+  trade_margin_pct?: number;
+  expected_amount?: number;
+  actual_amount?: number;
+  discrepancy_qty?: number;
+  monthly_velocity?: number;
+  days_of_supply?: number;
+  trade_moq?: number;
   is_active: boolean;
   total_quantity_on_hand: number;
   total_reserved_quantity: number;
@@ -75,7 +88,7 @@ export interface Product {
   created_at: string;
 }
 
-export type MovementType = 'purchase' | 'sale' | 'transfer' | 'adjustment' | 'return';
+export type MovementType = 'purchase' | 'sale' | 'transfer' | 'adjustment' | 'return' | 'damage' | 'loss';
 
 export interface StockMovement {
   id: string;
@@ -90,12 +103,100 @@ export interface StockMovement {
 
 export interface StockReservation {
   id: string;
+  owner_id?: string;
   product_id: string;
   store_id: string;
-  quantity: number;
-  status: 'pending' | 'committed' | 'released' | 'expired';
-  expires_at: string;
+  quantity?: number;
+  quantity_reserved?: number;
+  quantity_committed?: number;
+  quantity_released?: number;
+  purpose?: string;
+  reference_type?: string;
+  reference_id?: string;
+  notes?: string;
+  status: 'active' | 'pending' | 'committed' | 'released' | 'expired';
+  expires_at?: string;
   created_at: string;
+  updated_at?: string;
+}
+
+export interface StocktakeCount {
+  product_id: string;
+  actual_amount: number;
+}
+
+export interface StocktakeReconcileItem {
+  product_id: string;
+  sku: string;
+  product_name: string;
+  expected_amount: number;
+  actual_amount: number;
+  discrepancy_qty: number;
+  variance_status: 'matched' | 'shrinkage' | 'overage' | string;
+}
+
+export interface StocktakeReconcileResult {
+  reconciled_count: number;
+  discrepancies_count: number;
+  total_missing: number;
+  total_overage: number;
+  items: StocktakeReconcileItem[];
+}
+
+export interface TradeClient {
+  id: string;
+  owner_id: string;
+  company_name: string;
+  vat_number?: string;
+  delivery_address?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  default_payment_terms: 'immediate' | 'net30' | string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface TradeClientCreate {
+  company_name: string;
+  vat_number?: string;
+  delivery_address?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  default_payment_terms?: 'immediate' | 'net30' | string;
+}
+
+export interface TradeOrderLine {
+  id: string;
+  product_id: string;
+  quantity: number;
+  unit_price_kobo: number;
+  reservation_id?: string | null;
+}
+
+export interface TradeOrderLineCreate {
+  product_id: string;
+  quantity: number;
+  unit_price_kobo: number;
+}
+
+export interface TradeOrder {
+  id: string;
+  owner_id: string;
+  client_id: string;
+  store_id: string;
+  status: 'draft' | 'held' | 'dispatched' | 'cancelled' | string;
+  payment_terms: 'immediate' | 'net30' | string;
+  total_kobo: number;
+  sale_id?: string | null;
+  lines: TradeOrderLine[];
+  created_at: string;
+}
+
+export interface TradeOrderCreate {
+  client_id: string;
+  store_id: string;
+  payment_terms?: 'immediate' | 'net30' | string;
+  lines: TradeOrderLineCreate[];
 }
 
 export interface Supplier {

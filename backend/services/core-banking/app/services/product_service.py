@@ -21,8 +21,10 @@ from app.models import (
 from app.schemas.inventory_schemas import (
     CategoryCreate,
     CategoryOut,
+    DemandForecastPoint,
     ProductCreate,
     ProductDetailOut,
+    ProductIntelligence,
     ProductOut,
     ProductUpdate,
     StockLevelOut,
@@ -102,6 +104,39 @@ class ProductService:
         )
         return [CategoryOut.model_validate(c) for c in categories]
 
+    def _hydrate_product_output(
+        self,
+        product_out: ProductOut,
+        product: Product,
+        total_quantity: int,
+        total_reserved: int = 0,
+    ) -> ProductOut:
+        product_out.total_quantity_on_hand = int(total_quantity or 0)
+        product_out.total_reserved_quantity = max(0, int(total_reserved or 0))
+        product_out.retail_price_kobo = product.selling_price_kobo
+        product_out.trade_price_kobo = product.trade_price_kobo or product.selling_price_kobo
+        product_out.trade_moq = max(1, product.trade_moq or 1)
+
+        monthly_velocity = product.monthly_velocity or product.quantity_sold or 0
+        product_out.monthly_velocity = int(monthly_velocity)
+        if product.days_of_supply:
+            product_out.days_of_supply = product.days_of_supply
+        elif monthly_velocity > 0:
+            daily_velocity = monthly_velocity / 30
+            product_out.days_of_supply = int(total_quantity / daily_velocity) if daily_velocity > 0 else 0
+        else:
+            product_out.days_of_supply = 0
+
+        expected_amount = int(total_quantity or 0)
+        actual_amount = product.actual_amount if product.actual_amount > 0 else expected_amount
+        product_out.expected_amount = expected_amount
+        product_out.actual_amount = int(actual_amount)
+        product_out.discrepancy_qty = int(expected_amount - actual_amount)
+
+        product_out.retail_margin_pct = product.retail_margin_pct
+        product_out.trade_margin_pct = product.trade_margin_pct
+        return product_out
+
     def create_product(self, payload: ProductCreate) -> ProductOut:
         try:
             existing = self.db.query(Product).filter(
@@ -114,6 +149,14 @@ class ProductService:
             product_data = payload.model_dump(exclude={"quantity_on_hand", "store_id"})
             initial_qty = payload.quantity_on_hand
             target_store_id = payload.store_id
+            if not product_data.get("trade_price_kobo"):
+                product_data["trade_price_kobo"] = payload.selling_price_kobo
+            if initial_qty is not None:
+                product_data["expected_amount"] = product_data.get("expected_amount") or initial_qty
+                product_data["actual_amount"] = product_data.get("actual_amount") or initial_qty
+                product_data["discrepancy_qty"] = (
+                    product_data["expected_amount"] - product_data["actual_amount"]
+                )
 
             if product_data.get("category_id"):
                 cat_exists = (
@@ -175,7 +218,13 @@ class ProductService:
 
             self.db.commit()
             self.db.refresh(product)
-            return ProductOut.model_validate(product)
+            p_out = ProductOut.model_validate(product)
+            return self._hydrate_product_output(
+                p_out,
+                product,
+                initial_qty or 0,
+                0,
+            )
         except ValueError as exc:
             self.db.rollback()
             raise HTTPException(status_code=400, detail=str(exc))
@@ -255,9 +304,14 @@ class ProductService:
         result = []
         for p, total_quantity, total_reserved in rows:
             p_out = ProductOut.model_validate(p)
-            p_out.total_quantity_on_hand = int(total_quantity or 0)
-            p_out.total_reserved_quantity = max(0, int(total_reserved or 0))
-            result.append(p_out)
+            result.append(
+                self._hydrate_product_output(
+                    p_out,
+                    p,
+                    int(total_quantity or 0),
+                    int(total_reserved or 0),
+                )
+            )
         return result, total_count
 
     def get_product_by_barcode(self, barcode: str, store_id: Optional[str] = None) -> ProductOut:
@@ -280,8 +334,7 @@ class ProductService:
         )
 
         p_out = ProductOut.model_validate(product)
-        p_out.total_quantity_on_hand = total_qoh
-        p_out.total_reserved_quantity = max(0, total_res)
+        p_out = self._hydrate_product_output(p_out, product, total_qoh, total_res)
         return p_out
 
     def get_product_detail(self, product_id: str, store_id: Optional[str] = None) -> ProductDetailOut:
@@ -317,8 +370,7 @@ class ProductService:
 
         detail = ProductDetailOut.model_validate(product)
         detail.stock_by_location = [StockLevelOut.model_validate(s) for s in stock_levels]
-        detail.total_quantity_on_hand = total_quantity
-        detail.total_reserved_quantity = total_reserved
+        detail = self._hydrate_product_output(detail, product, total_quantity, total_reserved)
         detail.total_inventory_value_kobo = int(total_value)
         detail.profit_per_unit_kobo = profit_per_unit
         detail.margin_percentage = Decimal(str(margin_pct))
@@ -334,7 +386,7 @@ class ProductService:
             forecast.append(
                 {"date": forecast_date.strftime("%b %d"), "quantity": base_demand + variance}
             )
-        detail.demand_forecast = forecast
+        detail.demand_forecast = [DemandForecastPoint(**point) for point in forecast]
 
         intelligence = []
         if is_dead_stock:
@@ -374,7 +426,7 @@ class ProductService:
                     "impact": "positive",
                 }
             )
-        detail.ai_intelligence = intelligence
+        detail.ai_intelligence = [ProductIntelligence(**item) for item in intelligence]
         return detail
 
     def update_product(self, product_id: str, payload: ProductUpdate) -> ProductOut:
@@ -399,7 +451,22 @@ class ProductService:
         product.updated_at = datetime.now(timezone.utc)
         self.db.commit()
         self.db.refresh(product)
-        return ProductOut.model_validate(product)
+        stock_total = (
+            self.db.query(func.coalesce(func.sum(StockLevel.quantity_on_hand), 0))
+            .filter(StockLevel.product_id == product.id)
+            .scalar()
+        )
+        reserved_total = (
+            self.db.query(func.coalesce(func.sum(StockLevel.quantity_reserved), 0))
+            .filter(StockLevel.product_id == product.id)
+            .scalar()
+        )
+        return self._hydrate_product_output(
+            ProductOut.model_validate(product),
+            product,
+            int(stock_total or 0),
+            int(reserved_total or 0),
+        )
 
     def delete_product(self, product_id: str) -> None:
         product = self.db.query(Product).filter(

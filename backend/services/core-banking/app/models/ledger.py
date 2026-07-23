@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, String, Text,
+    BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, String, Text, event,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,6 +36,48 @@ class ChartOfAccount(Base):
             "account_type IN ('asset', 'liability', 'equity', 'revenue', 'expense')",
             name="ck_coa_account_type",
         ),
+    )
+
+
+# Real deploys get this data from Alembic's op.bulk_insert in
+# 0008_double_entry_ledger.py / 0019_loan_ledger_accounts.py. But
+# Base.metadata.create_all() — the dev-convenience fallback in init_db(), and
+# what every ad-hoc test fixture in this codebase uses to stand up a fresh
+# SQLite DB — creates the table structure without ever running that seed, so
+# LedgerService.record_transaction fails with "Unknown account codes" the
+# first time anything posts to the ledger outside a fully-migrated Postgres
+# instance. This event fires right after CREATE TABLE for chart_of_accounts
+# under create_all() specifically (Alembic's op.create_table builds its own
+# ad-hoc Table object, so this listener — bound to the ORM-mapped Table — never
+# double-fires there) and keeps both paths seeded with the same accounts.
+_SEED_ACCOUNTS = [
+    ("1000", "Platform Cash Pool", "asset", None, True, "Master cash asset pool"),
+    ("1100", "Escrow Holding", "asset", None, True, "Funds held in escrow during order fulfillment"),
+    ("1200", "User Wallets Receivable", "asset", None, True, "Outstanding receivables from user wallets"),
+    ("1300", "Loans Receivable", "asset", None, True, "Outstanding principal on disbursed business loans"),
+    ("2000", "User Wallet Liabilities", "liability", None, True, "Deposits owed back to users"),
+    ("2100", "Distributor Accounts Payable", "liability", None, True, "Wholesale payouts due to distributors"),
+    ("2200", "Logistics Fees Payable", "liability", None, True, "Fulfillment fees due to logistics partners"),
+    ("2300", "Investor Escrow Payable", "liability", None, True, "Escrow funds owed to 9-5 worker investors"),
+    ("3000", "Default Reserve Pool", "equity", None, True, "Platform reserve equity buffer"),
+    ("4000", "Platform Commission Revenue", "revenue", None, True, "Revenue from platform spread/commission"),
+    ("4100", "Investment Management Fee", "revenue", None, True, "Fees from investment management"),
+    ("4200", "Loan Interest Income", "revenue", None, True, "Interest collected on repaid business loans"),
+    ("5000", "Payment Processing Costs", "expense", None, True, "Third-party payment gateway fees"),
+]
+
+
+@event.listens_for(ChartOfAccount.__table__, "after_create")
+def _seed_chart_of_accounts(target, connection, **kw):
+    connection.execute(
+        target.insert(),
+        [
+            {
+                "code": code, "name": name, "account_type": atype,
+                "parent_code": parent, "is_system": is_sys, "description": desc,
+            }
+            for code, name, atype, parent, is_sys, desc in _SEED_ACCOUNTS
+        ],
     )
 
 

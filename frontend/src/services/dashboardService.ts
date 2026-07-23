@@ -11,15 +11,11 @@ export interface DashboardData {
   wallet: {
     balance_kobo: number;
     daily_change_kobo: number;
+    credit_limit_kobo?: number;
     available_credit_kobo: number;
     total_debt_kobo: number;
     next_repayment_date?: string;
     repayment_amount_kobo?: number;
-  };
-  credit_score?: {
-    total_score: number;
-    tier: string;
-    calculated_at: string;
   };
   today_sales?: {
     total_amount_kobo: number;

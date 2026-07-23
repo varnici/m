@@ -1,54 +1,49 @@
-"""Loan and repayment schemas."""
+"""Loan application schemas."""
 from __future__ import annotations
 
-from datetime import datetime, date
+from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import Optional
 
 
-class LoanCreate(BaseModel):
-    """Schema for creating a loan."""
-    user_id: Optional[str] = None
-    principal_kobo: int = Field(..., ge=0)
-    service_fee_kobo: int = Field(default=0, ge=0)
-    product_sku: str = Field(..., min_length=1)
-    product_qty: int = Field(..., ge=1)
+class LoanApplicationCreate(BaseModel):
+    """Schema for applying for a loan."""
+    amount_kobo: int = Field(..., ge=0)
+    purpose: str = Field(..., min_length=1)
+    term_months: int = Field(default=1, ge=1, le=12)
 
 
 class RepaymentCreate(BaseModel):
-    """Schema for recording a repayment."""
-    loan_id: str
+    """Schema for recording a repayment. The loan is identified by the URL path."""
     amount_kobo: int = Field(..., ge=0)
 
 
-class RepaymentOut(BaseModel):
-    """Response schema for repayment."""
+class LoanTransactionOut(BaseModel):
+    """Response schema for a loan transaction (disbursement or repayment)."""
     id: str
-    loan_id: str
+    loan_application_id: str
+    type: str
     amount_kobo: int
-    paid_at: datetime
+    transaction_date: datetime
+    description: str
 
     class Config:
         from_attributes = True
 
 
-class LoanOut(BaseModel):
-    """Response schema for loan."""
+class LoanApplicationOut(BaseModel):
+    """Response schema for a loan application."""
     id: str
     user_id: str
+    amount_kobo: int
+    purpose: str
+    term_months: int
+    interest_rate: float
     status: str
-    principal_kobo: int
-    service_fee_kobo: int
-    total_due_kobo: int
-    repaid_kobo: int
-    product_sku: str
-    product_qty: int
+    applied_at: datetime
+    approved_at: Optional[datetime]
     disbursed_at: Optional[datetime]
-    next_repayment_date: Optional[date]
-    outstanding_balance_kobo: int
-    days_past_due: int
-    last_payment_date: Optional[datetime]
-    created_at: datetime
+    rejection_reason: Optional[str]
 
     class Config:
         from_attributes = True

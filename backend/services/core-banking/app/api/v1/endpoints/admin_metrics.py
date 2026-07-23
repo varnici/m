@@ -1,6 +1,6 @@
 """
 Admin Metrics API — platform-wide financial health dashboard.
-All endpoints require a valid JWT; add role-check middleware to restrict to admins.
+All endpoints require the authenticated user to have users.is_admin = true.
 """
 from __future__ import annotations
 
@@ -137,7 +137,7 @@ def _row_to_snapshot(row: DailySystemMetrics) -> PlatformSnapshot:
 @router.get("/today", response_model=PlatformSnapshot)
 def get_today_metrics(
     db: Session = Depends(deps.get_db),
-    _user: str = Depends(deps.get_current_user_id),
+    _user: str = Depends(deps.require_admin),
 ):
     """Latest platform health snapshot. Falls back to yesterday if today isn't computed yet."""
     row = db.execute(
@@ -156,7 +156,7 @@ def get_today_metrics(
 def get_metrics_history(
     days: int = Query(default=30, ge=1, le=365),
     db: Session = Depends(deps.get_db),
-    _user: str = Depends(deps.get_current_user_id),
+    _user: str = Depends(deps.require_admin),
 ):
     """Historical daily snapshots for trend charts (default: last 30 days)."""
     since = date.today() - timedelta(days=days)
@@ -183,7 +183,7 @@ def get_metrics_history(
 @router.get("/alerts", response_model=List[str])
 def get_active_alerts(
     db: Session = Depends(deps.get_db),
-    _user: str = Depends(deps.get_current_user_id),
+    _user: str = Depends(deps.require_admin),
 ):
     """All active threshold breach alerts from today's snapshot."""
     row = db.execute(
@@ -202,7 +202,7 @@ def get_active_alerts(
 def trigger_manual_rollup(
     target_date: Optional[date] = None,
     db: Session = Depends(deps.get_db),
-    _user: str = Depends(deps.get_current_user_id),
+    _user: str = Depends(deps.require_admin),
 ):
     """
     Manually trigger the metrics rollup for a specific date (default: today).

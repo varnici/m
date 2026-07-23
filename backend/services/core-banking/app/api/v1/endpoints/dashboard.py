@@ -8,22 +8,20 @@ from sqlalchemy import desc, select, func
 
 from app.infrastructure.database import db_session
 from app.infrastructure.auth import get_current_user_id
-from app.models.credit_score import CreditScore
 from app.models.inventory_metrics import InventoryMetrics
 from app.models.loan_metrics import LoanMetrics
-from app.models.loan import Loan
-from app.models.notification import Notification
+from app.models.loan_application import LoanApplication
 from app.models.inventory import SalesTransaction
 from app.models.sales_metrics import SalesMetrics
 from app.models.user import User
 from app.models.wallet import Wallet
 from app.schemas.dashboard_schemas import (
-    CreditScoreOut,
     DashboardSummary,
     InventoryMetricsOut,
     LoanMetricsOut,
     SalesMetricsOut,
 )
+from app.services import loan_application_service
 
 router = APIRouter()
 
@@ -44,14 +42,6 @@ def get_dashboard_summary(user_id: str, _auth_user: str = Depends(get_current_us
         ).scalar_one_or_none()
         if not wallet_record:
             raise HTTPException(status_code=404, detail="Wallet not found")
-
-        # Get latest credit score
-        credit_score = db.execute(
-            select(CreditScore)
-            .where(CreditScore.user_id == user_id)
-            .order_by(desc(CreditScore.calculated_at))
-            .limit(1)
-        ).scalar_one_or_none()
 
         # Get today's sales metrics
         today = date.today()
@@ -167,26 +157,38 @@ def get_dashboard_summary(user_id: str, _auth_user: str = Depends(get_current_us
             "new_opportunities": 5
         }
 
-        # Fetch Loan Repayment Info
+        # Fetch Loan Repayment Info — earliest-disbursed active loan for this user
         next_loan = db.execute(
-            select(Loan)
-            .where(Loan.user_id == user_id, Loan.status == "active")
-            .order_by(Loan.next_repayment_date.asc())
+            select(LoanApplication)
+            .where(LoanApplication.user_id == user_id, LoanApplication.status == "disbursed")
+            .order_by(LoanApplication.disbursed_at.asc())
         ).scalars().first()
+
+        next_repayment_date = None
+        if next_loan:
+            unpaid = [s for s in next_loan.repayment_schedules if s.status != "paid"]
+            if unpaid:
+                next_repayment_date = min(s.due_date for s in unpaid)
+
+        # credit_limit_kobo/available_credit_kobo used to be hardcoded
+        # (50,000,000 / 35,000,000 for every user, regardless of eligibility)
+        # — now sourced from the same percentile-rank eligibility check that
+        # actually gates loan disbursement, so this number can't drift from
+        # what POST /v1/loans will actually approve.
+        loan_dashboard = loan_application_service.get_dashboard(db, user_id)
 
         wallet = {
             "balance_kobo": wallet_record.balance_kobo,
-            "credit_limit_kobo": 50000000, # 500k limit
-            "available_credit_kobo": 35000000,
-            "total_debt_kobo": next_loan.outstanding_balance_kobo if next_loan else 0,
-            "next_repayment_date": next_loan.next_repayment_date if next_loan else None,
-            "repayment_amount_kobo": next_loan.outstanding_balance_kobo if next_loan else 0 # Simplified
+            "credit_limit_kobo": loan_dashboard["available_credit"] + loan_dashboard["credit_in_use"],
+            "available_credit_kobo": loan_dashboard["available_credit"],
+            "total_debt_kobo": loan_dashboard["credit_in_use"],
+            "next_repayment_date": next_repayment_date,
+            "repayment_amount_kobo": loan_dashboard["credit_in_use"]
         }
 
         return {
             "user": user,
             "wallet": wallet,
-            "credit_score": credit_score,
             "today_sales": today_sales,
             "recent_activity": recent_activity,
             "market_ticker": market_ticker,
@@ -262,47 +264,3 @@ def get_loan_metrics(user_id: str, limit: int = 30, _auth_user: str = Depends(ge
         return metrics
 
 
-@router.get("/{user_id}/credit-score", response_model=CreditScoreOut)
-def get_credit_score(user_id: str, _auth_user: str = Depends(get_current_user_id)):
-    """
-    Get the latest credit score for a user.
-    """
-    with db_session() as db:
-        # Verify user exists
-        user = db.get(User, user_id)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        credit_score = db.execute(
-            select(CreditScore)
-            .where(CreditScore.user_id == user_id)
-            .order_by(desc(CreditScore.calculated_at))
-            .limit(1)
-        ).scalar_one_or_none()
-
-        if not credit_score:
-            raise HTTPException(status_code=404, detail="Credit score not found")
-
-        return credit_score
-
-
-@router.get("/{user_id}/credit-scores", response_model=List[CreditScoreOut])
-def get_credit_score_history(user_id: str, limit: int = 10, _auth_user: str = Depends(get_current_user_id)):
-    """
-    Get credit score history for a user.
-    Returns last N credit score calculations (default 10).
-    """
-    with db_session() as db:
-        # Verify user exists
-        user = db.get(User, user_id)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        scores = db.execute(
-            select(CreditScore)
-            .where(CreditScore.user_id == user_id)
-            .order_by(desc(CreditScore.calculated_at))
-            .limit(limit)
-        ).scalars().all()
-
-        return scores

@@ -12,6 +12,15 @@ export interface ProcessSaleRequest {
   items: SalesTransactionItem[];
   payment_method?: 'cash' | 'card' | 'transfer' | 'credit';
   customer_id?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  discount_amount_kobo?: number;
+  shipping_address?: string;
+  shipping_city?: string;
+  shipping_state?: string;
+  shipping_fee_kobo?: number;
+  status?: 'completed' | 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | string;
+  order_type?: 'pos' | 'online' | 'trade' | string;
   notes?: string;
 }
 

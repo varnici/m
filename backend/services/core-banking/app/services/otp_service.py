@@ -56,7 +56,8 @@ def _count_recent_sends(db: Session, target: str, channel: OtpChannel) -> int:
 
 # ── SMS via Termii ────────────────────────────────────────────────────────────
 
-_DEV_MODE = True   # flip to False in production once credentials are set
+def _is_dev_mode() -> bool:
+    return settings.env == "dev"
 
 
 def _dev_log(channel: str, target: str, code: str, reason: str = "") -> None:
@@ -91,7 +92,7 @@ def _send_sms_termii(phone: str, code: str) -> None:
                 )
     except Exception as exc:
         _dev_log("sms", phone, code, f"Termii error: {exc}")
-        if not _DEV_MODE:
+        if not _is_dev_mode():
             raise
 
 
@@ -146,7 +147,7 @@ def _send_email_otp(email: str, code: str) -> None:
             server.sendmail(settings.smtp_from_email, email, msg.as_string())
     except Exception as exc:
         _dev_log("email", email, code, f"SMTP error: {exc}")
-        if not _DEV_MODE:
+        if not _is_dev_mode():
             raise
 
 

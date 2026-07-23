@@ -1,11 +1,10 @@
-from __future__ import annotations
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
+from app.core.rate_limit import limiter
 from app.infrastructure.auth import get_current_user_id
 from app.models.wallet import Wallet
 from app.services.wallet_service import process_transaction
@@ -38,7 +37,9 @@ def get_wallet(
 
 
 @router.post("/topup", response_model=WalletOut)
+@limiter.limit("10/hour")
 def topup_wallet(
+    request: Request,
     payload: WalletTopUp,
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),

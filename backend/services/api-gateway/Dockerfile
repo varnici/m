@@ -14,7 +14,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements.txt
 
 COPY src ./src
-COPY jwt_validator.py rate_limiter.py ./
+COPY jwt_validator.py rate_limiter.py middleware.py ./
 
 ENV PYTHONPATH=/app
 EXPOSE 8000

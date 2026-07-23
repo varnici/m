@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 from uuid import uuid4
 
+import sentry_sdk
 from fastapi import FastAPI
 from starlette.requests import Request
 
@@ -15,6 +17,13 @@ from slowapi.middleware import SlowAPIMiddleware
 
 
 from fastapi.middleware.cors import CORSMiddleware
+
+if os.getenv("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.getenv("SENTRY_DSN"),
+        environment=settings.env,
+        traces_sample_rate=0.1,
+    )
 
 app = FastAPI(title="VentureRoot Core Banking", version="0.1.0", debug=True)
 app.state.limiter = limiter

@@ -15,7 +15,6 @@ import { useOnboardingNav } from '@/hooks/useOnboardingNav';
 import { Mail, Phone, RefreshCw } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
 import { otpService, type OtpChannel } from '@/services/otpService';
-import { sendEmailOtp, verifyEmailOtp } from '@/lib/emailOtp';
 
 const OTP_LENGTH = 6;
 const TIMER_SECONDS = 180;
@@ -104,11 +103,7 @@ export default function WorkerOTPScreen() {
       }
       setVerifying(true);
       try {
-        if (activeChannel === 'email') {
-          await verifyEmailOtp(activeTarget, code);
-        } else {
-          await otpService.verifyOtp(activeTarget, activeChannel, code);
-        }
+        await otpService.verifyOtp(activeTarget, activeChannel, code);
         const patch: Record<string, any> = {
           otpVerified: true,
           otpChannel: activeChannel,
@@ -136,11 +131,7 @@ export default function WorkerOTPScreen() {
   // ── Resend ─────────────────────────────────────────────────────────────────
   const doResend = useCallback(async (channel: OtpChannel, target: string) => {
     try {
-      if (channel === 'email') {
-        await sendEmailOtp(target);
-      } else {
-        await otpService.sendOtp(target, channel, 'phone_verify');
-      }
+      await otpService.sendOtp(target, channel, 'phone_verify');
     } catch (err: any) {
       Alert.alert('Could not resend', err.message || 'Please try again later.');
       return false;

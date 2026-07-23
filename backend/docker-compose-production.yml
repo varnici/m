@@ -10,7 +10,7 @@ services:
     environment:
       POSTGRES_DB: ventureroot
       POSTGRES_USER: ventureroot
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ventureroot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set — refusing to start with a default production password}
       POSTGRES_INITDB_ARGS: "-c shared_buffers=4GB -c effective_cache_size=12GB -c work_mem=10MB -c maintenance_work_mem=1GB"
     ports:
       - "5433:5432"
@@ -23,15 +23,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    resources:
-      limits:
-        cpus: '4'
-        memory: 8G
-      reservations:
-        cpus: '2'
-        memory: 4G
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
 
   redis:
     image: redis:7-alpine
@@ -44,17 +45,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    resources:
-      limits:
-        cpus: '2'
-        memory: 2.5G
-      reservations:
-        cpus: '1'
-        memory: 1.5G
     volumes:
       - redis_data:/data
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2.5G
+        reservations:
+          cpus: '1'
+          memory: 1.5G
 
   core-banking:
     build:
@@ -80,13 +82,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    resources:
-      limits:
-        cpus: '3'
-        memory: 1.5G
-      reservations:
-        cpus: '2'
-        memory: 1G
     networks:
       - backend
     deploy:
@@ -95,6 +90,13 @@ services:
         parallelism: 1
         delay: 10s
         failure_action: rollback
+      resources:
+        limits:
+          cpus: '3'
+          memory: 1.5G
+        reservations:
+          cpus: '2'
+          memory: 1G
 
   ai-ml-service:
     build:
@@ -120,17 +122,17 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    resources:
-      limits:
-        cpus: '4'
-        memory: 3G
-      reservations:
-        cpus: '2.5'
-        memory: 2G
     networks:
       - backend
     deploy:
       replicas: 2
+      resources:
+        limits:
+          cpus: '4'
+          memory: 3G
+        reservations:
+          cpus: '2.5'
+          memory: 2G
 
   rag-service:
     build:
@@ -158,17 +160,17 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    resources:
-      limits:
-        cpus: '3'
-        memory: 2G
-      reservations:
-        cpus: '2'
-        memory: 1.5G
     networks:
       - backend
     deploy:
       replicas: 2
+      resources:
+        limits:
+          cpus: '3'
+          memory: 2G
+        reservations:
+          cpus: '2'
+          memory: 1.5G
 
   ussd-service:
     build:
@@ -194,17 +196,17 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    resources:
-      limits:
-        cpus: '2'
-        memory: 1G
-      reservations:
-        cpus: '1.5'
-        memory: 512M
     networks:
       - backend
     deploy:
       replicas: 3
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1.5'
+          memory: 512M
 
   api-gateway:
     build:
@@ -226,6 +228,8 @@ services:
         condition: service_healthy
       ussd-service:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "8080:8000"
     restart: always
@@ -235,13 +239,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    resources:
-      limits:
-        cpus: '3'
-        memory: 1.5G
-      reservations:
-        cpus: '2'
-        memory: 1G
     networks:
       - backend
     deploy:
@@ -249,6 +246,13 @@ services:
       placement:
         constraints:
           - node.role == manager
+      resources:
+        limits:
+          cpus: '3'
+          memory: 1.5G
+        reservations:
+          cpus: '2'
+          memory: 1G
 
 volumes:
   postgres_data:

@@ -1,8 +1,10 @@
 import { BaseService } from './baseService';
-import { 
-  Category, Product, Store, StockLevel, StockMovement, 
-  StockReservation, Supplier, PurchaseOrder, 
-  InventoryDashboardMetrics, InventoryOptimizationReport, AIInsight, TurnoverRatio 
+import {
+  Category, Product, Store, StockLevel, StockMovement,
+  StockReservation, Supplier, PurchaseOrder,
+  InventoryDashboardMetrics, InventoryOptimizationReport, AIInsight, TurnoverRatio,
+  StocktakeCount, StocktakeReconcileResult,
+  TradeClient, TradeClientCreate, TradeOrder, TradeOrderCreate,
 } from '@/types/inventory';
 
 export class InventoryService extends BaseService {
@@ -261,6 +263,67 @@ export class InventoryService extends BaseService {
         body: JSON.stringify({ quantity, notes }),
       }
     );
+    return response.json();
+  }
+
+  async reconcilePhysicalCounts(
+    storeId: string,
+    counts: StocktakeCount[]
+  ): Promise<StocktakeReconcileResult> {
+    const response = await this.fetchWithAuth('/v1/inventory/stock/reconcile-counts', {
+      method: 'POST',
+      body: JSON.stringify({
+        store_id: storeId,
+        counts,
+      }),
+    });
+    return response.json();
+  }
+
+  // ========================================================================
+  // TRADE (B2B) — Trade Invoicing Desk
+  // ========================================================================
+
+  async createCategory(data: { name: string; slug: string; description?: string }): Promise<Category> {
+    const response = await this.fetchWithAuth('/v1/inventory/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  async getTradeClients(): Promise<TradeClient[]> {
+    const response = await this.fetchWithAuth('/v1/inventory/trade-clients');
+    return response.json();
+  }
+
+  async createTradeClient(data: TradeClientCreate): Promise<TradeClient> {
+    const response = await this.fetchWithAuth('/v1/inventory/trade-clients', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  async createTradeOrder(data: TradeOrderCreate): Promise<TradeOrder> {
+    const response = await this.fetchWithAuth('/v1/inventory/trade-orders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  async holdTradeOrder(orderId: string): Promise<TradeOrder> {
+    const response = await this.fetchWithAuth(`/v1/inventory/trade-orders/${orderId}/hold`, {
+      method: 'POST',
+    });
+    return response.json();
+  }
+
+  async dispatchTradeOrder(orderId: string): Promise<TradeOrder> {
+    const response = await this.fetchWithAuth(`/v1/inventory/trade-orders/${orderId}/dispatch`, {
+      method: 'POST',
+    });
     return response.json();
   }
 

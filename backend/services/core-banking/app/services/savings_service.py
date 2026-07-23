@@ -60,16 +60,48 @@ class SavingsService:
         return goal
 
     def record_transaction(self, payload: SavingsTransactionCreate) -> SavingsTransaction:
+        from app.services import wallet_service
+
         # Atomic update logic
         goal = self.get_goal_by_id(payload.goal_id)
         if not goal:
             raise ValueError("Savings goal not found")
 
-        # Fee calculations (Hidden partner commission logic)
+        # Move real money between the wallet and this goal before touching any
+        # savings balances. A deposit (positive amount_kobo) debits the wallet;
+        # a withdrawal (negative amount_kobo) credits it back. Insufficient
+        # wallet balance raises ValueError here and aborts the whole
+        # transaction — no goal/streak state is touched.
+        if payload.amount_kobo > 0:
+            wallet_service.process_transaction(
+                self.db,
+                user_id=self.user_id,
+                type="transfer_out",
+                amount_kobo=payload.amount_kobo,
+                description=f"Savings deposit to goal: {goal.title}",
+                reference_id=payload.goal_id,
+            )
+        else:
+            wallet_service.process_transaction(
+                self.db,
+                user_id=self.user_id,
+                type="savings_withdrawal",
+                amount_kobo=abs(payload.amount_kobo),
+                description=f"Savings withdrawal from goal: {goal.title}",
+                reference_id=payload.goal_id,
+            )
+
+        # Fee calculations
         # Default management fee to 0 for user principal as per mandate
         management_fee = 0
-        # partner_commission field to track revenue earned from banking float/gateway
-        partner_commission = int(abs(payload.amount_kobo) * 0.01) # Example 1% commission
+        # partner_commission_kobo previously computed a fictional 1% here
+        # without ever actually deducting it anywhere — the wallet always
+        # moved the full amount_kobo, so this column reported revenue that
+        # was never collected. Left at 0 until there's a real fee to charge;
+        # collecting it for real means deducting it from what reaches the
+        # goal (or the wallet), which changes user-facing math and needs
+        # explicit product sign-off before shipping.
+        partner_commission = 0
 
         transaction = SavingsTransaction(
             user_id=self.user_id,

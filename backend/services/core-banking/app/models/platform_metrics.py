@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import (
     Boolean, Column, Date, DateTime, Integer,
-    Numeric, String, UniqueConstraint, text,
+    Numeric, String, UniqueConstraint,
 )
 
 from app.infrastructure.database import Base
@@ -60,7 +60,7 @@ class DailySystemMetrics(Base):
     ofct_status = Column(String(10), nullable=False, default="green")
     stv_status  = Column(String(10), nullable=False, default="green")
 
-    created_at = Column(DateTime(timezone=True), server_default=text("timezone('utc', now())"))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class OtpRecord(Base):
@@ -75,4 +75,4 @@ class OtpRecord(Base):
     is_used    = Column(Boolean,     nullable=False, default=False)
     attempts   = Column(Integer,     nullable=False, default=0)
     expires_at = Column(DateTime(timezone=True), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=text("timezone('utc', now())"))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

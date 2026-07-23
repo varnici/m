@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import Optional
 
 import httpx
 import jwt
+import sentry_sdk
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic_settings import BaseSettings
 
-from rate_limiter import InMemoryRateLimiter
+from rate_limiter import InMemoryRateLimiter, RedisRateLimiter
 from jwt_validator import JWTValidationError, validate_hs256_jwt
+from middleware import error_handling_middleware
 
 
 class Settings(BaseSettings):
@@ -27,14 +30,39 @@ class Settings(BaseSettings):
     rag_url: str = "http://rag-service:8003"
     ussd_url: str = "http://ussd-service:8004"
 
+    redis_url: Optional[str] = None
+
     class Config:
         env_prefix = ""
         case_sensitive = False
 
 
 settings = Settings()
+
+logging.basicConfig(level=settings.log_level.upper())
+
+if os.getenv("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.getenv("SENTRY_DSN"),
+        environment=settings.env,
+        traces_sample_rate=0.1,
+    )
+
 app = FastAPI(title="VentureRoot API Gateway", version="0.1.0")
-rl = InMemoryRateLimiter(capacity=120, refill_per_sec=2.0)
+app.middleware("http")(error_handling_middleware)
+
+if settings.redis_url:
+    import redis.asyncio as redis
+
+    rl = RedisRateLimiter(
+        redis.from_url(settings.redis_url, decode_responses=True),
+        capacity=120,
+        refill_per_sec=2.0,
+    )
+else:
+    # No REDIS_URL configured — each replica counts independently. Fine for
+    # local dev, wrong for a multi-replica deployment.
+    rl = InMemoryRateLimiter(capacity=120, refill_per_sec=2.0)
 
 
 def _client_ip(request: Request) -> str:
@@ -76,7 +104,7 @@ def health():
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     key = _client_ip(request)
-    if not rl.allow(key):
+    if not await rl.allow(key):
         return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded"})
     return await call_next(request)
 
@@ -239,11 +267,6 @@ async def proxy_ussd(path: str, request: Request):
 async def proxy_otp(path: str, request: Request, _sub: str = Depends(require_auth)):
     return await _proxy(request, settings.core_banking_url, f"v1/otp/{path}")
 
-
-# Phone OTP is unauthenticated — it's a pre-auth flow that returns a session
-@app.api_route("/v1/auth/phone/{path:path}", methods=["POST"], include_in_schema=False)
-async def proxy_auth_phone(path: str, request: Request):
-    return await _proxy(request, settings.core_banking_url, f"v1/auth/phone/{path}")
 
 
 @app.api_route("/v1/admin/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)

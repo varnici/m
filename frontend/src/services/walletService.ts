@@ -78,13 +78,13 @@ export class LoanService extends BaseService {
     return response.json();
   }
 
-  async createLoan(_userId: string, productSku: string, productQty: number, principalKobo: number): Promise<any> {
+  async createLoan(_userId: string, amountKobo: number, purpose: string, termMonths: number = 1): Promise<any> {
     const response = await this.fetchWithAuth(`/v1/loans`, {
       method: 'POST',
       body: JSON.stringify({
-        product_sku: productSku,
-        product_qty: productQty,
-        principal_kobo: principalKobo,
+        amount_kobo: amountKobo,
+        purpose,
+        term_months: termMonths,
       }),
     });
     return response.json();
