@@ -48,7 +48,17 @@ export function useSetBusinessType() {
         business_type: businessType,
       });
     },
-    onSuccess: () => {
+    onSuccess: (updatedStore) => {
+      // Patch the cache directly rather than only invalidating — the caller
+      // typically navigates immediately after this resolves (business-type
+      // gate -> InventoryManager), and a background refetch racing that
+      // navigation could momentarily show a stale (unset) business_type and
+      // bounce back to the setup screen.
+      queryClient.setQueryData<Store[]>(inventoryKeys.stores(), (prev) => {
+        if (!prev) return [updatedStore];
+        const exists = prev.some((s) => s.id === updatedStore.id);
+        return exists ? prev.map((s) => (s.id === updatedStore.id ? updatedStore : s)) : [...prev, updatedStore];
+      });
       queryClient.invalidateQueries({ queryKey: inventoryKeys.stores() });
       Toast.show({ type: 'success', text1: 'Business type saved' });
     },

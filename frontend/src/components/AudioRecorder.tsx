@@ -23,7 +23,7 @@ export default function AudioRecorder({ onRecordingFinished }: AudioRecorderProp
       setLoading(true);
       const { granted } = await requestRecordingPermissionsAsync();
       if (!granted) throw new Error('Microphone permission not granted');
-      await setAudioModeAsync({ playsInSilentMode: true });
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
       recorder.record();
       setIsRecording(true);
     } catch (e) {

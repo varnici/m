@@ -75,7 +75,9 @@ const VoiceStockScreen = ({
       if (!granted) {
         throw new Error('Allow microphone access in Settings to use voice stock');
       }
-      await setAudioModeAsync({ playsInSilentMode: true });
+      // allowsRecording defaults to false on iOS — without it, the audio
+      // session is configured playback-only and recorder.record() throws.
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
       recorder.record();
       setIsListening(true);
       setStatusLine('Listening… release when finished');

@@ -34,8 +34,12 @@ const BusinessTypeSetupScreen = ({ navigation }: RootStackScreenProps<'BusinessT
     if (!template || template.starterCategories.length === 0) return;
     bulkCreateCategories.mutate(
       template.starterCategories.map((c) => ({ name: c.name, icon: c.icon, tint: c.tint })),
-      { onSuccess: () => navigation.navigate('Categories') }
+      { onSuccess: () => navigation.replace('InventoryManager') }
     );
+  };
+
+  const handleContinueToInventory = () => {
+    navigation.replace('InventoryManager');
   };
 
   return (
@@ -99,8 +103,23 @@ const BusinessTypeSetupScreen = ({ navigation }: RootStackScreenProps<'BusinessT
                 <Text className="text-white font-bold">Use these categories</Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate('Categories')} className="py-3 items-center">
+            <TouchableOpacity onPress={handleContinueToInventory} className="py-3 items-center">
               <Text className="text-emerald-800 font-bold text-xs">Skip — I'll set up my own</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {template && template.starterCategories.length === 0 && (
+          <View className="bg-white border border-gray-100 rounded-2xl p-4 mt-5">
+            <Text className="text-gray-900 font-bold text-sm mb-1">You're set up as {template.label}.</Text>
+            <Text className="text-gray-400 text-xs mb-3">
+              You'll build your own categories as you add products.
+            </Text>
+            <TouchableOpacity
+              onPress={handleContinueToInventory}
+              className="bg-ventureroot-green py-3 rounded-xl items-center"
+            >
+              <Text className="text-white font-bold">Continue to Inventory</Text>
             </TouchableOpacity>
           </View>
         )}
