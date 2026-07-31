@@ -38,6 +38,12 @@ import {
   ClipboardCheck,
   Truck,
   ShoppingCart,
+  Tags,
+  Store as StoreIcon,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  ClipboardList,
+  FileSpreadsheet,
 } from "lucide-react-native";
 
 import { colors } from "@/theme/colors";
@@ -723,6 +729,43 @@ export default function InventoryManagerScreen({ navigation }: any) {
                     <Text style={styles.metricLabel}>Low / Out Stock</Text>
                   </View>
                 )}
+              </ScrollView>
+
+              {/* 2b. Quick access — categories, business type, stock movement, reports */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 4, gap: 8 }}
+              >
+                {[
+                  { label: "Categories", icon: Tags, route: "Categories" },
+                  { label: "Business type", icon: StoreIcon, route: "BusinessTypeSetup" },
+                  { label: "Receive stock", icon: ArrowDownToLine, route: "ReceiveStock" },
+                  { label: "Issue stock", icon: ArrowUpFromLine, route: "IssueStock" },
+                  { label: "Daily report", icon: ClipboardList, route: "DailyReport" },
+                  { label: "Register", icon: FileSpreadsheet, route: "InventoryRegister" },
+                  { label: "Low stock & expiry", icon: AlertTriangle, route: "LowStockAlerts" },
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item.route}
+                    onPress={() => navigation.navigate(item.route)}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      backgroundColor: "#FFFFFF",
+                      borderWidth: 1,
+                      borderColor: "#E5E7EB",
+                      borderRadius: 14,
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                    }}
+                  >
+                    <item.icon size={15} color="#004D2C" />
+                    <Text style={{ marginLeft: 6, fontSize: 12, fontWeight: "700", color: "#0F172A" }}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </ScrollView>
 
               {/* 3. Action / Input Panel */}
