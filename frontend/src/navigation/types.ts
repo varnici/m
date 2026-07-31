@@ -126,6 +126,12 @@ export type RootStackParamList = {
   ProductDetail: { productId: string };
   AddProduct: { barcode?: string } | undefined;
   EditProduct: { productId: string };
+  Categories: undefined;
+  BusinessTypeSetup: undefined;
+  ReceiveStock: { storeId?: string } | undefined;
+  IssueStock: { storeId?: string } | undefined;
+  DailyReport: { storeId?: string } | undefined;
+  InventoryRegister: undefined;
   PurchaseOrders: undefined;
   AddPurchaseOrder: { productId?: string; qty?: number };
   AddSupplier: undefined;

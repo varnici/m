@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     postgres_password: str = "ventureroot"
 
     redis_url: str = "redis://localhost:6379/0"
+
+    # ── ai-ml-service (voice-to-inventory transcription + structuring) ────
+    ai_ml_service_url: str = "http://ai-ml-service:8002"
+    ai_ml_service_timeout_seconds: float = 30.0
+
     inventory_domain_enabled: bool = True
     inventory_domain_enforce: bool = True
     inventory_domain_outbox_topic: str = "inventory"

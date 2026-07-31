@@ -49,6 +49,12 @@ import TradeOrderScreen from '@/screens/inventory/TradeOrderScreen';
 import RetailPOSScreen from '@/screens/inventory/RetailPOSScreen';
 import LowStockAlertsScreen from '@/screens/inventory/LowStockAlertsScreen';
 import StaffActivityScreen from '@/screens/inventory/StaffActivityScreen';
+import CategoriesScreen from '@/screens/inventory/CategoriesScreen';
+import BusinessTypeSetupScreen from '@/screens/inventory/BusinessTypeSetupScreen';
+import ReceiveStockScreen from '@/screens/inventory/ReceiveStockScreen';
+import IssueStockScreen from '@/screens/inventory/IssueStockScreen';
+import DailyReportScreen from '@/screens/inventory/DailyReportScreen';
+import InventoryRegisterScreen from '@/screens/inventory/InventoryRegisterScreen';
 
 import BudgetBestDashboard from '@/screens/budget_best/BudgetBestDashboard';
 import BudgetBestDeposit from '@/screens/budget_best/BudgetBestDeposit';
@@ -297,6 +303,12 @@ const RootNavigator = () => {
           <Stack.Screen name="RetailPOS" component={RetailPOSScreen} />
           <Stack.Screen name="LowStockAlerts" component={LowStockAlertsScreen} />
           <Stack.Screen name="StaffActivity" component={StaffActivityScreen} />
+          <Stack.Screen name="Categories" component={CategoriesScreen} />
+          <Stack.Screen name="BusinessTypeSetup" component={BusinessTypeSetupScreen} />
+          <Stack.Screen name="ReceiveStock" component={ReceiveStockScreen} />
+          <Stack.Screen name="IssueStock" component={IssueStockScreen} />
+          <Stack.Screen name="DailyReport" component={DailyReportScreen} />
+          <Stack.Screen name="InventoryRegister" component={InventoryRegisterScreen} />
 
           <Stack.Screen name="BudgetBestDashboard" component={BudgetBestDashboard} />
           <Stack.Screen name="BudgetBestDeposit" component={BudgetBestDeposit} />

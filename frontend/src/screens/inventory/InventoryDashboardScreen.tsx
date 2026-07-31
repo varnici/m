@@ -17,6 +17,11 @@ import {
   LayoutGrid,
   History as HistoryIcon,
   Package,
+  Tags,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  FileSpreadsheet,
+  ClipboardList,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 
@@ -164,6 +169,41 @@ const InventoryDashboardScreen = () => {
                   route: 'StockLodger' as const,
                   tint: '#F5F3FF',
                   color: '#7C3AED',
+                },
+                {
+                  label: 'Categories',
+                  icon: Tags,
+                  route: 'Categories' as const,
+                  tint: '#FFF7ED',
+                  color: '#C2410C',
+                },
+                {
+                  label: 'Receive stock',
+                  icon: ArrowDownToLine,
+                  route: 'ReceiveStock' as const,
+                  tint: '#ECFDF5',
+                  color: '#16654A',
+                },
+                {
+                  label: 'Issue stock',
+                  icon: ArrowUpFromLine,
+                  route: 'IssueStock' as const,
+                  tint: '#FEF2F2',
+                  color: '#A32036',
+                },
+                {
+                  label: 'Daily report',
+                  icon: ClipboardList,
+                  route: 'DailyReport' as const,
+                  tint: '#EFF6FF',
+                  color: '#2563EB',
+                },
+                {
+                  label: 'Register',
+                  icon: FileSpreadsheet,
+                  route: 'InventoryRegister' as const,
+                  tint: '#FDF4FF',
+                  color: '#A21CAF',
                 },
               ].map((item) => (
                 <TouchableOpacity

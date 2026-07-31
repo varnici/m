@@ -207,11 +207,12 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 
 export async function uploadVoiceAndParse(
   file: Blob,
-  fileName = 'voice-input.m4a'
+  fileName = 'voice-input.m4a',
+  language = 'en'
 ): Promise<VoiceTranscribeResponse> {
   const storeId = await getOrCreateStoreId();
   const base64 = await blobToBase64(file);
-  const data = await inventoryService.processVoiceInput(base64, storeId);
+  const data = await inventoryService.processVoiceInput(base64, storeId, language);
 
   if (!data.success || !data.data) {
     throw new Error(data.error || 'Voice parsing returned no inventory data');

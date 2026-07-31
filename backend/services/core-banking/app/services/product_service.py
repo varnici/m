@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional
@@ -19,8 +20,10 @@ from app.models import (
     Store,
 )
 from app.schemas.inventory_schemas import (
+    CategoryBulkCreateRequest,
     CategoryCreate,
     CategoryOut,
+    CategoryUpdate,
     DemandForecastPoint,
     ProductCreate,
     ProductDetailOut,
@@ -33,6 +36,11 @@ from app.schemas.inventory_schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def slugify(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
+    return slug or "category"
 
 
 class ProductService:
@@ -103,6 +111,54 @@ class ProductService:
             .all()
         )
         return [CategoryOut.model_validate(c) for c in categories]
+
+    def bulk_create_categories(self, payload: "CategoryBulkCreateRequest") -> List[CategoryOut]:
+        created: List[Category] = []
+        for item in payload.categories:
+            slug = item.slug or slugify(item.name)
+            category = Category(
+                owner_id=self.owner_id,
+                name=item.name,
+                slug=slug,
+                icon=item.icon,
+                tint=item.tint,
+                parent_id=item.parent_id,
+            )
+            self.db.add(category)
+            created.append(category)
+        self.db.commit()
+        for category in created:
+            self.db.refresh(category)
+        return [CategoryOut.model_validate(c) for c in created]
+
+    def update_category(self, category_id: str, payload: "CategoryUpdate") -> CategoryOut:
+        category = self.db.query(Category).filter(
+            Category.id == category_id,
+            Category.owner_id == self.owner_id,
+        ).first()
+        if not category:
+            raise ValueError(f"Category {category_id} not found")
+
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            setattr(category, field, value)
+
+        category.updated_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.db.refresh(category)
+        return CategoryOut.model_validate(category)
+
+    def delete_category(self, category_id: str) -> None:
+        category = self.db.query(Category).filter(
+            Category.id == category_id,
+            Category.owner_id == self.owner_id,
+        ).first()
+        if not category:
+            raise ValueError(f"Category {category_id} not found")
+
+        # Product.category_id has ondelete="SET NULL" at the DB level, so any
+        # products in this category simply become uncategorized — safe hard delete.
+        self.db.delete(category)
+        self.db.commit()
 
     def _hydrate_product_output(
         self,

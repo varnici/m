@@ -6,19 +6,27 @@ import { ChevronLeft, Tag, DollarSign, BarChart3, Save, Layers, Trash2 } from 'l
 import { useProductDetail, useUpdateProduct, useDeleteProduct } from '@/hooks/useInventory';
 import Toast from 'react-native-toast-message';
 import { CategoryPicker } from '@/components/inventory/CategoryPicker';
+import { ProductComplianceFields } from '@/components/inventory/ProductComplianceFields';
 
 const EditProductScreen = ({ navigation, route }: RootStackScreenProps<'EditProduct'>) => {
   const { productId } = route.params;
-  
+
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
   const [description, setDescription] = useState('');
   const [costPrice, setCostPrice] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
   const [minStock, setMinStock] = useState('10');
-  
+
   // Category Selection
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  // Business-type-driven fields
+  const [unit, setUnit] = useState('piece');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [batchNumber, setBatchNumber] = useState('');
+  const [size, setSize] = useState('');
+  const [imei, setImei] = useState('');
 
   const { data: product, isLoading: isLoadingProduct } = useProductDetail(productId);
   const { mutate: updateProduct, isPending } = useUpdateProduct(productId);
@@ -33,6 +41,11 @@ const EditProductScreen = ({ navigation, route }: RootStackScreenProps<'EditProd
       setSellingPrice((product.selling_price_kobo / 100).toString());
       setMinStock(product.minimum_stock_level.toString());
       setSelectedCategory(product.category_id || null);
+      setUnit(product.unit_of_measure || 'piece');
+      setExpiryDate(product.expiry_date || '');
+      setBatchNumber(product.nafdac_number || '');
+      setSize(product.size || '');
+      setImei(product.imei || '');
     }
   }, [product]);
 
@@ -67,6 +80,11 @@ const EditProductScreen = ({ navigation, route }: RootStackScreenProps<'EditProd
       cost_price_kobo: costKobo,
       selling_price_kobo: sellingKobo,
       minimum_stock_level: minQty,
+      unit_of_measure: unit,
+      expiry_date: expiryDate.trim() || undefined,
+      nafdac_number: batchNumber.trim() || undefined,
+      size: size.trim() || undefined,
+      imei: imei.trim() || undefined,
     }, {
       onSuccess: () => {
         Toast.show({
@@ -191,13 +209,33 @@ const EditProductScreen = ({ navigation, route }: RootStackScreenProps<'EditProd
           </View>
         </View>
 
+        {/* Business-type-driven fields (unit + expiry/batch/size/IMEI) */}
+        <View className="bg-white mx-4 mb-6 p-6 rounded-3xl border border-gray-100 shadow-sm">
+          <View className="flex-row items-center mb-4">
+             <Layers size={18} color="#0EA5E9" />
+             <Text className="text-gray-900 font-bold text-base ml-2">Unit & compliance</Text>
+          </View>
+          <ProductComplianceFields
+            unit={unit}
+            onChangeUnit={setUnit}
+            expiryDate={expiryDate}
+            onChangeExpiryDate={setExpiryDate}
+            batchNumber={batchNumber}
+            onChangeBatchNumber={setBatchNumber}
+            size={size}
+            onChangeSize={setSize}
+            imei={imei}
+            onChangeImei={setImei}
+          />
+        </View>
+
         {/* Pricing Section */}
         <View className="bg-white mx-4 mb-6 p-6 rounded-3xl border border-gray-100 shadow-sm">
           <View className="flex-row items-center mb-4">
              <DollarSign size={18} color="#10B981" />
              <Text className="text-gray-900 font-bold text-base ml-2">Pricing (₦)</Text>
           </View>
-          
+
           <View className="flex-row gap-4">
             <View className="flex-1">
               <Text className="text-gray-400 text-[10px] font-bold uppercase mb-1 ml-1">Cost Price</Text>

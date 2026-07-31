@@ -20,13 +20,16 @@ import {
   ChevronRight,
   Filter,
   XCircle,
+  Clock,
 } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
-import { useLowStockAlerts, useDeadStockDetection } from '@/hooks/useInventory';
+import { useLowStockAlerts, useDeadStockDetection, useProducts } from '@/hooks/useInventory';
 import type { RootStackScreenProps } from '@/navigation/types';
 
 // ─── TYPES ─────────────────────────────────────────────────────────
-type FilterMode = 'all' | 'low_stock' | 'out_of_stock' | 'dead_stock';
+type FilterMode = 'all' | 'low_stock' | 'out_of_stock' | 'dead_stock' | 'expiring_soon';
+
+const EXPIRY_WINDOW_DAYS = 90;
 
 interface StockAlertItem {
   id: string;
@@ -36,12 +39,20 @@ interface StockAlertItem {
   minimum_stock_level: number;
   maximum_stock_level: number;
   selling_price_kobo: number;
+  expiry_date?: string;
   stock_by_location: Array<{
     store_id: string;
     store_name: string;
     quantity_on_hand: number;
     status: string;
   }>;
+}
+
+function daysUntil(dateStr?: string): number | null {
+  if (!dateStr) return null;
+  const target = new Date(dateStr).getTime();
+  if (Number.isNaN(target)) return null;
+  return Math.ceil((target - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
 // ─── HELPERS ────────────────────────────────────────────────────────
@@ -103,13 +114,28 @@ const LowStockAlertsScreen = ({
     refetch: refetchDeadStock,
   } = useDeadStockDetection(30);
 
-  const isLoading = isLowStockLoading || isDeadStockLoading;
+  const {
+    data: allProducts = [],
+    isLoading: isProductsLoading,
+    refetch: refetchProducts,
+  } = useProducts(0, 500, undefined, undefined);
+
+  const isLoading = isLowStockLoading || isDeadStockLoading || isProductsLoading;
 
   const onRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([refetchLowStock(), refetchDeadStock()]);
+    await Promise.all([refetchLowStock(), refetchDeadStock(), refetchProducts()]);
     setIsRefreshing(false);
   };
+
+  const expiringSoon = useMemo(() => {
+    return (allProducts as unknown as StockAlertItem[])
+      .filter((p) => {
+        const days = daysUntil(p.expiry_date);
+        return days !== null && days <= EXPIRY_WINDOW_DAYS;
+      })
+      .sort((a, b) => (daysUntil(a.expiry_date) ?? 0) - (daysUntil(b.expiry_date) ?? 0));
+  }, [allProducts]);
 
   // ── Categorise items ──────────────────────────────────────────
   const categorised = useMemo(() => {
@@ -142,13 +168,15 @@ const LowStockAlertsScreen = ({
         return categorised.lowStock;
       case 'dead_stock':
         return categorised.deadStock;
+      case 'expiring_soon':
+        return expiringSoon;
       default:
         return [
           ...categorised.outOfStock,
           ...categorised.lowStock,
         ];
     }
-  }, [filterMode, categorised]);
+  }, [filterMode, categorised, expiringSoon]);
 
   // ── Stats ─────────────────────────────────────────────────────
   const totalAlerts =
@@ -190,11 +218,21 @@ const LowStockAlertsScreen = ({
       count: categorised.deadStock.length,
       color: 'bg-gray-500',
     },
+    {
+      id: 'expiring_soon',
+      label: 'Expiring Soon',
+      count: expiringSoon.length,
+      color: 'bg-purple-500',
+    },
   ];
 
   // ── Render ────────────────────────────────────────────────────
+  // Root uses colors.ventureroot.dark rather than the light bg-background-page
+  // token — this screen's cards/text are white-on-dark throughout (bg-white/10
+  // glass cards, text-white labels), which was previously unreadable against
+  // the light page background.
   return (
-    <SafeAreaView className="flex-1 bg-background-page">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.ventureroot.dark }}>
       <StatusBar barStyle="light-content" />
 
       {/* Header */}
@@ -311,6 +349,40 @@ const LowStockAlertsScreen = ({
                 ? 'All stock levels are healthy. No alerts.'
                 : `No items match the "${filterMode.replace('_', ' ')}" filter.`}
             </Text>
+          </View>
+        ) : filterMode === 'expiring_soon' ? (
+          <View className="px-4 gap-3 mb-8">
+            {displayItems.map((item: StockAlertItem) => {
+              const days = daysUntil(item.expiry_date) ?? 0;
+              const isPastDue = days < 0;
+              const tone = isPastDue ? '#EF4444' : days <= 30 ? '#F97316' : '#A855F7';
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+                  className="bg-white/10 rounded-3xl p-5 border border-white/10 flex-row items-center"
+                >
+                  <View
+                    className="w-12 h-12 rounded-2xl items-center justify-center mr-4"
+                    style={{ backgroundColor: tone + '26' }}
+                  >
+                    <Clock color={tone} size={22} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-white font-black text-base" numberOfLines={1}>{item.name}</Text>
+                    <Text className="text-white/40 text-xs mt-0.5">SKU: {item.sku || 'N/A'} · {item.expiry_date}</Text>
+                  </View>
+                  <View
+                    className="px-3 py-1.5 rounded-full"
+                    style={{ backgroundColor: tone + '26' }}
+                  >
+                    <Text className="font-black text-xs" style={{ color: tone }}>
+                      {isPastDue ? 'Expired' : `${days}d left`}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         ) : (
           <View className="px-4 gap-4 mb-8">

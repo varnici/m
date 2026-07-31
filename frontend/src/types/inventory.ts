@@ -4,13 +4,17 @@
 
 export type StoreType = 'retail' | 'warehouse' | 'distribution_center';
 
+export type BusinessType = 'provision' | 'pharmacy' | 'boutique' | 'phones' | 'building' | 'custom';
+
 export interface Store {
   id: string;
   name: string;
   type: StoreType;
+  business_type?: BusinessType | string;
   address?: string;
   city?: string;
   state?: string;
+  is_primary?: boolean;
   created_at: string;
 }
 
@@ -19,6 +23,8 @@ export interface Category {
   name: string;
   description?: string;
   parent_id?: string;
+  icon?: string;
+  tint?: string;
   created_at: string;
 }
 
@@ -60,6 +66,10 @@ export interface Product {
   supplier_lead_time_days?: number;
   quantity_on_hand?: number;
   store_id?: string;
+  nafdac_number?: string;
+  size?: string;
+  imei?: string;
+  expiry_date?: string;
   expenses_kobo: number;
   quantity_sold: number;
   quantity_on_credit: number;
@@ -96,8 +106,10 @@ export interface StockMovement {
   from_store_id?: string;
   to_store_id?: string;
   movement_type: MovementType;
+  input_method?: 'manual' | 'voice' | 'scan';
   quantity: number;
   reference_id?: string;
+  notes?: string;
   created_at: string;
 }
 

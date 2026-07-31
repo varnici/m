@@ -20,6 +20,35 @@ class CategoryCreate(BaseModel):
     description: Optional[str] = None
     parent_id: Optional[str] = None
     image_url: Optional[str] = None
+    icon: Optional[str] = Field(default="Package")
+    tint: Optional[str] = Field(default="#2E6E9E")
+
+
+class CategoryUpdate(BaseModel):
+    """Schema for updating a category. All fields optional."""
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    parent_id: Optional[str] = None
+    image_url: Optional[str] = None
+    icon: Optional[str] = None
+    tint: Optional[str] = None
+    is_active: Optional[bool] = None
+    position: Optional[int] = None
+
+
+class CategoryBulkCreateItem(BaseModel):
+    """A single category within a bulk-create request."""
+    name: str = Field(..., min_length=1)
+    slug: Optional[str] = None
+    icon: Optional[str] = Field(default="Package")
+    tint: Optional[str] = Field(default="#2E6E9E")
+    parent_id: Optional[str] = None
+
+
+class CategoryBulkCreateRequest(BaseModel):
+    """Batch-create request, used to seed starter categories for a business type."""
+    categories: List[CategoryBulkCreateItem] = Field(..., min_length=1)
 
 
 class CategoryOut(BaseModel):
@@ -31,6 +60,8 @@ class CategoryOut(BaseModel):
     description: Optional[str]
     parent_id: Optional[str]
     image_url: Optional[str]
+    icon: Optional[str] = "Package"
+    tint: Optional[str] = "#2E6E9E"
     is_active: bool
     position: int
     created_at: datetime
@@ -63,6 +94,9 @@ class ProductCreate(BaseModel):
     shelf_life_days: Optional[int] = None
     requires_lot_tracking: bool = Field(default=False)
     nafdac_number: Optional[str] = None
+    size: Optional[str] = None
+    imei: Optional[str] = None
+    expiry_date: Optional[date] = None
     image_url: Optional[str] = None
     quantity_on_hand: Optional[int] = Field(default=None, ge=0)
     store_id: Optional[str] = None
@@ -87,6 +121,12 @@ class ProductUpdate(BaseModel):
     minimum_stock_level: Optional[int] = None
     maximum_stock_level: Optional[int] = None
     reorder_quantity: Optional[int] = None
+    nafdac_number: Optional[str] = None
+    size: Optional[str] = None
+    imei: Optional[str] = None
+    expiry_date: Optional[date] = None
+    unit_of_measure: Optional[str] = None
+    category_id: Optional[str] = None
     image_url: Optional[str] = None
     is_active: Optional[bool] = None
     expenses_kobo: Optional[int] = None
@@ -134,6 +174,10 @@ class ProductOut(BaseModel):
     maximum_stock_level: int
     reorder_quantity: int
     is_perishable: bool
+    nafdac_number: Optional[str] = None
+    size: Optional[str] = None
+    imei: Optional[str] = None
+    expiry_date: Optional[date] = None
     is_active: bool
     rating: float
     review_count: int
@@ -341,6 +385,7 @@ class StoreCreate(BaseModel):
     name: str = Field(..., min_length=1)
     description: Optional[str] = None
     type: str = Field(default="retail")
+    business_type: Optional[str] = Field(default="custom")
     address: str = Field(..., min_length=1)
     city: str = Field(..., min_length=1)
     state: str = Field(..., min_length=1)
@@ -358,6 +403,7 @@ class StoreOut(BaseModel):
     name: str
     description: Optional[str]
     type: str
+    business_type: Optional[str] = "custom"
     address: str
     city: str
     state: str
@@ -477,6 +523,18 @@ class InventoryOptimizationSummary(BaseModel):
     """Optimization summary for inventory."""
     optimization_score: float
     recommendations: List[str] = []
+
+
+class DailyReportOut(BaseModel):
+    """Opening/closing stock position and movement totals for a single day."""
+    report_date: date
+    store_id: Optional[str] = None
+    opening_value_kobo: int = 0
+    closing_value_kobo: int = 0
+    units_received: int = 0
+    units_issued: int = 0
+    movement_count: int = 0
+    is_closing_value_estimated: bool = False
 
 
 class ProductHealthOut(BaseModel):

@@ -6,9 +6,12 @@ Handles products, stock levels, purchase orders, suppliers, and analytics.
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime
 from decimal import Decimal
+import csv
+import io
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Body, Response, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
@@ -27,6 +30,8 @@ from app.schemas.inventory_schemas import (
     # Product schemas
     CategoryCreate,
     CategoryOut,
+    CategoryUpdate,
+    CategoryBulkCreateRequest,
     ProductCreate,
     ProductUpdate,
     ProductOut,
@@ -62,6 +67,7 @@ from app.schemas.inventory_schemas import (
     StoreCreate,
     StoreOut,
     # Analytics schemas
+    DailyReportOut,
     InventoryDashboardSummary,
     InventoryOptimizationSummary,
     InventoryMetricsOut,
@@ -109,6 +115,7 @@ class StockTransferRequest(BaseModel):
 class VoiceParseRequest(BaseModel):
     audio_base64: str
     store_id: str
+    language: str = "en"
 
 class VisionScanRequest(BaseModel):
     image_base64: str
@@ -208,6 +215,49 @@ def list_categories(
     set_cache(cache_key, [c.model_dump() for c in categories], ttl=600)
     return categories
 
+@router.post("/categories/bulk", response_model=List[CategoryOut], status_code=201)
+def bulk_create_categories(
+    payload: CategoryBulkCreateRequest,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Batch-create categories — used to seed starter categories for a business type."""
+    service = ProductService(db, owner_id)
+    result = service.bulk_create_categories(payload)
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
+
+@router.patch("/categories/{category_id}", response_model=CategoryOut)
+def update_category(
+    category_id: str,
+    payload: CategoryUpdate,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Update a category's name, icon, tint, or parent."""
+    service = ProductService(db, owner_id)
+    try:
+        result = service.update_category(category_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return result
+
+@router.delete("/categories/{category_id}", status_code=204)
+def delete_category(
+    category_id: str,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Delete a category. Products in it become uncategorized, not deleted."""
+    service = ProductService(db, owner_id)
+    try:
+        service.delete_category(category_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+    return Response(status_code=204)
+
 # ============================================================================
 # PRODUCT ENDPOINTS
 # ============================================================================
@@ -294,6 +344,49 @@ def search_by_barcode(
     product = service.get_product_by_barcode(barcode)
     set_cache(cache_key, product.model_dump(), ttl=300)
     return product
+
+@router.get("/products/export.csv")
+def export_products_csv(
+    category_id: Optional[str] = None,
+    search: Optional[str] = None,
+    store_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Export the product register as CSV — the same rows/filters as GET /products.
+
+    Registered before /products/{product_id} on purpose: Starlette matches path
+    routes in registration order, so a static "/products/export.csv" route must
+    come before the dynamic "/products/{product_id}" route or it gets shadowed
+    (product_id="export.csv") — same reason /products/search/by-barcode sits here.
+    """
+    service = ProductService(db, owner_id)
+    products, _total = service.list_products(0, 10000, category_id, search, store_id)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow([
+        "SKU", "Name", "Category ID", "Unit", "Cost (kobo)", "Selling price (kobo)",
+        "On hand", "Reserved", "Reorder level", "Status", "Batch/NAFDAC", "Size", "IMEI",
+        "Expiry date", "Updated at",
+    ])
+    for p in products:
+        balance = p.total_quantity_on_hand
+        status = "out" if balance <= 0 else "low" if balance <= p.minimum_stock_level else "ok"
+        writer.writerow([
+            p.sku, p.name, p.category_id or "", p.unit_of_measure,
+            p.cost_price_kobo, p.selling_price_kobo, balance, p.total_reserved_quantity,
+            p.minimum_stock_level, status, getattr(p, "nafdac_number", "") or "",
+            getattr(p, "size", "") or "", getattr(p, "imei", "") or "",
+            getattr(p, "expiry_date", "") or "", p.created_at.isoformat(),
+        ])
+    buffer.seek(0)
+    filename = f"inventory-register-{date.today().isoformat()}.csv"
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 @router.get("/products/{product_id}", response_model=ProductDetailOut)
 def get_product(
@@ -1111,6 +1204,50 @@ def reconcile_inventory_ledger(
     service = InventoryServiceV2(db, owner_id)
     return service.reconcile_inventory(store_id, product_id)
 
+@router.get("/analytics/daily-report", response_model=DailyReportOut)
+def get_daily_report(
+    report_date: date = Query(..., alias="date"),
+    store_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Opening/closing stock value and units received/issued for one day."""
+    service = AnalyticsService(db, owner_id)
+    return service.get_daily_report(report_date, store_id)
+
+# ============================================================================
+# EXPORT ENDPOINTS
+# ============================================================================
+
+@router.get("/analytics/daily-report/export.csv")
+def export_daily_report_csv(
+    report_date: date = Query(..., alias="date"),
+    store_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Export a single day's report as CSV — same figures as GET /analytics/daily-report."""
+    service = AnalyticsService(db, owner_id)
+    report = service.get_daily_report(report_date, store_id)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["Date", "Store", "Opening value (kobo)", "Closing value (kobo)",
+                      "Units received", "Units issued", "Movement count", "Closing value estimated"])
+    writer.writerow([
+        report.report_date.isoformat(), report.store_id or "all",
+        report.opening_value_kobo, report.closing_value_kobo,
+        report.units_received, report.units_issued, report.movement_count,
+        report.is_closing_value_estimated,
+    ])
+    buffer.seek(0)
+    filename = f"daily-report-{report.report_date.isoformat()}.csv"
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
 # ============================================================================
 # VOICE & SCAN ENDPOINTS
 # ============================================================================
@@ -1120,17 +1257,19 @@ def process_voice_input(
     payload: Optional[VoiceParseRequest] = Body(None),
     audio_base64: Optional[str] = Query(None),
     store_id: Optional[str] = Query(None),
+    language: str = Query("en"),
     db: Session = Depends(get_db),
     owner_id: str = Depends(get_current_user_id),
 ):
     """Parse voice input and update inventory."""
     resolved_audio_base64 = payload.audio_base64 if payload else audio_base64
     resolved_store_id = payload.store_id if payload else store_id
+    resolved_language = payload.language if payload else language
     if not resolved_audio_base64 or not resolved_store_id:
         raise HTTPException(status_code=422, detail="audio_base64 and store_id are required.")
 
     service = InventoryServiceV2(db, owner_id)
-    return service.process_voice_input(resolved_audio_base64, resolved_store_id)
+    return service.process_voice_input(resolved_audio_base64, resolved_store_id, resolved_language)
 
 @router.get("/scan/barcode", response_model=ProductOut)
 @router.post("/scan/barcode", response_model=ProductOut)

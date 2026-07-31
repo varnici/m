@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Pressable,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -15,6 +16,8 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
+  Check,
+  RotateCcw,
 } from 'lucide-react-native';
 import {
   useAudioRecorder,
@@ -28,8 +31,10 @@ import {
   syncPendingInventory,
   uploadVoiceAndParse,
 } from '../../services/inventoryApi';
-import { VoiceTranscribeResponse } from '../../types/voice-inventory';
+import { InventoryCreate, VoiceTranscribeResponse } from '../../types/voice-inventory';
 import Toast from 'react-native-toast-message';
+import { LanguageSwitcher } from '@/components/inventory/LanguageSwitcher';
+import { useLanguageStore, useInventoryStrings } from '@/store/languageStore';
 
 interface HistoryItem {
   id: string;
@@ -44,9 +49,17 @@ const VoiceStockScreen = ({
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusLine, setStatusLine] = useState('Hold the button and speak');
-  const [parsedPreview, setParsedPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  // Heard-but-not-yet-saved draft — the user reviews and can edit these
+  // fields before anything is written to inventory.
+  const [pendingEntry, setPendingEntry] = useState<InventoryCreate | null>(null);
+  const [pendingTranscript, setPendingTranscript] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const language = useLanguageStore((s) => s.language);
+  const t = useInventoryStrings();
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
@@ -57,7 +70,7 @@ const VoiceStockScreen = ({
   const startRecording = async () => {
     try {
       setError(null);
-      setParsedPreview(null);
+      setPendingEntry(null);
       const { granted } = await requestRecordingPermissionsAsync();
       if (!granted) {
         throw new Error('Allow microphone access in Settings to use voice stock');
@@ -91,37 +104,14 @@ const VoiceStockScreen = ({
       const ext = uri.split('.').pop()?.toLowerCase() || 'm4a';
       const result: VoiceTranscribeResponse = await uploadVoiceAndParse(
         audioBlob,
-        `voice-input.${ext}`
+        `voice-input.${ext}`,
+        language
       );
 
       const { text, inventory } = result;
-      setStatusLine(`Heard: “${text}”`);
-      setParsedPreview(
-        `${inventory.product_name} · qty ${inventory.quantity} · sell ₦${inventory.price}`
-      );
-
-      await createInventory(inventory);
-      await syncPendingInventory();
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      const timeStr = new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      setHistory((prev) => [
-        {
-          id: Date.now().toString(),
-          text: `${inventory.product_name} — ${inventory.quantity} units`,
-          time: timeStr,
-          status: 'success',
-        },
-        ...prev,
-      ]);
-      Toast.show({
-        type: 'success',
-        text1: 'Stock recorded',
-        text2: inventory.product_name,
-      });
+      setStatusLine(`Heard: "${text}"`);
+      setPendingTranscript(text);
+      setPendingEntry(inventory);
       setError(null);
     } catch (err: any) {
       const msg = err.message || 'Voice entry failed';
@@ -139,6 +129,48 @@ const VoiceStockScreen = ({
       ]);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const updatePending = (field: keyof InventoryCreate, value: string) => {
+    setPendingEntry((prev) => {
+      if (!prev) return prev;
+      if (field === 'product_name') return { ...prev, product_name: value };
+      const numeric = parseFloat(value.replace(/[^0-9.]/g, '')) || 0;
+      return { ...prev, [field]: numeric };
+    });
+  };
+
+  const discardPending = () => {
+    setPendingEntry(null);
+    setStatusLine('Hold the button and speak');
+  };
+
+  const confirmPending = async () => {
+    if (!pendingEntry) return;
+    setIsSaving(true);
+    try {
+      await createInventory(pendingEntry);
+      await syncPendingInventory();
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setHistory((prev) => [
+        {
+          id: Date.now().toString(),
+          text: `${pendingEntry.product_name} — ${pendingEntry.quantity} units`,
+          time: timeStr,
+          status: 'success',
+        },
+        ...prev,
+      ]);
+      Toast.show({ type: 'success', text1: 'Stock recorded', text2: pendingEntry.product_name });
+      setPendingEntry(null);
+      setStatusLine('Hold the button and speak');
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Could not save', text2: err.message });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -166,6 +198,10 @@ const VoiceStockScreen = ({
         </TouchableOpacity>
       </View>
 
+      <View className="px-4 pb-3">
+        <LanguageSwitcher compact />
+      </View>
+
       <ScrollView
         className="flex-1 px-6"
         contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
@@ -175,11 +211,11 @@ const VoiceStockScreen = ({
           <Text className="text-white/70 text-sm text-center leading-5">
             Example:{' '}
             <Text className="text-white font-medium">
-              “I received 30 cartons of Peak milk, cost 4500, selling 5200”
+              "I received 30 cartons of Peak milk, cost 4500, selling 5200"
             </Text>
           </Text>
           <Text className="text-white/40 text-[11px] text-center mt-2">
-            English · Yoruba · Igbo · Hausa
+            English · Pidgin · Yorùbá · Igbo · Hausa
           </Text>
         </View>
 
@@ -190,12 +226,77 @@ const VoiceStockScreen = ({
           </View>
         ) : null}
 
-        {parsedPreview && !isProcessing ? (
-          <View className="bg-emerald-500/15 border border-emerald-400/40 rounded-2xl p-4 mb-6">
-            <Text className="text-emerald-300 text-[10px] font-bold uppercase mb-1">
-              Saved
+        {pendingEntry && !isProcessing ? (
+          <View className="bg-white/10 border border-white/20 rounded-2xl p-4 mb-6">
+            <Text className="text-amber-300 text-[10px] font-bold uppercase mb-1">
+              {t.confirm}
             </Text>
-            <Text className="text-white text-base font-semibold">{parsedPreview}</Text>
+            <Text className="text-white/50 text-xs mb-3">Heard: "{pendingTranscript}"</Text>
+
+            <View className="gap-3 mb-4">
+              <View>
+                <Text className="text-white/40 text-[10px] font-bold uppercase mb-1">Product</Text>
+                <TextInput
+                  value={pendingEntry.product_name}
+                  onChangeText={(v) => updatePending('product_name', v)}
+                  className="bg-white/10 text-white p-3 rounded-xl border border-white/10"
+                />
+              </View>
+              <View className="flex-row gap-3">
+                <View className="flex-1">
+                  <Text className="text-white/40 text-[10px] font-bold uppercase mb-1">{t.qty}</Text>
+                  <TextInput
+                    value={String(pendingEntry.quantity)}
+                    onChangeText={(v) => updatePending('quantity', v)}
+                    keyboardType="number-pad"
+                    className="bg-white/10 text-white p-3 rounded-xl border border-white/10"
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-white/40 text-[10px] font-bold uppercase mb-1">{t.cost}</Text>
+                  <TextInput
+                    value={String(pendingEntry.product_cost)}
+                    onChangeText={(v) => updatePending('product_cost', v)}
+                    keyboardType="decimal-pad"
+                    className="bg-white/10 text-white p-3 rounded-xl border border-white/10"
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-white/40 text-[10px] font-bold uppercase mb-1">{t.price}</Text>
+                  <TextInput
+                    value={String(pendingEntry.price)}
+                    onChangeText={(v) => updatePending('price', v)}
+                    keyboardType="decimal-pad"
+                    className="bg-white/10 text-white p-3 rounded-xl border border-white/10"
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={discardPending}
+                disabled={isSaving}
+                className="flex-1 py-3 rounded-xl items-center flex-row justify-center bg-white/10"
+              >
+                <RotateCcw size={16} color="white" />
+                <Text className="text-white font-bold text-sm ml-2">{t.cancel}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmPending}
+                disabled={isSaving}
+                className="flex-1 py-3 rounded-xl items-center flex-row justify-center bg-emerald-500"
+              >
+                {isSaving ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <>
+                    <Check size={16} color="white" />
+                    <Text className="text-white font-bold text-sm ml-2">{t.save}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         ) : null}
 
@@ -209,7 +310,7 @@ const VoiceStockScreen = ({
             onPressOut={() => {
               if (isListening) stopRecording();
             }}
-            disabled={isProcessing}
+            disabled={isProcessing || !!pendingEntry}
             className={`w-36 h-36 rounded-full items-center justify-center border-4 ${
               isListening ? 'bg-emerald-500 border-emerald-300' : 'bg-white/10 border-white/20'
             }`}
@@ -223,7 +324,7 @@ const VoiceStockScreen = ({
             )}
           </Pressable>
           <Text className="text-white font-bold text-sm mt-4">
-            {isProcessing ? 'Processing…' : isListening ? 'Release to save' : 'Hold to speak'}
+            {isProcessing ? 'Processing…' : isListening ? 'Release to save' : t.speak}
           </Text>
           <Text className="text-white/40 text-xs mt-1">Works offline — syncs later</Text>
         </View>
@@ -232,7 +333,7 @@ const VoiceStockScreen = ({
       {history.length > 0 && (
         <View className="border-t border-white/10 px-4 py-4 max-h-36">
           <Text className="text-white/50 text-[10px] font-bold uppercase mb-2">
-            Today
+            {t.today}
           </Text>
           <ScrollView>
             {history.slice(0, 5).map((item) => (

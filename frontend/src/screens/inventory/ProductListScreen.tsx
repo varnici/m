@@ -8,16 +8,16 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
-  Image,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useProducts } from '@/hooks/useInventory';
+import { useCategories } from '@/hooks/useCategories';
 import { Ionicons } from '@expo/vector-icons';
-import { retailCategoriesData } from '@/data/retailCategories';
+import { getCategoryIconComponent, DEFAULT_CATEGORY_TINT } from '@/constants/categoryIcons';
 import { colors } from '@/theme/colors';
 import { InventoryQuickActions } from '@/components/inventory/InventoryQuickActions';
-import type { Product as InventoryProduct } from '@/types/inventory';
+import type { Product as InventoryProduct, Category } from '@/types/inventory';
 import AppHeader from '@/components/ui/AppHeader';
 
 // ============================================================================
@@ -30,31 +30,14 @@ interface ProductItemProps {
   product: Product;
   viewMode: 'list' | 'grid';
   onPress: (id: string) => void;
+  categories: Category[];
 }
 
 // ============================================================================
 // COMPONENTS
 // ============================================================================
 
-// Find category icon (handles both parent and subcategories)
-const getCategoryIcon = (categoryId?: string) => {
-  if (!categoryId) return null;
-  // Check top level
-  let cat = retailCategoriesData.find(c => c.id === categoryId);
-  if (cat) return cat;
-  
-  // Check subcategories
-  for (const c of retailCategoriesData) {
-    if (c.subcategories) {
-      const sub = c.subcategories.find(s => s.id === categoryId);
-      if (sub) return c; // Return the parent category for the icon/bg color
-    }
-  }
-  
-  return null;
-};
-
-const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps) => {
+const ProductItem = React.memo(({ product, viewMode, onPress, categories }: ProductItemProps) => {
   const quantityOnHand = product.total_quantity_on_hand ?? product.quantity_on_hand ?? 0;
   const reservedQuantity = product.total_reserved_quantity ?? 0;
   const availableQuantity = Math.max(0, quantityOnHand - reservedQuantity);
@@ -68,8 +51,10 @@ const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps
   const stockLabel = isOutOfStock ? 'Out of stock' : isLowStock ? 'Low stock' : 'Healthy';
   const stockColor = isOutOfStock ? '#DC2626' : isLowStock ? '#D97706' : '#047857';
 
-  // Find category icon
-  const category = getCategoryIcon(product.category_id);
+  // Find category icon/tint from the live category list
+  const category = categories.find((c) => c.id === product.category_id);
+  const CategoryIcon = getCategoryIconComponent(category?.icon);
+  const categoryTint = category?.tint || DEFAULT_CATEGORY_TINT;
 
   if (viewMode === 'grid') {
     return (
@@ -79,9 +64,9 @@ const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps
         activeOpacity={0.7}
       >
         <View className="items-center mb-3">
-          <View 
-            style={{ 
-              backgroundColor: category?.backgroundColor || '#F3F4F6',
+          <View
+            style={{
+              backgroundColor: category ? categoryTint + '1A' : '#F3F4F6',
               width: 50,
               height: 50,
               borderRadius: 16,
@@ -90,8 +75,8 @@ const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps
               marginBottom: 8
             }}
           >
-            {category?.icon ? (
-              <Image source={category.icon} style={{ width: 30, height: 30 }} resizeMode="contain" />
+            {category ? (
+              <CategoryIcon size={26} color={categoryTint} strokeWidth={1.8} />
             ) : (
               <Ionicons name="cube" size={24} color="#6B7280" />
             )}
@@ -120,9 +105,9 @@ const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps
       activeOpacity={0.7}
     >
       <View className="flex-row items-center mb-3">
-        <View 
-          style={{ 
-            backgroundColor: category?.backgroundColor || '#F3F4F6',
+        <View
+          style={{
+            backgroundColor: category ? categoryTint + '1A' : '#F3F4F6',
             width: 40,
             height: 40,
             borderRadius: 12,
@@ -131,8 +116,8 @@ const ProductItem = React.memo(({ product, viewMode, onPress }: ProductItemProps
             marginRight: 12
           }}
         >
-          {category?.icon ? (
-            <Image source={category.icon} style={{ width: 24, height: 24 }} resizeMode="contain" />
+          {category ? (
+            <CategoryIcon size={20} color={categoryTint} strokeWidth={1.8} />
           ) : (
             <Ionicons name="cube" size={20} color="#6B7280" />
           )}
@@ -181,6 +166,7 @@ export const ProductListScreen = ({ navigation }: any) => {
     selectedCategoryId,
     debouncedSearch
   );
+  const { data: categories = [] } = useCategories();
 
   // Debounce search input
   React.useEffect(() => {
@@ -328,19 +314,26 @@ export const ProductListScreen = ({ navigation }: any) => {
           >
             <Text style={[styles.categoryText, !selectedCategoryId && styles.categoryTextSelected]}>All</Text>
           </TouchableOpacity>
-          {retailCategoriesData.map((cat) => (
-            <TouchableOpacity
-              key={cat.id}
-              onPress={() => setSelectedCategoryId(cat.id)}
-              style={[
-                styles.categoryChip,
-                selectedCategoryId === cat.id && { borderColor: colors.ventureroot.green, backgroundColor: '#ECFDF5' }
-              ]}
-            >
-              <Image source={cat.icon} style={styles.categoryIcon} resizeMode="contain" />
-              <Text style={[styles.categoryText, selectedCategoryId === cat.id && { color: colors.ventureroot.green }]}>{cat.name}</Text>
-            </TouchableOpacity>
-          ))}
+          {categories.map((cat) => {
+            const CatIcon = getCategoryIconComponent(cat.icon);
+            const catTint = cat.tint || DEFAULT_CATEGORY_TINT;
+            const selected = selectedCategoryId === cat.id;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                onPress={() => setSelectedCategoryId(cat.id)}
+                style={[
+                  styles.categoryChip,
+                  selected && { borderColor: colors.ventureroot.green, backgroundColor: '#ECFDF5' }
+                ]}
+              >
+                <View style={{ marginRight: 6 }}>
+                  <CatIcon size={16} color={selected ? colors.ventureroot.green : catTint} strokeWidth={1.8} />
+                </View>
+                <Text style={[styles.categoryText, selected && { color: colors.ventureroot.green }]}>{cat.name}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -361,7 +354,7 @@ export const ProductListScreen = ({ navigation }: any) => {
         data={products}
         renderItem={({ item }) => (
           <View style={viewMode === 'grid' ? { flex: 0.5, padding: 6 } : null}>
-            <ProductItem product={item} viewMode={viewMode} onPress={handleProductPress} />
+            <ProductItem product={item} viewMode={viewMode} onPress={handleProductPress} categories={categories} />
           </View>
         )}
         keyExtractor={keyExtractor}

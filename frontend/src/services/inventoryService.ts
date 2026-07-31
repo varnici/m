@@ -142,6 +142,38 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
+  async getDailyReport(date: string, storeId?: string): Promise<{
+    report_date: string;
+    store_id: string | null;
+    opening_value_kobo: number;
+    closing_value_kobo: number;
+    units_received: number;
+    units_issued: number;
+    movement_count: number;
+    is_closing_value_estimated: boolean;
+  }> {
+    const params = new URLSearchParams({ date, ...(storeId && { store_id: storeId }) });
+    const response = await this.fetchWithAuth(`/v1/inventory/analytics/daily-report?${params}`);
+    return response.json();
+  }
+
+  async exportDailyReportCsv(date: string, storeId?: string): Promise<string> {
+    const params = new URLSearchParams({ date, ...(storeId && { store_id: storeId }) });
+    const response = await this.fetchWithAuth(`/v1/inventory/analytics/daily-report/export.csv?${params}`);
+    return response.text();
+  }
+
+  async exportProductsCsv(categoryId?: string, search?: string, storeId?: string): Promise<string> {
+    const params = new URLSearchParams({
+      ...(categoryId && { category_id: categoryId }),
+      ...(search && { search }),
+      ...(storeId && { store_id: storeId }),
+    });
+    const qs = params.toString();
+    const response = await this.fetchWithAuth(`/v1/inventory/products/export.csv${qs ? `?${qs}` : ''}`);
+    return response.text();
+  }
+
   // ========================================================================
   // STOCK MANAGEMENT
   // ========================================================================
@@ -284,10 +316,32 @@ export class InventoryService extends BaseService {
   // TRADE (B2B) — Trade Invoicing Desk
   // ========================================================================
 
-  async createCategory(data: { name: string; slug: string; description?: string }): Promise<Category> {
+  async createCategory(data: { name: string; slug: string; description?: string; icon?: string; tint?: string; parent_id?: string }): Promise<Category> {
     const response = await this.fetchWithAuth('/v1/inventory/categories', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  async updateCategory(categoryId: string, data: Partial<Pick<Category, 'name' | 'icon' | 'tint' | 'parent_id' | 'description'>>): Promise<Category> {
+    const response = await this.fetchWithAuth(`/v1/inventory/categories/${categoryId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  async deleteCategory(categoryId: string): Promise<void> {
+    await this.fetchWithAuth(`/v1/inventory/categories/${categoryId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async bulkCreateCategories(categories: Array<{ name: string; icon?: string; tint?: string; parent_id?: string; slug?: string }>): Promise<Category[]> {
+    const response = await this.fetchWithAuth('/v1/inventory/categories/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ categories }),
     });
     return response.json();
   }
@@ -542,12 +596,13 @@ export class InventoryService extends BaseService {
   // VOICE & SCAN
   // ========================================================================
 
-  async processVoiceInput(audioBase64: string, storeId: string): Promise<any> {
+  async processVoiceInput(audioBase64: string, storeId: string, language: string = 'en'): Promise<any> {
     const response = await this.fetchWithAuth('/v1/inventory/voice/parse', {
       method: 'POST',
       body: JSON.stringify({
         audio_base64: audioBase64,
         store_id: storeId,
+        language,
       }),
     });
     return response.json();
@@ -594,6 +649,14 @@ export class InventoryService extends BaseService {
   async createStore(data: Partial<Store>): Promise<Store> {
     const response = await this.fetchWithAuth('/v1/inventory/stores', {
       method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  }
+
+  async updateStore(storeId: string, data: Partial<Store>): Promise<Store> {
+    const response = await this.fetchWithAuth(`/v1/inventory/stores/${storeId}`, {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
     return response.json();

@@ -185,8 +185,8 @@ class InventoryServiceV2:
 
     # ── Voice & Vision (Delegated to VoiceVisionService) ────────────────────
     
-    def process_voice_input(self, audio_base64: str, store_id: str) -> Dict[str, Any]:
-        return self.voice_vision.process_voice_input(audio_base64, store_id)
+    def process_voice_input(self, audio_base64: str, store_id: str, language: str = "en") -> Dict[str, Any]:
+        return self.voice_vision.process_voice_input(audio_base64, store_id, language)
     
     def process_vision_scan(self, image_base64: str, store_id: str) -> Dict[str, Any]:
         return self.voice_vision.process_vision_scan(image_base64, store_id)

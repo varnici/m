@@ -10,7 +10,7 @@ from app.services.inventory_ai import (
     transcribe_inventory, 
     scan_shelf_vision
 )
-from fastapi import File, UploadFile
+from fastapi import File, Form, UploadFile
 
 router = APIRouter()
 
@@ -26,9 +26,9 @@ def pricing(payload: PriceIntelRequest):
 
 
 @router.post("/inventory/transcribe", response_model=TranscriptionResponse)
-async def transcribe(file: UploadFile = File(...)):
+async def transcribe(file: UploadFile = File(...), language: str = Form("en")):
     content = await file.read()
-    return transcribe_inventory(content)
+    return transcribe_inventory(content, language)
 
 
 @router.post("/inventory/vision-scan", response_model=VisionScanResponse)

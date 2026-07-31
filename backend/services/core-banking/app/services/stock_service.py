@@ -113,7 +113,10 @@ class StockService:
                     raise
                 logger.exception("Domain inventory command processing failed")
         
-        movement = StockMovement(owner_id=self.owner_id, **payload.model_dump())
+        # StockMovementCreate carries a legacy `store_id` field with no backing
+        # column on StockMovement (only from_store_id/to_store_id exist) — passing
+        # it through unfiltered raises TypeError on every single call.
+        movement = StockMovement(owner_id=self.owner_id, **payload.model_dump(exclude={"store_id"}))
         self.db.add(movement)
         
         # Dispatch to specific handlers
@@ -139,6 +142,25 @@ class StockService:
             self.db.flush()
             
         return StockMovementOut.model_validate(movement)
+
+    def transfer_stock(
+        self, from_store_id: str, to_store_id: str, product_id: str, quantity: int
+    ) -> StockMovementOut:
+        """Move stock between two stores owned by the same business.
+
+        Thin wrapper around record_stock_movement — reuses the same domain
+        command processing, handler dispatch (_handle_transfer), and
+        cache-relevant commit path as a normal /stock/movements call, instead
+        of duplicating that logic here.
+        """
+        payload = StockMovementCreate(
+            product_id=product_id,
+            from_store_id=from_store_id,
+            to_store_id=to_store_id,
+            movement_type="transfer",
+            quantity=quantity,
+        )
+        return self.record_stock_movement(payload)
 
     def reserve_stock(self, payload: StockReservationCreate, should_commit: bool = True) -> StockReservationOut:
         product = self.db.query(Product).filter(

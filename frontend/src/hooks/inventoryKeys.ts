@@ -5,6 +5,8 @@
 
 export const inventoryKeys = {
   all: ['inventory'],
+  categories: () => [...inventoryKeys.all, 'categories'],
+  stores: () => [...inventoryKeys.all, 'stores'],
   products: () => [...inventoryKeys.all, 'products'],
   productList: (skip: number, limit: number, categoryId?: string, search?: string) => [
     ...inventoryKeys.products(),
@@ -83,4 +85,5 @@ export const inventoryKeys = {
   aiInsights: (storeId?: string) => [...inventoryKeys.analytics(), 'ai-insights', storeId],
   ledger: (skip: number, limit: number) => [...inventoryKeys.all, 'ledger', { skip, limit }],
   reconcile: (storeId?: string, productId?: string) => [...inventoryKeys.analytics(), 'reconcile', { storeId, productId }],
+  dailyReport: (date: string, storeId?: string) => [...inventoryKeys.analytics(), 'daily-report', date, storeId],
 };

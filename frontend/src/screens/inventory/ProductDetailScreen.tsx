@@ -8,31 +8,16 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
-  Image,
 } from 'react-native';
 import { useProductDetail, useStockMovements, useTransformStock } from '@/hooks/useInventory';
+import { useCategories } from '@/hooks/useCategories';
 import { Ionicons } from '@expo/vector-icons';
 import { Edit2 } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit'; // Assume this is installed
 
-import { retailCategoriesData } from '@/data/retailCategories';
+import { getCategoryIconComponent, DEFAULT_CATEGORY_TINT } from '@/constants/categoryIcons';
 
 const screenWidth = Dimensions.get('window').width;
-
-// Helper to find parent category icon for items/subcategories
-const getCategoryInfo = (categoryId?: string) => {
-  if (!categoryId) return null;
-  const cat = retailCategoriesData.find(c => c.id === categoryId);
-  if (cat) return cat;
-  
-  for (const c of retailCategoriesData) {
-    if (c.subcategories) {
-      const sub = c.subcategories.find(s => s.id === categoryId);
-      if (sub) return c;
-    }
-  }
-  return null;
-};
 
 export const ProductDetailScreen = ({ route, navigation }: any) => {
   const { productId } = route.params;
@@ -48,6 +33,11 @@ export const ProductDetailScreen = ({ route, navigation }: any) => {
     data: movements,
     isLoading: isMovementsLoading,
   } = useStockMovements(undefined, productId, undefined, undefined, undefined, 0, 5);
+
+  const { data: categories = [] } = useCategories();
+  const productCategory = categories.find((c) => c.id === product?.category_id);
+  const CategoryIcon = getCategoryIconComponent(productCategory?.icon);
+  const categoryTint = productCategory?.tint || DEFAULT_CATEGORY_TINT;
 
   const profitPerUnitFormatted = useMemo(() => {
     if (!product) return '₦0.00';
@@ -155,24 +145,22 @@ export const ProductDetailScreen = ({ route, navigation }: any) => {
         <View className="flex-row justify-between items-start mb-4">
           <View className="flex-1">
             <View className="flex-row items-center mb-2">
-               <View 
-                style={{ 
-                  backgroundColor: getCategoryInfo(product.category_id)?.backgroundColor || '#F3F4F6',
+               <View
+                style={{
+                  backgroundColor: productCategory ? categoryTint + '1A' : '#F3F4F6',
                   padding: 8,
                   borderRadius: 12,
                   marginRight: 10
                 }}
                >
-                 {getCategoryInfo(product.category_id)?.icon ? (
-                   <View style={{ width: 24, height: 24 }}>
-                     <Image source={getCategoryInfo(product.category_id)?.icon} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
-                   </View>
+                 {productCategory ? (
+                   <CategoryIcon size={20} color={categoryTint} strokeWidth={1.8} />
                  ) : (
                    <Ionicons name="cube" size={20} color="#6B7280" />
                  )}
                </View>
                <Text style={{ fontSize: 14, color: '#6B7280', fontWeight: '600' }}>
-                 {getCategoryInfo(product.category_id)?.name || 'General'}
+                 {productCategory?.name || 'General'}
                </Text>
             </View>
             <View style={styles.skuRow}>

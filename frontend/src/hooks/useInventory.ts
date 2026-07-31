@@ -5,6 +5,7 @@
  */
 
 export * from './inventoryKeys';
+export * from './useCategories';
 export * from './useProducts';
 export * from './useStock';
 export * from './useSuppliers';

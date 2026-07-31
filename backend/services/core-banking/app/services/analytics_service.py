@@ -12,8 +12,17 @@ from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 import logging
 
-from app.models import Product, SalesTransaction, SalesTransactionItem, StockLevel
+from app.models import (
+    InventorySnapshot,
+    Product,
+    SalesTransaction,
+    SalesTransactionItem,
+    StockLevel,
+    StockMovement,
+    Store,
+)
 from app.schemas.inventory_schemas import (
+    DailyReportOut,
     InventoryMetricsOut,
     ProductHealthOut,
 )
@@ -643,3 +652,92 @@ class AnalyticsService:
             }
             for r in results
         ]
+
+    def get_daily_report(self, report_date: date, store_id: Optional[str] = None) -> DailyReportOut:
+        """Opening/closing stock value and units received/issued for one day.
+
+        Closing value prefers the nightly rollup snapshot (calculate_daily_inventory_rollup,
+        which runs at 00:30 for the *previous* day) when one exists for report_date;
+        otherwise it's computed live from current StockLevel * cost_price_kobo, which is
+        the only option for "today" since today's snapshot hasn't been rolled up yet.
+        Opening value is the most recent snapshot strictly before report_date.
+        """
+        day_start = datetime.combine(report_date, datetime.min.time(), tzinfo=timezone.utc)
+        day_end = day_start + timedelta(days=1)
+
+        store_ids: List[str] = []
+        if store_id:
+            store_ids = [store_id]
+        else:
+            store_ids = [
+                s.id for s in self.db.query(Store.id).filter(Store.owner_id == self.owner_id).all()
+            ]
+
+        def _snapshot_value(snapshot_date: date) -> Optional[int]:
+            q = self.db.query(func.sum(InventorySnapshot.total_inventory_value_kobo)).filter(
+                InventorySnapshot.owner_id == self.owner_id,
+                InventorySnapshot.snapshot_date == snapshot_date,
+            )
+            if store_id:
+                q = q.filter(InventorySnapshot.store_id == store_id)
+            total = q.scalar()
+            return int(total) if total is not None else None
+
+        def _live_closing_value() -> int:
+            q = (
+                self.db.query(func.coalesce(func.sum(StockLevel.quantity_on_hand * Product.cost_price_kobo), 0))
+                .join(Product, StockLevel.product_id == Product.id)
+                .filter(Product.owner_id == self.owner_id)
+            )
+            if store_ids:
+                q = q.filter(StockLevel.store_id.in_(store_ids))
+            return int(q.scalar() or 0)
+
+        closing = _snapshot_value(report_date)
+        is_estimated = closing is None
+        if closing is None:
+            closing = _live_closing_value()
+
+        prior_snapshot_date = (
+            self.db.query(func.max(InventorySnapshot.snapshot_date))
+            .filter(
+                InventorySnapshot.owner_id == self.owner_id,
+                InventorySnapshot.snapshot_date < report_date,
+                *([InventorySnapshot.store_id == store_id] if store_id else []),
+            )
+            .scalar()
+        )
+        opening = _snapshot_value(prior_snapshot_date) if prior_snapshot_date else closing
+
+        movement_query = self.db.query(StockMovement).filter(
+            StockMovement.owner_id == self.owner_id,
+            StockMovement.created_at >= day_start,
+            StockMovement.created_at < day_end,
+        )
+        movements = movement_query.all()
+        store_id_set = set(store_ids)
+        if store_id_set:
+            movements = [
+                m for m in movements
+                if (m.to_store_id in store_id_set) or (m.from_store_id in store_id_set)
+            ]
+
+        units_received = sum(
+            m.quantity for m in movements
+            if m.to_store_id and (not store_id_set or m.to_store_id in store_id_set)
+        )
+        units_issued = sum(
+            m.quantity for m in movements
+            if m.from_store_id and (not store_id_set or m.from_store_id in store_id_set)
+        )
+
+        return DailyReportOut(
+            report_date=report_date,
+            store_id=store_id,
+            opening_value_kobo=int(opening or 0),
+            closing_value_kobo=int(closing or 0),
+            units_received=int(units_received),
+            units_issued=int(units_issued),
+            movement_count=len(movements),
+            is_closing_value_estimated=is_estimated,
+        )
