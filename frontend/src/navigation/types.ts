@@ -69,12 +69,21 @@ export type WorkerTabParamList = {
   More: undefined;
 };
 
+export type DistributorTabParamList = {
+  DistributorHome: undefined;
+  InventoryManager: undefined;
+  DistributorOrders: undefined;
+  Wallet: undefined;
+  More: undefined;
+};
+
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Onboarding: NavigatorScreenParams<OnboardingStackParamList>;
-  // "Main" resolves to MainTabNavigator (retail) or WorkerTabNavigator (nine_to_five)
-  // depending on account type — accept either tab's params for nested navigation.
-  Main: NavigatorScreenParams<MainTabParamList> | NavigatorScreenParams<WorkerTabParamList>;
+  // "Main" resolves to MainTabNavigator (retail), WorkerTabNavigator (nine_to_five),
+  // or DistributorTabNavigator (distributor) depending on account type — accept
+  // any tab's params for nested navigation.
+  Main: NavigatorScreenParams<MainTabParamList> | NavigatorScreenParams<WorkerTabParamList> | NavigatorScreenParams<DistributorTabParamList>;
 
   // Nested navigator screen names are listed here because many screens use the
   // root navigation prop for cross-stack shortcuts.
@@ -113,6 +122,11 @@ export type RootStackParamList = {
   // App Stack Screens (Accessible after onboarding)
   InventoryDashboard: undefined;
   InventoryManager: undefined;
+  DistributorHome: undefined;
+  DistributorOrders: undefined;
+  DistributorList: undefined;
+  DistributorCatalog: { distributorId: string; distributorName?: string };
+  FundTransferReceipt: { orderId: string };
   StockLodger: undefined;
   VoiceStock: undefined;
   ScanShelve: undefined;

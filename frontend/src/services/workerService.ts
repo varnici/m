@@ -177,6 +177,40 @@ export interface DividendHistoryItem {
 // Service calls
 // ---------------------------------------------------------------------------
 
+export interface FundingRound {
+  id: string;
+  cluster_id: string;
+  business_name: string;
+  category: string;
+  distributor_order_id?: string | null;
+  target_amount_kobo: number;
+  raised_amount_kobo: number;
+  progress_pct: number;
+  contributors_count: number;
+  status: 'open' | 'funded' | 'closed';
+  created_at: string;
+}
+
+export interface FundingContributor {
+  investor_id: string;
+  amount_kobo: number;
+  contributed_at: string;
+}
+
+export interface FundingRoundDetail extends FundingRound {
+  contributors: FundingContributor[];
+}
+
+export interface ContributeFundingRoundResult {
+  investment_id: string;
+  round_id: string;
+  amount_kobo: number;
+  raised_amount_kobo: number;
+  target_amount_kobo: number;
+  round_status: string;
+  settled: boolean;
+}
+
 class WorkerService extends BaseService {
   async getDashboardSummary(_userId?: string): Promise<WorkerDashboardSummary> {
     const response = await this.fetchWithAuth(`${BASE}/dashboard/summary`);
@@ -238,6 +272,24 @@ class WorkerService extends BaseService {
   async withdrawInvestment(investmentId: string): Promise<WithdrawResponse> {
     const response = await this.fetchWithAuth(`${BASE}/investments/${investmentId}/withdraw`, {
       method: 'POST',
+    });
+    return response.json();
+  }
+
+  async getFundingRounds(status: 'open' | 'funded' | 'closed' = 'open'): Promise<FundingRound[]> {
+    const response = await this.fetchWithAuth(`${BASE}/funding-rounds?status=${status}`);
+    return response.json();
+  }
+
+  async getFundingRound(roundId: string): Promise<FundingRoundDetail> {
+    const response = await this.fetchWithAuth(`${BASE}/funding-rounds/${roundId}`);
+    return response.json();
+  }
+
+  async contributeToFundingRound(roundId: string, amountKobo: number): Promise<ContributeFundingRoundResult> {
+    const response = await this.fetchWithAuth(`${BASE}/funding-rounds/${roundId}/contribute`, {
+      method: 'POST',
+      body: JSON.stringify({ amount_kobo: amountKobo }),
     });
     return response.json();
   }

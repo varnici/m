@@ -5,8 +5,11 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   StyleSheet,
   Dimensions,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,8 +24,11 @@ import {
   Zap,
   ArrowRight,
   Info,
+  Users,
 } from 'lucide-react-native';
+import Toast from 'react-native-toast-message';
 import type { RootStackScreenProps } from '@/navigation/types';
+import { useFundingRoundsForCluster, useContributeToFundingRound } from '@/hooks/useFundingRounds';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -44,6 +50,9 @@ export default function Worker95BusinessDetailScreen({
 }: RootStackScreenProps<'Worker95BusinessDetail'>) {
   const item = route.params?.item;
   const [activeTab, setActiveTab] = useState<'overview' | 'investors'>('overview');
+  const { data: fundingRounds, isLoading: roundsLoading } = useFundingRoundsForCluster(item?.cluster_id);
+  const contribute = useContributeToFundingRound();
+  const [contributeAmount, setContributeAmount] = useState<Record<string, string>>({});
 
   if (!item) {
     return (
@@ -174,6 +183,82 @@ export default function Worker95BusinessDetailScreen({
               </View>
             </View>
 
+            <Text style={styles.sectionHeading}>Open funding rounds</Text>
+
+            {roundsLoading ? (
+              <ActivityIndicator color="#059669" style={{ marginTop: 16 }} />
+            ) : !fundingRounds || fundingRounds.length === 0 ? (
+              <View style={styles.infoCard}>
+                <Users size={16} color="#3B82F6" />
+                <Text style={styles.infoText}>
+                  No group funding round is open for this business right now — you can still invest
+                  directly using the button below.
+                </Text>
+              </View>
+            ) : (
+              fundingRounds.map((round) => {
+                const amount = contributeAmount[round.id] || '';
+                return (
+                  <View key={round.id} style={styles.roundCard}>
+                    <View style={styles.roundHeaderRow}>
+                      <Text style={styles.roundContributors}>
+                        {round.contributors_count} contributor{round.contributors_count === 1 ? '' : 's'}
+                      </Text>
+                      <Text style={styles.roundProgressPct}>{round.progress_pct}%</Text>
+                    </View>
+                    <View style={styles.roundProgressTrack}>
+                      <View style={[styles.roundProgressFill, { width: `${Math.min(100, round.progress_pct)}%` }]} />
+                    </View>
+                    <Text style={styles.roundAmounts}>
+                      ₦{(round.raised_amount_kobo / 100).toLocaleString()} raised of ₦
+                      {(round.target_amount_kobo / 100).toLocaleString()} target
+                    </Text>
+
+                    <View style={styles.roundContributeRow}>
+                      <TextInput
+                        value={amount}
+                        onChangeText={(v) => setContributeAmount((prev) => ({ ...prev, [round.id]: v }))}
+                        placeholder="Amount (₦)"
+                        keyboardType="number-pad"
+                        style={styles.roundInput}
+                      />
+                      <TouchableOpacity
+                        style={styles.roundContributeBtn}
+                        disabled={contribute.isPending || !amount}
+                        onPress={() => {
+                          const kobo = Math.round(parseFloat(amount) * 100);
+                          if (!kobo || kobo <= 0) return;
+                          contribute.mutate(
+                            { roundId: round.id, amountKobo: kobo },
+                            {
+                              onSuccess: (result) => {
+                                setContributeAmount((prev) => ({ ...prev, [round.id]: '' }));
+                                Toast.show({
+                                  type: 'success',
+                                  text1: result.settled ? 'Round fully funded!' : 'Contribution recorded',
+                                  text2: result.settled
+                                    ? 'This round just hit its target.'
+                                    : `₦${(result.raised_amount_kobo / 100).toLocaleString()} raised so far`,
+                                });
+                              },
+                              onError: (err: any) =>
+                                Alert.alert('Could not contribute', err.message || 'Please try again'),
+                            }
+                          );
+                        }}
+                      >
+                        {contribute.isPending ? (
+                          <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                          <Text style={styles.roundContributeBtnText}>Contribute</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+
             <View style={styles.infoCard}>
               <Zap size={16} color="#FBBF24" />
               <Text style={styles.infoText}>
@@ -250,6 +335,19 @@ const styles = StyleSheet.create({
   investorStat: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 14, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#E5E7EB' },
   investorStatVal: { fontSize: 16, fontWeight: '800', color: '#111827' },
   investorStatLabel: { fontSize: 10, color: '#9CA3AF', textAlign: 'center' },
+
+  sectionHeading: { fontSize: 13, fontWeight: '700', color: '#374151', marginTop: 20, marginBottom: 10 },
+  roundCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10 },
+  roundHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  roundContributors: { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+  roundProgressPct: { fontSize: 12, fontWeight: '800', color: '#059669' },
+  roundProgressTrack: { height: 6, backgroundColor: '#F3F4F6', borderRadius: 3, overflow: 'hidden' },
+  roundProgressFill: { height: '100%', backgroundColor: '#10B981', borderRadius: 3 },
+  roundAmounts: { fontSize: 11, color: '#9CA3AF', marginTop: 6 },
+  roundContributeRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  roundInput: { flex: 1, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, color: '#111827' },
+  roundContributeBtn: { backgroundColor: '#059669', paddingHorizontal: 16, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  roundContributeBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
 
   investBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,

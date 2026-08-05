@@ -70,10 +70,16 @@ def _dev_log(channel: str, target: str, code: str, reason: str = "") -> None:
     print(f"{'='*55}\n")
 
 
-def _send_sms_termii(phone: str, code: str) -> None:
+def _send_sms_termii(phone: str, code: str) -> bool:
+    """Returns True only if a real SMS was actually dispatched via Termii —
+    False means it fell back to the dev-log-only path (unconfigured, dev
+    mode). Callers that need to know whether delivery is real (e.g.
+    send_otp_multi reporting per-channel status) rely on this distinction."""
     if not settings.termii_api_key:
         _dev_log("sms", phone, code, "Termii key not configured")
-        return
+        if not _is_dev_mode():
+            raise RuntimeError("SMS is not configured on this server.")
+        return False
 
     try:
         payload = {
@@ -90,10 +96,12 @@ def _send_sms_termii(phone: str, code: str) -> None:
                 raise RuntimeError(
                     f"Termii {resp.status_code}: {resp.text[:200]}"
                 )
+        return True
     except Exception as exc:
         _dev_log("sms", phone, code, f"Termii error: {exc}")
         if not _is_dev_mode():
             raise
+        return False
 
 
 # ── Email via SMTP ────────────────────────────────────────────────────────────
@@ -109,10 +117,14 @@ def _smtp_configured() -> bool:
     )
 
 
-def _send_email_otp(email: str, code: str) -> None:
+def _send_email_otp(email: str, code: str) -> bool:
+    """Returns True only if a real email was actually sent via SMTP — see
+    _send_sms_termii's docstring for why this distinction matters."""
     if not _smtp_configured():
         _dev_log("email", email, code, "SMTP not configured")
-        return
+        if not _is_dev_mode():
+            raise RuntimeError("Email delivery is not configured on this server.")
+        return False
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"VentureRoot verification code: {code}"
@@ -145,10 +157,12 @@ def _send_email_otp(email: str, code: str) -> None:
             server.starttls()
             server.login(settings.smtp_user, settings.smtp_password)
             server.sendmail(settings.smtp_from_email, email, msg.as_string())
+        return True
     except Exception as exc:
         _dev_log("email", email, code, f"SMTP error: {exc}")
         if not _is_dev_mode():
             raise
+        return False
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -227,5 +241,106 @@ def verify_otp(
         raise OtpError(f"Incorrect code. {remaining} attempt(s) remaining.")
 
     record.is_used = True
+    db.commit()
+    return True
+
+
+# ── Multi-channel: both SMS and email for every OTP ────────────────────────────
+
+def send_otp_multi(
+    db: Session,
+    phone: str,
+    email: str,
+    purpose: str = "phone_verify",
+) -> dict[str, dict]:
+    """
+    Every OTP goes out on both channels at once, sharing one code, so the
+    user can verify with whichever actually reached them — SMS delivery
+    issues shouldn't block someone who has working email, and vice versa.
+
+    Raises OtpError if the rate limit is hit on either target, or if BOTH
+    channels genuinely failed to deliver outside dev mode. In dev mode with
+    no credentials configured, both channels legitimately report
+    sent=False (console-logged only) without this being treated as failure.
+    """
+    for target, channel in ((phone, "sms"), (email, "email")):
+        recent = _count_recent_sends(db, target, channel)
+        if recent >= settings.otp_max_per_window:
+            raise OtpError(
+                f"Too many OTP requests. Maximum {settings.otp_max_per_window} "
+                "per 10 minutes. Please wait before requesting again."
+            )
+
+    code = _generate_code()
+    code_hash = _hash_code(code)
+    expires_at = _now() + timedelta(minutes=settings.otp_expiry_minutes)
+
+    db.add(OtpRecord(target=phone, channel="sms", code_hash=code_hash, purpose=purpose, expires_at=expires_at))
+    db.add(OtpRecord(target=email, channel="email", code_hash=code_hash, purpose=purpose, expires_at=expires_at))
+    db.commit()
+
+    result = {"sms": {"sent": False, "error": None}, "email": {"sent": False, "error": None}}
+
+    try:
+        result["sms"]["sent"] = _send_sms_termii(phone, code)
+    except Exception as exc:
+        result["sms"]["error"] = str(exc)
+
+    try:
+        result["email"]["sent"] = _send_email_otp(email, code)
+    except Exception as exc:
+        result["email"]["error"] = str(exc)
+
+    if not result["sms"]["sent"] and not result["email"]["sent"] and not _is_dev_mode():
+        raise OtpError("Could not send verification code via SMS or email. Please try again shortly.")
+
+    return result
+
+
+def verify_otp_multi(
+    db: Session,
+    phone: str,
+    email: str,
+    code: str,
+) -> bool:
+    """
+    Verifies against whichever channel's record matches — the same code was
+    sent to both, so either the SMS or the email record can satisfy this.
+    Both records are marked used together on success so the code can't be
+    replayed a second time via the other channel.
+    """
+    records: list[OtpRecord] = list(
+        db.execute(
+            select(OtpRecord).where(
+                OtpRecord.target.in_([phone, email]),
+                OtpRecord.is_used == False,  # noqa: E712
+                OtpRecord.expires_at > _now(),
+            ).order_by(OtpRecord.created_at.desc())
+        ).scalars().all()
+    )
+
+    if not records:
+        raise OtpError("No active OTP found. Please request a new code.")
+
+    active_records = [r for r in records if r.attempts < settings.otp_max_verify_attempts]
+    if not active_records:
+        for record in records:
+            record.is_used = True
+        db.commit()
+        raise OtpError("Too many failed attempts. Please request a new code.")
+
+    code_hash = _hash_code(code)
+    matched = next((r for r in active_records if r.code_hash == code_hash), None)
+
+    if matched is None:
+        for record in active_records:
+            record.attempts += 1
+        db.commit()
+        remaining = settings.otp_max_verify_attempts - min(r.attempts for r in active_records)
+        raise OtpError(f"Incorrect code. {max(0, remaining)} attempt(s) remaining.")
+
+    for record in records:
+        if record.code_hash == code_hash:
+            record.is_used = True
     db.commit()
     return True

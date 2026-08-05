@@ -6,12 +6,19 @@ import { useSecurityStore } from '@/store/securityStore';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { useAuth } from '@/context/AuthContext';
+import { usePushNotificationRegistration } from '@/hooks/usePushNotificationRegistration';
 import { colors } from '@/theme/colors';
 
 import AuthNavigator from './AuthNavigator';
 import ResetPasswordScreen from '@/screens/auth/ResetPasswordScreen';
 import MainTabNavigator from './MainTabNavigator';
 import WorkerTabNavigator from './WorkerTabNavigator';
+import DistributorTabNavigator from './DistributorTabNavigator';
+import DistributorDashboardScreen from '@/screens/distributor/DistributorDashboardScreen';
+import DistributorOrdersScreen from '@/screens/distributor/DistributorOrdersScreen';
+import DistributorListScreen from '@/screens/distributor/DistributorListScreen';
+import DistributorCatalogScreen from '@/screens/distributor/DistributorCatalogScreen';
+import FundTransferReceiptScreen from '@/screens/distributor/FundTransferReceiptScreen';
 import ComingSoonScreen from '@/screens/ComingSoonScreen';
 import RoleSelectionScreen from '@/screens/auth/RoleSelectionScreen';
 
@@ -150,6 +157,8 @@ function resolveMainScreen(accountType: string | null) {
       return MainTabNavigator;
     case 'nine_to_five':
       return WorkerTabNavigator;
+    case 'distributor':
+      return DistributorTabNavigator;
     default:
       return MainTabNavigator;
   }
@@ -207,6 +216,8 @@ const RootNavigator = () => {
   const accountType = useUserProfileStore((s) => s.accountType);
   const onboardingComplete = useOnboardingStore((s) => s.isComplete);
   const appState = useRef(AppState.currentState);
+
+  usePushNotificationRegistration(!!session);
 
   useEffect(() => {
     if (securityType !== 'none') {
@@ -309,6 +320,11 @@ const RootNavigator = () => {
           <Stack.Screen name="IssueStock" component={IssueStockScreen} />
           <Stack.Screen name="DailyReport" component={DailyReportScreen} />
           <Stack.Screen name="InventoryRegister" component={InventoryRegisterScreen} />
+          <Stack.Screen name="DistributorHome" component={DistributorDashboardScreen} />
+          <Stack.Screen name="DistributorOrders" component={DistributorOrdersScreen} />
+          <Stack.Screen name="DistributorList" component={DistributorListScreen} />
+          <Stack.Screen name="DistributorCatalog" component={DistributorCatalogScreen} />
+          <Stack.Screen name="FundTransferReceipt" component={FundTransferReceiptScreen} />
 
           <Stack.Screen name="BudgetBestDashboard" component={BudgetBestDashboard} />
           <Stack.Screen name="BudgetBestDeposit" component={BudgetBestDeposit} />

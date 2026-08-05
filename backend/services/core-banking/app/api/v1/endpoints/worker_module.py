@@ -20,8 +20,12 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.infrastructure.database import supabase_db_session as db_session
+from app.infrastructure.database import supabase_db_session as db_session, get_db
 from app.infrastructure.auth import get_current_user_id
+from app.services.ledger_service import LedgerService
+from app.services.fulfillment_ledger import FulfillmentLedger
+from app.services.notification_service import NotificationService
+from app.models.inventory import TradeOrder
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -102,6 +106,51 @@ class MarketplaceItemOut(BaseModel):
     rolling_30_day_turnover: float
     projected_monthly_roi: float
     last_updated_at: str
+
+
+class FundingRoundOut(BaseModel):
+    id: str
+    cluster_id: str
+    business_name: str
+    category: str
+    distributor_order_id: Optional[str] = None
+    target_amount_kobo: int
+    raised_amount_kobo: int
+    progress_pct: float
+    contributors_count: int
+    status: str
+    created_at: str
+
+
+class FundingContributorOut(BaseModel):
+    investor_id: str
+    amount_kobo: int
+    contributed_at: str
+
+
+class FundingRoundDetailOut(FundingRoundOut):
+    contributors: list[FundingContributorOut]
+
+
+class CreateFundingRoundIn(BaseModel):
+    distributor_order_id: Optional[str] = None
+    target_amount_kobo: Optional[int] = Field(
+        None, gt=0, description="Required unless distributor_order_id is set (then defaults to the order total)."
+    )
+
+
+class ContributeFundingRoundIn(BaseModel):
+    amount_kobo: int = Field(..., gt=0)
+
+
+class ContributeFundingRoundOut(BaseModel):
+    investment_id: str
+    round_id: str
+    amount_kobo: int
+    raised_amount_kobo: int
+    target_amount_kobo: int
+    round_status: str
+    settled: bool
 
 
 class ConfigureRulesIn(BaseModel):
@@ -387,6 +436,287 @@ def get_top10_marketplace(
             )
             for idx, r in enumerate(rows)
         ]
+
+
+# ---------------------------------------------------------------------------
+# Funding rounds — multiple investors co-funding one business/order.
+#
+# business_clusters/investments/funding_rounds live in Supabase (raw SQL,
+# same as the rest of this file); the payout leg (FulfillmentLedger,
+# Notification) lives in core-banking's own Postgres. These are two separate
+# physical databases with no distributed transaction between them — the
+# Supabase-side funding update is the source of truth for "did investors
+# actually commit the money" and is written first; the payout leg runs after
+# and is best-effort (logged, not rolled back into) if it fails, since the
+# investor contribution itself must never be silently reverted once real
+# money has moved. A production system would add a retry/reconciliation
+# queue for the payout leg; out of scope here.
+# ---------------------------------------------------------------------------
+
+def _round_to_out(r: dict) -> FundingRoundOut:
+    target = int(r["target_amount_kobo"])
+    raised = int(r["raised_amount_kobo"])
+    return FundingRoundOut(
+        id=str(r["id"]),
+        cluster_id=str(r["cluster_id"]),
+        business_name=r["business_name"],
+        category=r["category"],
+        distributor_order_id=r["distributor_order_id"],
+        target_amount_kobo=target,
+        raised_amount_kobo=raised,
+        progress_pct=round(min(100.0, (raised / target) * 100), 1) if target else 0.0,
+        contributors_count=int(r["contributors_count"]),
+        status=r["status"],
+        created_at=str(r["created_at"]),
+    )
+
+
+@router.get("/funding-rounds", response_model=list[FundingRoundOut])
+@_guard
+def list_funding_rounds(status: str = Query("open")):
+    with db_session() as db:
+        rows = db.execute(
+            text(
+                "SELECT fr.id, fr.cluster_id, bc.business_name, bc.category, "
+                "fr.distributor_order_id, fr.target_amount_kobo, fr.raised_amount_kobo, "
+                "fr.status, fr.created_at, "
+                "(SELECT COUNT(*) FROM public.investments i WHERE i.funding_round_id = fr.id) AS contributors_count "
+                "FROM public.funding_rounds fr "
+                "JOIN public.business_clusters bc ON bc.id = fr.cluster_id "
+                "WHERE fr.status = :status "
+                "ORDER BY fr.created_at DESC"
+            ),
+            {"status": status},
+        ).mappings().all()
+        return [_round_to_out(r) for r in rows]
+
+
+@router.get("/funding-rounds/{round_id}", response_model=FundingRoundDetailOut)
+@_guard
+def get_funding_round(round_id: str):
+    with db_session() as db:
+        row = db.execute(
+            text(
+                "SELECT fr.id, fr.cluster_id, bc.business_name, bc.category, "
+                "fr.distributor_order_id, fr.target_amount_kobo, fr.raised_amount_kobo, "
+                "fr.status, fr.created_at, "
+                "(SELECT COUNT(*) FROM public.investments i WHERE i.funding_round_id = fr.id) AS contributors_count "
+                "FROM public.funding_rounds fr "
+                "JOIN public.business_clusters bc ON bc.id = fr.cluster_id "
+                "WHERE fr.id = :rid"
+            ),
+            {"rid": round_id},
+        ).mappings().one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Funding round not found")
+
+        contributors = db.execute(
+            text(
+                "SELECT investor_id, principal_amount, created_at FROM public.investments "
+                "WHERE funding_round_id = :rid ORDER BY created_at ASC"
+            ),
+            {"rid": round_id},
+        ).mappings().all()
+
+        out = _round_to_out(row)
+        return FundingRoundDetailOut(
+            **out.model_dump(),
+            contributors=[
+                FundingContributorOut(
+                    investor_id=str(c["investor_id"]),
+                    amount_kobo=int(round(float(c["principal_amount"]) * 100)),
+                    contributed_at=str(c["created_at"]),
+                )
+                for c in contributors
+            ],
+        )
+
+
+@router.post("/funding-rounds/create", response_model=FundingRoundOut, status_code=201)
+@_guard
+def create_funding_round(payload: CreateFundingRoundIn, user_id: str = Depends(get_current_user_id)):
+    """A business owner opens a round for their own cluster — investors then
+    discover and co-fund it via /funding-rounds/{id}/contribute."""
+    target_kobo = payload.target_amount_kobo
+
+    with db_session() as db:
+        cluster = db.execute(
+            text("SELECT id FROM public.business_clusters WHERE merchant_id = :uid"),
+            {"uid": user_id},
+        ).mappings().one_or_none()
+        if cluster is None:
+            raise HTTPException(
+                status_code=404,
+                detail="No investable business profile found for this account. Contact support to be listed.",
+            )
+
+        if payload.distributor_order_id:
+            db_gen = get_db()
+            try:
+                cb_db: Session = next(db_gen)
+                order = cb_db.query(TradeOrder).filter(TradeOrder.id == payload.distributor_order_id).first()
+                if order is None:
+                    raise HTTPException(status_code=404, detail="Distributor order not found")
+                if order.buyer_owner_id != user_id:
+                    raise HTTPException(status_code=403, detail="This order was not placed by you")
+                target_kobo = target_kobo or order.total_kobo
+            finally:
+                db_gen.close()
+
+        if not target_kobo:
+            raise HTTPException(status_code=422, detail="target_amount_kobo is required when not tied to an order")
+
+        row = db.execute(
+            text(
+                "INSERT INTO public.funding_rounds "
+                "(cluster_id, distributor_order_id, target_amount_kobo, created_by) "
+                "VALUES (:cid, :order_id, :target, :uid) "
+                "RETURNING id, cluster_id, distributor_order_id, target_amount_kobo, raised_amount_kobo, status, created_at"
+            ),
+            {
+                "cid": str(cluster["id"]),
+                "order_id": payload.distributor_order_id,
+                "target": target_kobo,
+                "uid": user_id,
+            },
+        ).mappings().one()
+        db.commit()
+
+        business = db.execute(
+            text("SELECT business_name, category FROM public.business_clusters WHERE id = :cid"),
+            {"cid": str(cluster["id"])},
+        ).mappings().one()
+
+        return _round_to_out({**row, **business, "contributors_count": 0})
+
+
+def _settle_funded_round(*, round_id: str, cluster_id: str, distributor_order_id: Optional[str], raised_kobo: int) -> None:
+    """Best-effort payout leg once a round crosses its target — see module
+    docstring above for why this isn't part of the same DB transaction."""
+    if not distributor_order_id:
+        return
+    try:
+        db_gen = get_db()
+        cb_db: Session = next(db_gen)
+        try:
+            order = cb_db.query(TradeOrder).filter(TradeOrder.id == distributor_order_id).first()
+            if order is None:
+                logger.error("funding round %s settlement: order %s not found", round_id, distributor_order_id)
+                return
+
+            distributor_user_id = order.owner_id
+            platform_commission_kobo = int(raised_kobo * settings.platform_fee_rate)
+            goods_value_kobo = raised_kobo - platform_commission_kobo
+
+            fl = FulfillmentLedger(LedgerService(cb_db))
+            fl.record_order_funded(order_id=order.id, amount_kobo=raised_kobo, investor_user_id="pooled")
+            fl.record_order_allocated(
+                order_id=order.id,
+                goods_value_kobo=goods_value_kobo,
+                logistics_fee_kobo=0,
+                platform_commission_kobo=platform_commission_kobo,
+            )
+            fl.record_distributor_paid(order_id=order.id, amount_kobo=goods_value_kobo)
+
+            NotificationService(cb_db).create(
+                user_id=distributor_user_id,
+                type="fund_transfer",
+                title="Investor funds received",
+                message=f"₦{goods_value_kobo / 100:,.0f} has been transferred to you for order {order.id}.",
+                related_entity_type="trade_order",
+                related_entity_id=order.id,
+                metadata={"funding_round_id": round_id, "amount_kobo": goods_value_kobo},
+            )
+        finally:
+            db_gen.close()
+    except Exception:
+        logger.exception("funding round %s: payout settlement failed, needs manual reconciliation", round_id)
+
+
+@router.post("/funding-rounds/{round_id}/contribute", response_model=ContributeFundingRoundOut)
+@_guard
+def contribute_to_funding_round(
+    round_id: str, payload: ContributeFundingRoundIn, user_id: str = Depends(get_current_user_id)
+):
+    with db_session() as db:
+        plans = db.execute(
+            text(
+                "SELECT id, current_balance FROM public.savings_plans "
+                "WHERE user_id = :uid AND current_balance > 0 "
+                "ORDER BY created_at ASC FOR UPDATE"
+            ),
+            {"uid": user_id},
+        ).mappings().all()
+        amount_naira = payload.amount_kobo / 100
+        available = sum(float(p["current_balance"]) for p in plans)
+        if amount_naira > available:
+            raise HTTPException(
+                status_code=400, detail=f"Insufficient available balance. You have ₦{available:,.2f} available."
+            )
+
+        fr = db.execute(
+            text(
+                "SELECT id, cluster_id, distributor_order_id, target_amount_kobo, raised_amount_kobo, status "
+                "FROM public.funding_rounds WHERE id = :rid FOR UPDATE"
+            ),
+            {"rid": round_id},
+        ).mappings().one_or_none()
+        if fr is None:
+            raise HTTPException(status_code=404, detail="Funding round not found")
+        if fr["status"] != "open":
+            raise HTTPException(status_code=400, detail=f"This round is no longer open ('{fr['status']}')")
+
+        remaining_naira = amount_naira
+        for p in plans:
+            if remaining_naira <= 0:
+                break
+            debit = min(remaining_naira, float(p["current_balance"]))
+            db.execute(
+                text("UPDATE public.savings_plans SET current_balance = current_balance - :amt WHERE id = :pid"),
+                {"amt": debit, "pid": str(p["id"])},
+            )
+            remaining_naira -= debit
+
+        inv_row = db.execute(
+            text(
+                "INSERT INTO public.investments "
+                "(investor_id, cluster_id, principal_amount, status, funding_round_id) "
+                "VALUES (:uid, :cid, :amt, 'active', :rid) RETURNING id"
+            ),
+            {"uid": user_id, "cid": str(fr["cluster_id"]), "amt": amount_naira, "rid": round_id},
+        ).mappings().one()
+
+        new_raised = int(fr["raised_amount_kobo"]) + payload.amount_kobo
+        target = int(fr["target_amount_kobo"])
+        newly_funded = new_raised >= target and fr["status"] == "open"
+        new_status = "funded" if newly_funded else fr["status"]
+
+        db.execute(
+            text(
+                "UPDATE public.funding_rounds SET raised_amount_kobo = :raised, status = :status, "
+                "funded_at = CASE WHEN :newly_funded THEN now() ELSE funded_at END WHERE id = :rid"
+            ),
+            {"raised": new_raised, "status": new_status, "newly_funded": newly_funded, "rid": round_id},
+        )
+        db.commit()
+
+    if newly_funded:
+        _settle_funded_round(
+            round_id=round_id,
+            cluster_id=str(fr["cluster_id"]),
+            distributor_order_id=fr["distributor_order_id"],
+            raised_kobo=new_raised,
+        )
+
+    return ContributeFundingRoundOut(
+        investment_id=str(inv_row["id"]),
+        round_id=round_id,
+        amount_kobo=payload.amount_kobo,
+        raised_amount_kobo=new_raised,
+        target_amount_kobo=target,
+        round_status=new_status,
+        settled=newly_funded,
+    )
 
 
 # ---------------------------------------------------------------------------

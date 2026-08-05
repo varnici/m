@@ -82,7 +82,9 @@ export class BaseService {
         } catch (e) {
           // Fallback to status text
         }
-        throw new Error(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
+        const httpError = new Error(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
+        (httpError as Error & { status?: number }).status = response.status;
+        throw httpError;
       }
 
       return response;

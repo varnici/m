@@ -63,18 +63,27 @@ class FulfillmentLedger:
         CR 1100 Escrow Holding          (total)
         """
         total = goods_value_kobo + logistics_fee_kobo + platform_commission_kobo
+        # Every leg here is optional in practice (an order can have no
+        # logistics fee, e.g.) — the ledger's single-sided-entry constraint
+        # rejects a debit_kobo=0/credit_kobo=0 row, so zero-amount legs must
+        # be omitted rather than included as a no-op entry.
+        entries = []
+        if goods_value_kobo:
+            entries.append({"account_code": DISTRIBUTOR_AP, "debit_kobo": goods_value_kobo, "credit_kobo": 0, "memo": "Goods allocation"})
+        if logistics_fee_kobo:
+            entries.append({"account_code": LOGISTICS_AP, "debit_kobo": logistics_fee_kobo, "credit_kobo": 0, "memo": "Logistics allocation"})
+        if platform_commission_kobo:
+            entries.append({"account_code": PLATFORM_REVENUE, "debit_kobo": platform_commission_kobo, "credit_kobo": 0, "memo": "Platform spread"})
+        if total:
+            entries.append({"account_code": ESCROW_HOLDING, "debit_kobo": 0, "credit_kobo": total, "memo": "Escrow release to allocations"})
+
         return self.ledger.record_transaction(
             reference_type="order_allocated",
             reference_id=order_id,
             description=f"Order {order_id} allocated: goods={goods_value_kobo}, logistics={logistics_fee_kobo}, commission={platform_commission_kobo}",
             idempotency_key=f"order_allocated:{order_id}",
             created_by="system",
-            entries=[
-                {"account_code": DISTRIBUTOR_AP, "debit_kobo": goods_value_kobo, "credit_kobo": 0, "memo": "Goods allocation"},
-                {"account_code": LOGISTICS_AP, "debit_kobo": logistics_fee_kobo, "credit_kobo": 0, "memo": "Logistics allocation"},
-                {"account_code": PLATFORM_REVENUE, "debit_kobo": platform_commission_kobo, "credit_kobo": 0, "memo": "Platform spread"},
-                {"account_code": ESCROW_HOLDING, "debit_kobo": 0, "credit_kobo": total, "memo": "Escrow release to allocations"},
-            ],
+            entries=entries,
         )
 
     def record_distributor_paid(

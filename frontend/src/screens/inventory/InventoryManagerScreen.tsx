@@ -11,9 +11,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { FlashList } from "@shopify/flash-list";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Search,
@@ -57,10 +57,20 @@ import { colors } from "@/theme/colors";
 import type { Product, Category } from "@/types/inventory";
 
 const LIMIT = 300;
+const NAME_COL_WIDTH = 150;
+const ROW_HEIGHT = 60;
+const GROUP_HEADER_HEIGHT = 34;
 
 type ListRow =
   | { type: "header"; id: string; category: Category | null; count: number; value: number }
   | { type: "product"; id: string; product: Product };
+
+function formatShortDate(iso?: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+}
 
 /**
  * Inventory home. Redesigned around three questions a business owner
@@ -289,162 +299,220 @@ export default function InventoryManagerScreen({ navigation }: any) {
       </View>
 
       <View style={styles.scrollContainer}>
-        <FlashList
-          data={rows}
-          keyExtractor={(r) => r.id}
-          keyboardShouldPersistTaps="handled"
+        <ScrollView
           showsVerticalScrollIndicator={false}
-          refreshing={listFetching && !listLoading}
-          onRefresh={() => {
-            refetchProducts();
-            refetchDashboard();
-          }}
-          ListHeaderComponent={
-            <>
-              {/* Stock health — the two numbers a business owner checks first */}
-              <View style={styles.healthRow}>
-                <View style={styles.healthCard}>
-                  <Text style={styles.healthLabel}>Stock value</Text>
-                  <Text style={styles.healthValue}>
-                    ₦{Math.round(metrics.stockValueKobo / 100).toLocaleString()}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.healthCard, metrics.alerts > 0 && styles.healthCardAlert]}
-                  onPress={() => navigation.navigate("LowStockAlerts", {})}
-                >
-                  <Text style={[styles.healthLabel, metrics.alerts > 0 && styles.healthLabelAlert]}>
-                    Needs attention
-                  </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text style={[styles.healthValue, metrics.alerts > 0 && styles.healthValueAlert]}>
-                      {metrics.alerts} item{metrics.alerts === 1 ? "" : "s"}
-                    </Text>
-                    <ChevronRight size={16} color={metrics.alerts > 0 ? "#92400E" : "#9CA3AF"} />
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              {/* Quick actions — the four things done every day */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.quickRow}
-              >
-                {[
-                  { label: "Add product", icon: Plus, onPress: () => navigation.navigate("AddProduct") },
-                  { label: "Receive", icon: ArrowDownToLine, onPress: () => navigation.navigate("ReceiveStock") },
-                  { label: "Issue", icon: ArrowUpFromLine, onPress: () => navigation.navigate("IssueStock") },
-                  { label: "Voice", icon: Mic, onPress: () => navigation.navigate("VoiceStock") },
-                  { label: "Scan", icon: ScanLine, onPress: () => navigation.navigate("ScanShelve") },
-                ].map((a) => (
-                  <TouchableOpacity key={a.label} onPress={a.onPress} style={styles.quickBtn}>
-                    <View style={styles.quickIcon}>
-                      <a.icon size={17} color="#004D2C" strokeWidth={2} />
-                    </View>
-                    <Text style={styles.quickLabel}>{a.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {/* Filter chips */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filterRow}
-              >
-                {[
-                  { id: "all" as const, label: `All (${metrics.totalItems})` },
-                  { id: "low" as const, label: "Low stock" },
-                  { id: "out" as const, label: "Out of stock" },
-                ].map((f) => (
-                  <TouchableOpacity
-                    key={f.id}
-                    onPress={() => setStockFilter(f.id)}
-                    style={[styles.filterChip, stockFilter === f.id && styles.filterChipActive]}
-                  >
-                    <Text
-                      style={[styles.filterChipText, stockFilter === f.id && styles.filterChipTextActive]}
-                    >
-                      {f.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </>
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={listFetching && !listLoading}
+              onRefresh={() => {
+                refetchProducts();
+                refetchDashboard();
+              }}
+              tintColor={colors.ventureroot.green}
+            />
           }
-          renderItem={({ item }) => {
-            if (item.type === "header") {
-              const Icon = getCategoryIconComponent(item.category?.icon);
-              const tint = item.category?.tint || DEFAULT_CATEGORY_TINT;
-              return (
-                <View style={styles.sectionHeader}>
-                  <View style={[styles.sectionIcon, { backgroundColor: tint + "1A" }]}>
-                    <Icon size={14} color={tint} strokeWidth={2} />
-                  </View>
-                  <Text style={styles.sectionTitle}>{item.category?.name || "Uncategorized"}</Text>
-                  <Text style={styles.sectionMeta}>
-                    {item.count} · ₦{Math.round(item.value / 100).toLocaleString()}
-                  </Text>
-                </View>
-              );
-            }
-
-            const p = item.product;
-            const qty = p.total_quantity_on_hand ?? p.quantity_on_hand ?? 0;
-            const min = p.minimum_stock_level ?? 10;
-            const isOut = qty <= 0;
-            const isLow = !isOut && qty <= min;
-            const statusColor = isOut ? colors.status.danger : isLow ? colors.status.warning : colors.status.success;
-            const statusLabel = isOut ? "Out of stock" : isLow ? "Low stock" : "In stock";
-            const value = qty * (p.cost_price_kobo ?? 0);
-
-            return (
-              <TouchableOpacity
-                style={styles.productRow}
-                onPress={() => navigation.navigate("ProductDetail", { productId: p.id })}
-                activeOpacity={0.7}
-              >
-                <View style={styles.productMain}>
-                  <Text style={styles.productName} numberOfLines={1}>
-                    {p.name}
-                  </Text>
-                  <View style={styles.productStockLine}>
-                    <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-                    <Text style={[styles.statusText, { color: statusColor }]} numberOfLines={1}>
-                      {qty.toLocaleString()} · {statusLabel}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.productValueCol}>
-                  <Text style={styles.productPrice}>₦{(p.selling_price_kobo / 100).toLocaleString()}</Text>
-                  <Text style={styles.productValue}>₦{Math.round(value / 100).toLocaleString()} value</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => handleDeleteProduct(p.id, p.name)}
-                  style={styles.deleteBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityLabel={`Delete ${p.name}`}
-                >
-                  <Trash2 size={15} color={colors.status.danger} />
-                </TouchableOpacity>
-              </TouchableOpacity>
-            );
-          }}
-          ListEmptyComponent={
-            listLoading ? (
-              <ActivityIndicator size="large" color={colors.ventureroot.green} style={{ marginTop: 40 }} />
-            ) : (
-              <View style={styles.emptyState}>
-                <Package size={40} color="#D1D5DB" />
-                <Text style={styles.emptyTitle}>No products yet</Text>
-                <Text style={styles.emptySubtitle}>
-                  Add your first product, or use Voice or Scan above to get started fast.
+        >
+          {/* Stock health — the two numbers a business owner checks first */}
+          <View style={styles.healthRow}>
+            <View style={styles.healthCard}>
+              <Text style={styles.healthLabel}>Stock value</Text>
+              <Text style={styles.healthValue}>
+                ₦{Math.round(metrics.stockValueKobo / 100).toLocaleString()}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.healthCard, metrics.alerts > 0 && styles.healthCardAlert]}
+              onPress={() => navigation.navigate("LowStockAlerts", {})}
+            >
+              <Text style={[styles.healthLabel, metrics.alerts > 0 && styles.healthLabelAlert]}>
+                Needs attention
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Text style={[styles.healthValue, metrics.alerts > 0 && styles.healthValueAlert]}>
+                  {metrics.alerts} item{metrics.alerts === 1 ? "" : "s"}
                 </Text>
+                <ChevronRight size={16} color={metrics.alerts > 0 ? "#92400E" : "#9CA3AF"} />
               </View>
-            )
-          }
-        />
+            </TouchableOpacity>
+          </View>
+
+          {/* Quick actions — the four things done every day */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickRow}
+          >
+            {[
+              { label: "Add product", icon: Plus, onPress: () => navigation.navigate("AddProduct") },
+              { label: "Receive", icon: ArrowDownToLine, onPress: () => navigation.navigate("ReceiveStock") },
+              { label: "Issue", icon: ArrowUpFromLine, onPress: () => navigation.navigate("IssueStock") },
+              { label: "Voice", icon: Mic, onPress: () => navigation.navigate("VoiceStock") },
+              { label: "Scan", icon: ScanLine, onPress: () => navigation.navigate("ScanShelve") },
+            ].map((a) => (
+              <TouchableOpacity key={a.label} onPress={a.onPress} style={styles.quickBtn}>
+                <View style={styles.quickIcon}>
+                  <a.icon size={17} color="#004D2C" strokeWidth={2} />
+                </View>
+                <Text style={styles.quickLabel}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Filter chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+          >
+            {[
+              { id: "all" as const, label: `All (${metrics.totalItems})` },
+              { id: "low" as const, label: "Low stock" },
+              { id: "out" as const, label: "Out of stock" },
+            ].map((f) => (
+              <TouchableOpacity
+                key={f.id}
+                onPress={() => setStockFilter(f.id)}
+                style={[styles.filterChip, stockFilter === f.id && styles.filterChipActive]}
+              >
+                <Text
+                  style={[styles.filterChipText, stockFilter === f.id && styles.filterChipTextActive]}
+                >
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Product table — frozen product column on the left, everything
+              else (date, cost, stock, barcode, alert level, profit) scrolls
+              horizontally together on the right so rows stay aligned. */}
+          {listLoading ? (
+            <ActivityIndicator size="large" color={colors.ventureroot.green} style={{ marginTop: 40 }} />
+          ) : rows.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Package size={40} color="#D1D5DB" />
+              <Text style={styles.emptyTitle}>No products yet</Text>
+              <Text style={styles.emptySubtitle}>
+                Add your first product, or use Voice or Scan above to get started fast.
+              </Text>
+            </View>
+          ) : (
+            <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingBottom: 16 }}>
+              <View style={{ width: NAME_COL_WIDTH }}>
+                <TableHeaderCell label="Product" width={NAME_COL_WIDTH} />
+                {rows.map((r) => {
+                  if (r.type === "header") {
+                    const Icon = getCategoryIconComponent(r.category?.icon);
+                    const tint = r.category?.tint || DEFAULT_CATEGORY_TINT;
+                    return (
+                      <View
+                        key={r.id}
+                        style={[styles.sectionHeader, { width: NAME_COL_WIDTH, height: GROUP_HEADER_HEIGHT, paddingHorizontal: 8 }]}
+                      >
+                        <View style={[styles.sectionIcon, { width: 20, height: 20, marginRight: 6, backgroundColor: tint + "1A" }]}>
+                          <Icon size={11} color={tint} strokeWidth={2} />
+                        </View>
+                        <Text style={styles.sectionTitle} numberOfLines={1}>
+                          {r.category?.name || "Uncategorized"}
+                        </Text>
+                      </View>
+                    );
+                  }
+                  const p = r.product;
+                  const qty = p.total_quantity_on_hand ?? p.quantity_on_hand ?? 0;
+                  const min = p.minimum_stock_level ?? 10;
+                  const isOut = qty <= 0;
+                  const isLow = !isOut && qty <= min;
+                  const statusColor = isOut ? colors.status.danger : isLow ? colors.status.warning : colors.status.success;
+                  return (
+                    <TouchableOpacity
+                      key={r.id}
+                      style={[styles.nameCell, { width: NAME_COL_WIDTH, height: ROW_HEIGHT }]}
+                      onPress={() => navigation.navigate("ProductDetail", { productId: p.id })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                      <Text style={styles.productName} numberOfLines={2}>
+                        {p.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View>
+                  <View style={{ flexDirection: "row" }}>
+                    <TableHeaderCell label="Date" width={70} />
+                    <TableHeaderCell label="Unit cost" width={90} align="right" />
+                    <TableHeaderCell label="Stock" width={70} align="right" />
+                    <TableHeaderCell label="Barcode" width={110} />
+                    <TableHeaderCell label="Min alert" width={80} align="right" />
+                    <TableHeaderCell label="Profit" width={90} align="right" />
+                    <TableHeaderCell label="Status" width={90} />
+                    <View style={{ width: 44 }} />
+                  </View>
+
+                  {rows.map((r) => {
+                    if (r.type === "header") {
+                      return (
+                        <View
+                          key={r.id}
+                          style={[styles.sectionHeaderSpacer, { height: GROUP_HEADER_HEIGHT }]}
+                        >
+                          <Text style={styles.sectionMeta}>
+                            {r.count} · ₦{Math.round(r.value / 100).toLocaleString()}
+                          </Text>
+                        </View>
+                      );
+                    }
+                    const p = r.product;
+                    const qty = p.total_quantity_on_hand ?? p.quantity_on_hand ?? 0;
+                    const min = p.minimum_stock_level ?? 10;
+                    const isOut = qty <= 0;
+                    const isLow = !isOut && qty <= min;
+                    const statusColor = isOut ? colors.status.danger : isLow ? colors.status.warning : colors.status.success;
+                    const statusLabel = isOut ? "Out of stock" : isLow ? "Low stock" : "In stock";
+                    const profitPerUnit = (p.selling_price_kobo ?? 0) - (p.cost_price_kobo ?? 0);
+
+                    return (
+                      <View key={r.id} style={[styles.dataRow, { height: ROW_HEIGHT }]}>
+                        <TableCell width={70}>{formatShortDate(p.created_at)}</TableCell>
+                        <TableCell width={90} align="right">
+                          ₦{(p.cost_price_kobo / 100).toLocaleString()}
+                        </TableCell>
+                        <TableCell width={70} align="right" bold>
+                          {qty.toLocaleString()}
+                        </TableCell>
+                        <TableCell width={110} mono>{p.barcode || "—"}</TableCell>
+                        <TableCell width={80} align="right">{min.toLocaleString()}</TableCell>
+                        <TableCell width={90} align="right" color={colors.ventureroot.green}>
+                          ₦{(profitPerUnit / 100).toLocaleString()}
+                        </TableCell>
+                        <View style={{ width: 90 }}>
+                          <View style={[styles.statusPill, { backgroundColor: statusColor + "1A" }]}>
+                            <Text style={[styles.statusPillText, { color: statusColor }]} numberOfLines={1}>
+                              {statusLabel}
+                            </Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteProduct(p.id, p.name)}
+                          style={[styles.deleteBtn, { width: 44 }]}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityLabel={`Delete ${p.name}`}
+                        >
+                          <Trash2 size={15} color={colors.status.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+        </ScrollView>
       </View>
 
       {/* More tools — everything that isn't the daily add/view flow */}
@@ -560,6 +628,54 @@ export default function InventoryManagerScreen({ navigation }: any) {
         </View>
       </Modal>
     </SafeAreaView>
+  );
+}
+
+function TableHeaderCell({
+  label,
+  width,
+  align = "left",
+}: {
+  label: string;
+  width: number;
+  align?: "left" | "right";
+}) {
+  return (
+    <View style={{ width, paddingVertical: 10, paddingHorizontal: 6 }}>
+      <Text style={[styles.tableHeaderText, { textAlign: align }]}>{label}</Text>
+    </View>
+  );
+}
+
+function TableCell({
+  width,
+  align = "left",
+  bold,
+  mono,
+  color,
+  children,
+}: {
+  width: number;
+  align?: "left" | "right";
+  bold?: boolean;
+  mono?: boolean;
+  color?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={{ width, paddingHorizontal: 6, justifyContent: "center" }}>
+      <Text
+        style={[
+          styles.tableCellText,
+          { textAlign: align, color: color || "#111827" },
+          bold && styles.tableCellBold,
+          mono && styles.tableCellMono,
+        ]}
+        numberOfLines={1}
+      >
+        {children}
+      </Text>
+    </View>
   );
 }
 
@@ -710,28 +826,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#9CA3AF",
   },
-  productRow: {
+  nameCell: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingRight: 10,
+    paddingVertical: 8,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderColor: "#F3F4F6",
   },
-  productMain: {
-    flex: 1.6,
-    paddingRight: 8,
-  },
   productName: {
-    fontSize: 14,
+    flex: 1,
+    fontSize: 13,
     fontWeight: "700",
     color: "#111827",
-    marginBottom: 4,
-  },
-  productStockLine: {
-    flexDirection: "row",
-    alignItems: "center",
   },
   statusDot: {
     width: 7,
@@ -739,23 +847,46 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 6,
   },
-  statusText: {
+  sectionHeaderSpacer: {
+    justifyContent: "center",
+    backgroundColor: "#F8F9FA",
+    paddingHorizontal: 6,
+  },
+  dataRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  tableHeaderText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#9CA3AF",
+    textTransform: "uppercase",
+    letterSpacing: 0.2,
+  },
+  tableCellText: {
     fontSize: 12,
-    fontWeight: "600",
+    color: "#374151",
   },
-  productValueCol: {
-    alignItems: "flex-end",
-    marginRight: 10,
-  },
-  productPrice: {
-    fontSize: 13,
+  tableCellBold: {
     fontWeight: "800",
     color: "#111827",
   },
-  productValue: {
+  tableCellMono: {
+    fontFamily: "monospace",
+    fontSize: 11,
+  },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  statusPillText: {
     fontSize: 10,
-    color: "#9CA3AF",
-    marginTop: 2,
+    fontWeight: "700",
   },
   deleteBtn: {
     width: 30,

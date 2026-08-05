@@ -1,10 +1,10 @@
 import { BaseService } from './baseService';
 
-export type OtpChannel = 'sms' | 'email';
-
 export interface OtpSendResult {
   success: boolean;
   message: string;
+  sms_sent: boolean;
+  email_sent: boolean;
 }
 
 export interface OtpVerifyResult {
@@ -12,15 +12,20 @@ export interface OtpVerifyResult {
   message: string;
 }
 
+/**
+ * Every OTP goes out on both SMS and email, sharing one code — either
+ * channel's code verifies successfully, so a delivery problem on one
+ * doesn't block the user if the other got through.
+ */
 class OtpService extends BaseService {
   async sendOtp(
-    target: string,
-    channel: OtpChannel,
+    phone: string,
+    email: string,
     purpose = 'phone_verify',
   ): Promise<OtpSendResult> {
     const res = await this.fetchWithAuth('/v1/otp/send', {
       method: 'POST',
-      body: JSON.stringify({ target, channel, purpose }),
+      body: JSON.stringify({ phone, email, purpose }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -30,13 +35,13 @@ class OtpService extends BaseService {
   }
 
   async verifyOtp(
-    target: string,
-    channel: OtpChannel,
+    phone: string,
+    email: string,
     code: string,
   ): Promise<OtpVerifyResult> {
     const res = await this.fetchWithAuth('/v1/otp/verify', {
       method: 'POST',
-      body: JSON.stringify({ target, channel, code }),
+      body: JSON.stringify({ phone, email, code }),
     });
     const data = await res.json();
     if (!res.ok) {

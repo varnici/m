@@ -110,6 +110,7 @@ class ProductCreate(BaseModel):
     monthly_velocity: int = Field(default=0, ge=0)
     days_of_supply: int = Field(default=0, ge=0)
     trade_moq: int = Field(default=1, ge=1)
+    is_wholesale_listed: bool = Field(default=False)
 
 
 class ProductUpdate(BaseModel):
@@ -125,6 +126,7 @@ class ProductUpdate(BaseModel):
     size: Optional[str] = None
     imei: Optional[str] = None
     expiry_date: Optional[date] = None
+    is_wholesale_listed: Optional[bool] = None
     unit_of_measure: Optional[str] = None
     category_id: Optional[str] = None
     image_url: Optional[str] = None
@@ -178,6 +180,7 @@ class ProductOut(BaseModel):
     size: Optional[str] = None
     imei: Optional[str] = None
     expiry_date: Optional[date] = None
+    is_wholesale_listed: bool = False
     is_active: bool
     rating: float
     review_count: int

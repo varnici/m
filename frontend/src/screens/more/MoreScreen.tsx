@@ -71,6 +71,7 @@ const MoreScreen = ({ navigation }: RootStackScreenProps<'More'>) => {
         { label: 'Low Stock Alerts', caption: 'Critical restock list', icon: Shield, color: '#EF4444', route: 'LowStockAlerts' },
         { label: 'Purchase Orders', caption: 'Supplier ordering workflow', icon: FileText, color: '#0891B2', route: 'PurchaseOrders' },
         { label: 'Add Supplier', caption: 'Create supplier records', icon: Store, color: '#0F766E', route: 'AddSupplier' },
+        { label: 'Order from Distributors', caption: 'Buy stock on your trade credit', icon: Truck, color: '#16654A', route: 'DistributorList', accountTypes: ['retail'] },
         { label: 'Scan stock in', caption: 'Point camera at barcode', icon: Camera, color: '#4F46E5', route: 'ScanShelve' },
         { label: 'Voice stock in', caption: 'Hold button & speak', icon: Mic, color: '#059669', route: 'VoiceStock' },
         { label: 'AI Insights', caption: 'Inventory recommendations', icon: Bot, color: '#16A34A', route: 'AIInsights', accountTypes: INVENTORY_ACCOUNT_TYPES },

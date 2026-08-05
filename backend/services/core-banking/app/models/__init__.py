@@ -30,6 +30,7 @@ from app.models.ledger import ChartOfAccount, LedgerTransaction, LedgerEntry
 from app.models.onboarding import (
     OnboardingProfile, MerchantProfile, DistributorProfile, LogisticsPartnerProfile,
 )
+from app.models.notification import Notification, DeviceToken
 
 __all__ = [
     "User", "Wallet", "Product", "Listing",
@@ -47,5 +48,6 @@ __all__ = [
     "VelocityScore", "ProductSavingsGoal", "ProductSavingsDeposit",
     "ChartOfAccount", "LedgerTransaction", "LedgerEntry",
     "OnboardingProfile", "MerchantProfile", "DistributorProfile", "LogisticsPartnerProfile",
+    "Notification", "DeviceToken",
 ]
 

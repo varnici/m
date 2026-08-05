@@ -8,6 +8,8 @@ from app.api.v1.endpoints import (
 from app.api.v1.endpoints.clusters import router as clusters_router
 from app.api.v1.endpoints.otp import router as otp_router
 from app.api.v1.endpoints.admin_metrics import router as admin_metrics_router
+from app.api.v1.endpoints.notifications import router as notifications_router
+from app.api.v1.endpoints.distributors import router as distributors_router
 
 api_router = APIRouter()
 api_router.include_router(users.router, prefix="/users", tags=["users"])
@@ -32,4 +34,6 @@ api_router.include_router(ledger.router, prefix="/ledger", tags=["ledger"])
 api_router.include_router(onboarding.router, prefix="/onboarding", tags=["onboarding"])
 api_router.include_router(otp_router, prefix="/otp", tags=["otp"])
 api_router.include_router(admin_metrics_router, prefix="/admin/metrics", tags=["admin-metrics"])
+api_router.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
+api_router.include_router(distributors_router, prefix="/distributors", tags=["distributors"])
 

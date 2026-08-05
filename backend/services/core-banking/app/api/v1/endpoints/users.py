@@ -23,7 +23,16 @@ def create_user(request: Request, payload: UserCreate):
         exists = db.execute(select(User).where(User.phone == payload.phone)).scalar_one_or_none()
         if exists:
             raise HTTPException(status_code=409, detail="Phone already registered")
-        user = User(phone=payload.phone, email=str(payload.email) if payload.email else None, full_name=payload.full_name, category=payload.category)
+        business_fields = payload.model_dump(
+            exclude={"phone", "email", "full_name", "category"}, exclude_unset=True
+        )
+        user = User(
+            phone=payload.phone,
+            email=str(payload.email) if payload.email else None,
+            full_name=payload.full_name,
+            category=payload.category,
+            **business_fields,
+        )
         db.add(user)
         db.flush()
         wallet = Wallet(user_id=user.id, balance_kobo=0)

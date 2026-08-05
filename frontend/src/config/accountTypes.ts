@@ -28,7 +28,11 @@ export const ALL_ACCOUNT_TYPES: AccountTypeConfig[] = [
   { id: 'artisan', label: 'Artisan', tagline: 'ARTISAN_PROTOCOL', icon: Wrench, description: 'Specialized technical services' },
 ];
 
-export const ENABLED_ACCOUNT_TYPES: AccountTypeId[] = ['retail', 'nine_to_five', 'distributor', 'logistics'];
+// 'logistics' is defined but disabled: onboarding collects data into
+// LogisticsPartnerProfile and a full transport/booking system already
+// exists (app/api/v1/endpoints/transport.py), but there's no dashboard
+// surfacing any of it yet — re-enable once that's built.
+export const ENABLED_ACCOUNT_TYPES: AccountTypeId[] = ['retail', 'nine_to_five', 'distributor'];
 
 export function getEnabledTypes(): AccountTypeConfig[] {
   return ALL_ACCOUNT_TYPES.filter((t) => ENABLED_ACCOUNT_TYPES.includes(t.id));

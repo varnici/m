@@ -13,9 +13,10 @@ import {
 import OnboardingShell, { OnboardingButton } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingNav } from '@/hooks/useOnboardingNav';
 import { validatePhone, formatPhoneInput } from '@/utils/validation';
-import { ShieldCheck, Phone, Mail, ArrowRight } from 'lucide-react-native';
+import { ShieldCheck, Phone, Mail } from 'lucide-react-native';
 import { colors } from '@/theme/colors';
-import { otpService, type OtpChannel } from '@/services/otpService';
+import { otpService } from '@/services/otpService';
+import { OTP_VERIFICATION_ENABLED } from '@/config/otpConfig';
 
 const OTP_LENGTH = 6;
 const COUNTDOWN_SECONDS = 180;
@@ -23,10 +24,7 @@ const COUNTDOWN_SECONDS = 180;
 const PhoneRegistrationScreen = () => {
   const { goNext, goBack, step, total, data } = useOnboardingNav();
 
-  // ── Channel (sms | email) ──────────────────────────────────────────────────
-  const [channel, setChannel] = useState<OtpChannel>('email');
-
-  // ── SMS input ──────────────────────────────────────────────────────────────
+  // ── Phone ──────────────────────────────────────────────────────────────────
   const [phone, setPhone] = useState(data.phone || '');
   const phoneValidation = phone ? validatePhone(phone.replace(/\D/g, '')) : { valid: false };
 
@@ -36,15 +34,15 @@ const PhoneRegistrationScreen = () => {
     return `+234${local}`;
   };
 
-  // ── Email input ────────────────────────────────────────────────────────────
+  // ── Email ──────────────────────────────────────────────────────────────────
   const [email, setEmail] = useState(data.email || '');
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   // ── OTP state ──────────────────────────────────────────────────────────────
   const [isOtpSent, setIsOtpSent] = useState(false);
-  const [sentTo, setSentTo] = useState('');          // display string
-  const [sentChannel, setSentChannel] = useState<OtpChannel>('sms'); // channel used for send
-  const [sentTarget, setSentTarget] = useState('');  // exact target used
+  const [sentPhone, setSentPhone] = useState('');
+  const [sentEmail, setSentEmail] = useState('');
+  const [deliveryNote, setDeliveryNote] = useState('');
 
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
@@ -65,7 +63,7 @@ const PhoneRegistrationScreen = () => {
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [isOtpSent, sentTarget]);
+  }, [isOtpSent, sentPhone, sentEmail]);
 
   const formatCountdown = () => {
     const m = Math.floor(countdown / 60);
@@ -83,17 +81,25 @@ const PhoneRegistrationScreen = () => {
     ]).start();
   };
 
-  // ── Send OTP ───────────────────────────────────────────────────────────────
-  const doSendOtp = async (targetChannel: OtpChannel, target: string, display: string) => {
+  // ── Send OTP (both channels) ──────────────────────────────────────────────
+  const doSendOtp = async (targetPhone: string, targetEmail: string) => {
     setSending(true);
     try {
-      await otpService.sendOtp(target, targetChannel, 'phone_verify');
-      setSentChannel(targetChannel);
-      setSentTarget(target);
-      setSentTo(display);
+      const result = await otpService.sendOtp(targetPhone, targetEmail, 'phone_verify');
+      setSentPhone(targetPhone);
+      setSentEmail(targetEmail);
       setIsOtpSent(true);
       setOtp('');
       setOtpError('');
+      setDeliveryNote(
+        result.sms_sent && result.email_sent
+          ? ''
+          : result.sms_sent
+          ? "Email delivery didn't go through — use the code from your SMS."
+          : result.email_sent
+          ? "SMS delivery didn't go through — use the code from your email."
+          : 'Delivery is not fully configured yet — check with support if no code arrives.'
+      );
     } catch (err: any) {
       Alert.alert('Could not send code', err.message || 'Please try again.');
     } finally {
@@ -102,31 +108,21 @@ const PhoneRegistrationScreen = () => {
   };
 
   const handleSendOtp = async () => {
-    if (channel === 'sms') {
-      const fullPhone = buildE164(phone);
-      await doSendOtp('sms', fullPhone, `+234 ${phone}`);
-    } else {
-      await doSendOtp('email', email.trim().toLowerCase(), email.trim().toLowerCase());
-    }
-  };
+    const fullPhone = buildE164(phone);
+    const trimmedEmail = email.trim().toLowerCase();
 
-  // ── Switch channel (in OTP step) ───────────────────────────────────────────
-  const handleSwitchToEmail = async () => {
-    if (!emailValid) {
-      Alert.alert(
-        'Email required',
-        'Please go back and enter a valid email address to use email OTP.',
-      );
+    if (!OTP_VERIFICATION_ENABLED) {
+      // Verification temporarily bypassed — see config/otpConfig.ts.
+      goNext({
+        phone: fullPhone,
+        email: trimmedEmail,
+        phoneVerified: true,
+        emailVerified: true,
+      });
       return;
     }
-    const target = email.trim().toLowerCase();
-    await doSendOtp('email', target, target);
-  };
 
-  const handleSwitchToSms = async () => {
-    if (!(phoneValidation as any).valid) return;
-    const fullPhone = buildE164(phone);
-    await doSendOtp('sms', fullPhone, `+234 ${phone}`);
+    await doSendOtp(fullPhone, trimmedEmail);
   };
 
   // ── Verify OTP ─────────────────────────────────────────────────────────────
@@ -134,14 +130,13 @@ const PhoneRegistrationScreen = () => {
     if (otp.length < OTP_LENGTH) return;
     setVerifying(true);
     try {
-      await otpService.verifyOtp(sentTarget, sentChannel, otp);
-      const patch: Record<string, any> = {
-        phoneVerified: sentChannel === 'sms',
-        emailVerified: sentChannel === 'email',
-      };
-      if (sentChannel === 'sms') patch.phone = sentTarget;
-      if (sentChannel === 'email') patch.email = sentTarget;
-      goNext(patch);
+      await otpService.verifyOtp(sentPhone, sentEmail, otp);
+      goNext({
+        phone: sentPhone,
+        email: sentEmail,
+        phoneVerified: true,
+        emailVerified: true,
+      });
     } catch (err: any) {
       setOtpError(err.message || 'Incorrect code. Please try again.');
       triggerShake();
@@ -153,7 +148,7 @@ const PhoneRegistrationScreen = () => {
   const handleResend = async () => {
     setOtp('');
     setOtpError('');
-    await doSendOtp(sentChannel, sentTarget, sentTo);
+    await doSendOtp(sentPhone, sentEmail);
   };
 
   const handleBack = () => {
@@ -168,22 +163,22 @@ const PhoneRegistrationScreen = () => {
 
   // ── Input step ─────────────────────────────────────────────────────────────
   if (!isOtpSent) {
-    const canSend = channel === 'sms' ? (phoneValidation as any).valid : emailValid;
+    const canSend = (phoneValidation as any).valid && emailValid;
 
     return (
       <OnboardingShell
         currentStep={step}
         totalSteps={total}
-        title="Phone Number"
+        title={OTP_VERIFICATION_ENABLED ? 'Verify Your Details' : 'Your Details'}
         subtitle={
-          channel === 'sms'
-            ? 'Secure your business profile with a verified phone number.'
-            : 'Enter your email address to receive a verification code.'
+          OTP_VERIFICATION_ENABLED
+            ? "We'll send a 6-digit code to both your phone and email — either one works to verify."
+            : 'Enter your phone and email to continue.'
         }
         onBack={goBack}
         footer={
           <OnboardingButton
-            title={sending ? 'Sending...' : 'Send Verification Code'}
+            title={sending ? 'Sending...' : OTP_VERIFICATION_ENABLED ? 'Send Verification Code' : 'Continue'}
             onPress={handleSendOtp}
             disabled={!canSend || sending}
           />
@@ -205,130 +200,93 @@ const PhoneRegistrationScreen = () => {
           >
             <ShieldCheck size={14} color={colors.ventureroot.green} />
             <Text style={{ fontSize: 10, fontWeight: '700', color: colors.ventureroot.green, marginLeft: 6, letterSpacing: 0.5 }}>
-              {channel === 'sms' ? 'SIM KYC CROSS-CHECK READY' : 'EMAIL VERIFICATION'}
+              {OTP_VERIFICATION_ENABLED ? 'SMS + EMAIL VERIFICATION' : 'CONTACT DETAILS'}
             </Text>
           </View>
 
-          {/* ── SMS input ── */}
-          {channel === 'sms' && (
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569', marginBottom: 6, letterSpacing: 0.5 }}>
-                MOBILE NUMBER
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14 }}>
-                  <Text style={{ fontSize: 15, color: '#0F172A', fontWeight: '600' }}>+234</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <TextInput
-                    value={phone}
-                    onChangeText={(t) => {
-                      const formatted = formatPhoneInput(t);
-                      if (formatted.replace(/\D/g, '').length <= 10) setPhone(formatted);
-                    }}
-                    placeholder="801 234 5678"
-                    placeholderTextColor="#94A3B8"
-                    keyboardType="phone-pad"
-                    maxLength={12}
-                    style={{
-                      backgroundColor: '#FFFFFF',
-                      borderWidth: 1.5,
-                      borderColor: (phoneValidation as any).error && phone ? '#EF4444' : '#E2E8F0',
-                      borderRadius: 12,
-                      paddingHorizontal: 16,
-                      paddingVertical: 14,
-                      fontSize: 15,
-                      color: '#0F172A',
-                    }}
-                  />
-                </View>
+          {/* ── Phone input ── */}
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569', marginBottom: 6, letterSpacing: 0.5 }}>
+              MOBILE NUMBER
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14 }}>
+                <Text style={{ fontSize: 15, color: '#0F172A', fontWeight: '600' }}>+234</Text>
               </View>
-              {(phoneValidation as any).error && phone ? (
-                <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>{(phoneValidation as any).error}</Text>
-              ) : (
-                <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 6, lineHeight: 16 }}>
-                  This will be used for secure login and transaction authorization.
-                </Text>
-              )}
-            </View>
-          )}
-
-          {/* ── Email input ── */}
-          {channel === 'email' && (
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569', marginBottom: 6, letterSpacing: 0.5 }}>
-                EMAIL ADDRESS
-              </Text>
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: '#FFFFFF',
-                borderWidth: 1.5,
-                borderColor: email && !emailValid ? '#EF4444' : '#E2E8F0',
-                borderRadius: 12,
-                paddingHorizontal: 16,
-              }}>
-                <Mail size={16} color={colors.ventureroot.green} style={{ marginRight: 10 }} />
+              <View style={{ flex: 1 }}>
                 <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="you@domain.com"
+                  value={phone}
+                  onChangeText={(t) => {
+                    const formatted = formatPhoneInput(t);
+                    if (formatted.replace(/\D/g, '').length <= 10) setPhone(formatted);
+                  }}
+                  placeholder="801 234 5678"
                   placeholderTextColor="#94A3B8"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  style={{ flex: 1, paddingVertical: 14, fontSize: 15, color: '#0F172A' }}
+                  keyboardType="phone-pad"
+                  maxLength={12}
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    borderWidth: 1.5,
+                    borderColor: (phoneValidation as any).error && phone ? '#EF4444' : '#E2E8F0',
+                    borderRadius: 12,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    fontSize: 15,
+                    color: '#0F172A',
+                  }}
                 />
               </View>
-              {email && !emailValid && (
-                <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>Please enter a valid email address.</Text>
-              )}
-              {emailValid && (
-                <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 6, lineHeight: 16 }}>
-                  A 6-digit code will be sent to this email address.
-                </Text>
-              )}
             </View>
-          )}
-
-          {/* ── Channel toggle ── */}
-          <View style={{ alignItems: 'center', marginTop: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', opacity: 0.4, marginBottom: 10 }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: '#CBD5E1' }} />
-              <Text style={{ fontSize: 11, color: '#475569', marginHorizontal: 12 }}>or</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: '#CBD5E1' }} />
-            </View>
-            <TouchableOpacity
-              onPress={() => setChannel(channel === 'sms' ? 'email' : 'sms')}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }}
-            >
-              {channel === 'sms'
-                ? <Mail size={14} color={colors.ventureroot.green} />
-                : <Phone size={14} color={colors.ventureroot.green} />}
-              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ventureroot.green }}>
-                {channel === 'sms' ? 'Use email verification instead' : 'Use SMS verification instead'}
-              </Text>
-              <ArrowRight size={13} color={colors.ventureroot.green} />
-            </TouchableOpacity>
+            {(phoneValidation as any).error && phone ? (
+              <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>{(phoneValidation as any).error}</Text>
+            ) : null}
           </View>
+
+          {/* ── Email input ── */}
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569', marginBottom: 6, letterSpacing: 0.5 }}>
+              EMAIL ADDRESS
+            </Text>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#FFFFFF',
+              borderWidth: 1.5,
+              borderColor: email && !emailValid ? '#EF4444' : '#E2E8F0',
+              borderRadius: 12,
+              paddingHorizontal: 16,
+            }}>
+              <Mail size={16} color={colors.ventureroot.green} style={{ marginRight: 10 }} />
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@domain.com"
+                placeholderTextColor="#94A3B8"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                style={{ flex: 1, paddingVertical: 14, fontSize: 15, color: '#0F172A' }}
+              />
+            </View>
+            {email && !emailValid && (
+              <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>Please enter a valid email address.</Text>
+            )}
+          </View>
+
+          <Text style={{ fontSize: 11, color: '#94A3B8', lineHeight: 16 }}>
+            This will be used for secure login and transaction authorization.
+          </Text>
         </KeyboardAvoidingView>
       </OnboardingShell>
     );
   }
 
   // ── OTP verification step ──────────────────────────────────────────────────
-  const otherChannel = sentChannel === 'sms' ? 'email' : 'sms';
-  const canSwitchToOther = sentChannel === 'sms' ? emailValid : (phoneValidation as any).valid;
-
   return (
     <OnboardingShell
       currentStep={step}
       totalSteps={total}
       title="Verification"
-      subtitle={
-        sentChannel === 'sms'
-          ? `Code sent via SMS to ${sentTo}`
-          : `Code sent to ${sentTo}`
-      }
+      subtitle={`Code sent to +234 ${phone} and ${sentEmail}`}
       onBack={handleBack}
       footer={
         <OnboardingButton
@@ -339,29 +297,32 @@ const PhoneRegistrationScreen = () => {
       }
     >
       {/* Channel badge */}
-      <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: sentChannel === 'sms' ? 'rgba(0,77,44,0.05)' : '#EFF6FF',
-        alignSelf: 'flex-start',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 8,
-        marginBottom: 20,
-      }}>
-        {sentChannel === 'sms'
-          ? <Phone size={13} color={colors.ventureroot.green} />
-          : <Mail size={13} color="#3B82F6" />}
-        <Text style={{
-          fontSize: 11,
-          fontWeight: '700',
-          color: sentChannel === 'sms' ? colors.ventureroot.green : '#2563EB',
-          marginLeft: 6,
-          letterSpacing: 0.5,
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          backgroundColor: 'rgba(0,77,44,0.05)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
         }}>
-          {sentChannel === 'sms' ? 'SMS CODE' : 'EMAIL CODE'}
-        </Text>
+          <Phone size={13} color={colors.ventureroot.green} />
+          <Text style={{ fontSize: 11, fontWeight: '700', color: colors.ventureroot.green, marginLeft: 6, letterSpacing: 0.5 }}>
+            SMS
+          </Text>
+        </View>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          backgroundColor: '#EFF6FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
+        }}>
+          <Mail size={13} color="#3B82F6" />
+          <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563EB', marginLeft: 6, letterSpacing: 0.5 }}>
+            EMAIL
+          </Text>
+        </View>
       </View>
+
+      {deliveryNote ? (
+        <Text style={{ fontSize: 12, color: '#B45309', backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10, marginBottom: 16 }}>
+          {deliveryNote}
+        </Text>
+      ) : null}
 
       {/* OTP boxes */}
       <Animated.View style={{ alignItems: 'center', marginTop: 8, transform: [{ translateX: shakeAnim }] }}>
@@ -405,7 +366,7 @@ const PhoneRegistrationScreen = () => {
         <Text style={{ fontSize: 13, color: '#EF4444', textAlign: 'center', marginTop: 8 }}>{otpError}</Text>
       ) : null}
 
-      {/* Resend + channel switch */}
+      {/* Resend */}
       <View style={{ alignItems: 'center', marginTop: 24 }}>
         {sending ? (
           <ActivityIndicator size="small" color={colors.ventureroot.green} />
@@ -419,34 +380,6 @@ const PhoneRegistrationScreen = () => {
               <TouchableOpacity onPress={handleResend} style={{ marginBottom: 12 }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: colors.ventureroot.green }}>
                   Resend Code
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Switch channel option */}
-            {canSwitchToOther && (
-              <TouchableOpacity
-                onPress={sentChannel === 'sms' ? handleSwitchToEmail : handleSwitchToSms}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  marginTop: 4,
-                  paddingVertical: 8,
-                  paddingHorizontal: 16,
-                  backgroundColor: sentChannel === 'sms' ? '#EFF6FF' : 'rgba(0,77,44,0.05)',
-                  borderRadius: 20,
-                }}
-              >
-                {sentChannel === 'sms'
-                  ? <Mail size={13} color="#3B82F6" />
-                  : <Phone size={13} color={colors.ventureroot.green} />}
-                <Text style={{
-                  fontSize: 12,
-                  fontWeight: '600',
-                  color: sentChannel === 'sms' ? '#2563EB' : colors.ventureroot.green,
-                }}>
-                  {sentChannel === 'sms' ? 'No signal? Try email instead' : 'Try SMS instead'}
                 </Text>
               </TouchableOpacity>
             )}

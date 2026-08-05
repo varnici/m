@@ -6,6 +6,7 @@ import { resolveAuthSnapshot } from '@/lib/authRouting';
 import { IndustrialPage, IndustrialText, IndustrialButton, IndustrialCard, useIndustrialTheme } from '@/components/ui/IndustrialComponents';
 import { ArrowLeft, Mail, Lock } from 'lucide-react-native';
 import { colors, spacing } from '@/theme/colors';
+import { OTP_VERIFICATION_ENABLED } from '@/config/otpConfig';
 
 const InputField = ({ label, value, onChangeText, placeholder, icon: Icon, secure, keyboardType, autoCapitalize, theme, isDark }: any) => (
   <View style={{ marginBottom: spacing.md }}>
@@ -179,14 +180,16 @@ const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
           </View>
         </IndustrialCard>
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate('EmailEntry')}
-          style={{ marginTop: 16, padding: 12, alignItems: 'center' }}
-        >
-          <IndustrialText variant="label" style={{ opacity: 0.5, fontSize: 11 }}>
-            FORGOT PASSWORD? <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, fontSize: 11 }}>SIGN IN WITH EMAIL CODE</IndustrialText>
-          </IndustrialText>
-        </TouchableOpacity>
+        {OTP_VERIFICATION_ENABLED && (
+          <TouchableOpacity
+            onPress={() => navigation.navigate('EmailEntry')}
+            style={{ marginTop: 16, padding: 12, alignItems: 'center' }}
+          >
+            <IndustrialText variant="label" style={{ opacity: 0.5, fontSize: 11 }}>
+              FORGOT PASSWORD? <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, fontSize: 11 }}>SIGN IN WITH EMAIL CODE</IndustrialText>
+            </IndustrialText>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           onPress={() => navigation.navigate('Register')}

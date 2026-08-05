@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StatusBar,
   Animated,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -15,80 +17,50 @@ import {
   ShoppingBag,
   Truck,
   ShieldAlert,
-  TrendingUp,
   Award,
+  PackageSearch,
+  Wallet,
+  Receipt,
 } from 'lucide-react-native';
+import { isToday, isYesterday, format, formatDistanceToNowStrict } from 'date-fns';
 import type { RootStackScreenProps } from '@/navigation/types';
+import {
+  useNotifications,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+} from '@/hooks/useNotifications';
+import type { AppNotification, NotificationType } from '@/services/notificationService';
 
-type Notification = {
-  id: string;
-  title: string;
-  body: string;
-  type: 'transaction' | 'logistics' | 'security' | 'savings' | 'general';
-  time: string;
-  unread: boolean;
-  dateGroup: 'Today' | 'Yesterday' | 'Earlier';
+type DateGroup = 'Today' | 'Yesterday' | 'Earlier';
+
+function dateGroupOf(createdAt: string): DateGroup {
+  const d = new Date(createdAt);
+  if (isToday(d)) return 'Today';
+  if (isYesterday(d)) return 'Yesterday';
+  return 'Earlier';
+}
+
+function timeLabelOf(createdAt: string): string {
+  const d = new Date(createdAt);
+  if (isToday(d)) return `${formatDistanceToNowStrict(d)} ago`;
+  if (isYesterday(d)) return `Yesterday, ${format(d, 'h:mm a')}`;
+  return format(d, 'MMM d, yyyy');
+}
+
+const ICON_BY_TYPE: Record<NotificationType, { Icon: typeof Bell; bg: string; color: string }> = {
+  loan_status: { Icon: ShoppingBag, bg: 'bg-blue-50', color: '#2563EB' },
+  payment_due: { Icon: Wallet, bg: 'bg-amber-50', color: '#D97706' },
+  credit_limit: { Icon: Award, bg: 'bg-emerald-50', color: '#059669' },
+  system: { Icon: Bell, bg: 'bg-slate-50', color: '#6B7280' },
+  order_request: { Icon: PackageSearch, bg: 'bg-indigo-50', color: '#4F46E5' },
+  fund_transfer: { Icon: Truck, bg: 'bg-amber-50', color: '#D97706' },
+  payment_receipt: { Icon: Receipt, bg: 'bg-emerald-50', color: '#059669' },
 };
 
-const INITIAL_NOTIFICATIONS: Notification[] = [
-  {
-    id: '1',
-    title: '₦45,000 Loan Approved',
-    body: 'Your working capital loan request for store expansion has been approved. Funds are now available in your VentureRoot wallet.',
-    type: 'transaction',
-    time: '2 hours ago',
-    unread: true,
-    dateGroup: 'Today',
-  },
-  {
-    id: '2',
-    title: 'Cluster Pool Delivery Complete',
-    body: 'The wholesale group-buy of sugar and flour has successfully arrived at pickup point Cluster-Ikeja-A.',
-    type: 'logistics',
-    time: '4 hours ago',
-    unread: true,
-    dateGroup: 'Today',
-  },
-  {
-    id: '3',
-    title: 'New Security Login detected',
-    body: 'A new login attempt was verified from an Android device in Lagos at 10:14 AM.',
-    type: 'security',
-    time: 'Today, 10:14 AM',
-    unread: false,
-    dateGroup: 'Today',
-  },
-  {
-    id: '4',
-    title: 'Daily Sales Streak! 🔥',
-    body: 'Congratulations! You hit your sales recording target 5 days in a row. +150 Trust Points earned.',
-    type: 'savings',
-    time: 'Yesterday, 6:30 PM',
-    unread: false,
-    dateGroup: 'Yesterday',
-  },
-  {
-    id: '5',
-    title: 'Wallet Overdraw Protection Active',
-    body: 'VentureRoot smart-escrow safe locks have been successfully updated to guard your active balances.',
-    type: 'security',
-    time: 'Yesterday, 9:15 AM',
-    unread: false,
-    dateGroup: 'Yesterday',
-  },
-  {
-    id: '6',
-    title: 'Linked Access Bank Account Match',
-    body: 'Your linked bank account ending in **4821 has been successfully verified via BVN name matching.',
-    type: 'transaction',
-    time: 'May 18, 2026',
-    unread: false,
-    dateGroup: 'Earlier',
-  },
-];
-
 const NotificationsScreen = ({ navigation }: RootStackScreenProps<'Notifications'>) => {
-  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
+  const { data, isLoading, refetch, isFetching } = useNotifications();
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -99,46 +71,17 @@ const NotificationsScreen = ({ navigation }: RootStackScreenProps<'Notifications
     }).start();
   }, [fadeAnim]);
 
-  const markAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
-  };
+  const groups = useMemo(() => {
+    const items = data?.items || [];
+    const byGroup: Record<DateGroup, AppNotification[]> = { Today: [], Yesterday: [], Earlier: [] };
+    items.forEach((n) => byGroup[dateGroupOf(n.created_at)].push(n));
+    return byGroup;
+  }, [data]);
 
-  const toggleReadStatus = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: !n.unread } : n));
-  };
+  const hasUnread = (data?.unread_count ?? 0) > 0;
 
-  const getIcon = (type: Notification['type']) => {
-    switch (type) {
-      case 'transaction':
-        return <ShoppingBag size={18} color="#2563EB" />;
-      case 'logistics':
-        return <Truck size={18} color="#D97706" />;
-      case 'security':
-        return <ShieldAlert size={18} color="#EF4444" />;
-      case 'savings':
-        return <Award size={18} color="#059669" />;
-      default:
-        return <Bell size={18} color="#6B7280" />;
-    }
-  };
-
-  const getIconBg = (type: Notification['type']) => {
-    switch (type) {
-      case 'transaction':
-        return 'bg-blue-50';
-      case 'logistics':
-        return 'bg-amber-50';
-      case 'security':
-        return 'bg-red-50';
-      case 'savings':
-        return 'bg-emerald-50';
-      default:
-        return 'bg-slate-50';
-    }
-  };
-
-  const renderGroup = (groupName: Notification['dateGroup']) => {
-    const groupItems = notifications.filter(n => n.dateGroup === groupName);
+  const renderGroup = (groupName: DateGroup) => {
+    const groupItems = groups[groupName];
     if (groupItems.length === 0) return null;
 
     return (
@@ -147,52 +90,59 @@ const NotificationsScreen = ({ navigation }: RootStackScreenProps<'Notifications
           {groupName}
         </Text>
         <View className="gap-3">
-          {groupItems.map(item => (
-            <TouchableOpacity
-              key={item.id}
-              activeOpacity={0.7}
-              onPress={() => toggleReadStatus(item.id)}
-              className={`flex-row p-4 rounded-2xl border ${
-                item.unread
-                  ? 'bg-emerald-50/20 border-emerald-100/60 shadow-sm'
-                  : 'bg-white border-slate-100'
-              }`}
-            >
-              <View className={`w-10 h-10 rounded-xl items-center justify-center mr-3 ${getIconBg(item.type)}`}>
-                {getIcon(item.type)}
-              </View>
-
-              <View className="flex-1">
-                <View className="flex-row items-center justify-between">
-                  <Text className={`text-sm font-bold text-slate-900 ${item.unread ? 'text-emerald-950 font-black' : ''}`}>
-                    {item.title}
-                  </Text>
-                  {item.unread && (
-                    <View className="w-2 h-2 rounded-full bg-emerald-600" />
-                  )}
+          {groupItems.map((item) => {
+            const { Icon, bg, color } = ICON_BY_TYPE[item.type] || ICON_BY_TYPE.system;
+            return (
+              <TouchableOpacity
+                key={item.id}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (!item.read) markRead.mutate(item.id);
+                  if (
+                    (item.type === 'fund_transfer' || item.type === 'payment_receipt') &&
+                    item.related_entity_type === 'trade_order' &&
+                    item.related_entity_id
+                  ) {
+                    navigation.navigate('FundTransferReceipt', { orderId: item.related_entity_id });
+                  }
+                }}
+                className={`flex-row p-4 rounded-2xl border ${
+                  !item.read
+                    ? 'bg-emerald-50/20 border-emerald-100/60 shadow-sm'
+                    : 'bg-white border-slate-100'
+                }`}
+              >
+                <View className={`w-10 h-10 rounded-xl items-center justify-center mr-3 ${bg}`}>
+                  <Icon size={18} color={color} />
                 </View>
-                <Text className="text-slate-500 text-xs mt-1 leading-relaxed">
-                  {item.body}
-                </Text>
-                <Text className="text-[10px] text-slate-400 mt-2 font-medium">
-                  {item.time}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+
+                <View className="flex-1">
+                  <View className="flex-row items-center justify-between">
+                    <Text
+                      className={`text-sm font-bold text-slate-900 flex-1 mr-2 ${!item.read ? 'text-emerald-950 font-black' : ''}`}
+                      numberOfLines={1}
+                    >
+                      {item.title}
+                    </Text>
+                    {!item.read && <View className="w-2 h-2 rounded-full bg-emerald-600" />}
+                  </View>
+                  <Text className="text-slate-500 text-xs mt-1 leading-relaxed">{item.message}</Text>
+                  <Text className="text-[10px] text-slate-400 mt-2 font-medium">
+                    {timeLabelOf(item.created_at)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
     );
   };
 
-  const hasUnread = notifications.some(n => n.unread);
-
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
       <StatusBar barStyle="dark-content" />
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-        
-        {/* Header */}
         <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -203,7 +153,7 @@ const NotificationsScreen = ({ navigation }: RootStackScreenProps<'Notifications
           <Text className="text-slate-900 font-extrabold text-base">Notifications</Text>
           {hasUnread ? (
             <TouchableOpacity
-              onPress={markAllRead}
+              onPress={() => markAllRead.mutate()}
               className="flex-row items-center bg-slate-100 px-3 py-1.5 rounded-full"
             >
               <Check size={12} color="#475569" />
@@ -214,14 +164,32 @@ const NotificationsScreen = ({ navigation }: RootStackScreenProps<'Notifications
           )}
         </View>
 
-        {/* Scrollable feed */}
         <ScrollView
           className="flex-1 px-4 pt-4"
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isFetching && !isLoading} onRefresh={refetch} tintColor="#059669" />
+          }
         >
-          {renderGroup('Today')}
-          {renderGroup('Yesterday')}
-          {renderGroup('Earlier')}
+          {isLoading ? (
+            <View className="items-center py-16">
+              <ActivityIndicator size="large" color="#059669" />
+            </View>
+          ) : (data?.items.length ?? 0) === 0 ? (
+            <View className="items-center py-16 px-8">
+              <Bell size={40} color="#CBD5E1" />
+              <Text className="text-slate-900 font-bold mt-3">No notifications yet</Text>
+              <Text className="text-slate-400 text-xs text-center mt-1">
+                Order requests, fund transfers, and account alerts will show up here.
+              </Text>
+            </View>
+          ) : (
+            <>
+              {renderGroup('Today')}
+              {renderGroup('Yesterday')}
+              {renderGroup('Earlier')}
+            </>
+          )}
           <View className="h-10" />
         </ScrollView>
       </Animated.View>

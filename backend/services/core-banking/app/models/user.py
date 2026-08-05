@@ -56,4 +56,5 @@ class User(Base):
     inventory_metrics = relationship("InventoryMetrics", back_populates="user", cascade="all, delete-orphan")
     loan_metrics = relationship("LoanMetrics", back_populates="user", cascade="all, delete-orphan")
     loan_applications = relationship("LoanApplication", back_populates="user", cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
 

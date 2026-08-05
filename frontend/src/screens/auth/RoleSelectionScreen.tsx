@@ -17,7 +17,6 @@ import {
   Briefcase,
   Store,
   Package,
-  Truck,
   CircleDot,
 } from 'lucide-react-native';
 import { colors, spacing } from '@/theme/colors';
@@ -85,23 +84,10 @@ const USER_TYPE_OPTIONS: UserTypeOption[] = [
       'Distributor terms agreement',
     ],
   },
-  {
-    id: 'logistics',
-    icon: Truck,
-    label: 'Logistics and Transport',
-    description: 'Delivery and fleet operations',
-    steps: [
-      'Company email & phone verification',
-      'Company name & CAC (if registered)',
-      'Fleet size & vehicle registration',
-      'Vehicle type breakdown',
-      'Driver licence verification',
-      'Goods-in-Transit (GIT) insurance',
-      'Insurance document upload',
-      'Settlement bank account',
-      'Logistics partner terms agreement',
-    ],
-  },
+  // 'logistics' intentionally omitted for now: onboarding collects real data
+  // into LogisticsPartnerProfile and a transport/booking system already
+  // exists backend-side, but there's no dashboard surfacing any of it yet.
+  // Re-add once that's built (see src/config/accountTypes.ts).
 ];
 
 const RoleSelectionScreen = ({

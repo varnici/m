@@ -359,6 +359,11 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
+  async getTradeOrder(orderId: string): Promise<TradeOrder> {
+    const response = await this.fetchWithAuth(`/v1/inventory/trade-orders/${orderId}`);
+    return response.json();
+  }
+
   async createTradeOrder(data: TradeOrderCreate): Promise<TradeOrder> {
     const response = await this.fetchWithAuth('/v1/inventory/trade-orders', {
       method: 'POST',

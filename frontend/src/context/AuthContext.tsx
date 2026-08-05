@@ -1,10 +1,28 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Alert, Linking } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { useSecurityStore } from '@/store/securityStore';
+
+// Supabase's JS client can't auto-detect a session from the URL on React
+// Native (detectSessionInUrl:false in lib/supabase.ts — there's no `window`
+// to read from), so the recovery/access tokens Supabase puts on the
+// ventureroot://reset-password deep link are otherwise never handed to the
+// client at all: the email sends fine, the link opens the app, but nothing
+// ever calls setSession() and PASSWORD_RECOVERY never fires. This parses
+// the incoming URL manually and completes that handoff.
+function parseAuthParamsFromUrl(url: string): Record<string, string> {
+  const params: Record<string, string> = {};
+  const markerIndex = Math.max(url.indexOf('#'), url.indexOf('?'));
+  if (markerIndex === -1) return params;
+  new URLSearchParams(url.slice(markerIndex + 1)).forEach((value, key) => {
+    params[key] = value;
+  });
+  return params;
+}
 
 // Persisted (not just in-memory) so a user switch is detected even across
 // app restarts — e.g. after a TOKEN_REFRESH_FAILED local sign-out, or the
@@ -74,6 +92,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false);
       });
 
+    // Manual deep-link handoff for password-recovery links (see
+    // parseAuthParamsFromUrl's comment above) — cold start (link opened the
+    // app) and warm start (app already running) both go through this.
+    const handleAuthDeepLink = async (url: string | null) => {
+      if (!url || !url.includes('reset-password')) return;
+      const params = parseAuthParamsFromUrl(url);
+
+      if (params.error) {
+        Alert.alert(
+          'Reset link expired',
+          params.error_description?.replace(/\+/g, ' ') || 'Please request a new password reset link.'
+        );
+        return;
+      }
+      if (params.type !== 'recovery' || !params.access_token || !params.refresh_token) return;
+
+      const { data, error } = await supabase.auth.setSession({
+        access_token: params.access_token,
+        refresh_token: params.refresh_token,
+      });
+      if (error) {
+        Alert.alert('Reset link expired', 'Please request a new password reset link.');
+        return;
+      }
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
+      setNeedsPasswordReset(true);
+    };
+
+    Linking.getInitialURL().then(handleAuthDeepLink);
+    const linkingSubscription = Linking.addEventListener('url', ({ url }) => handleAuthDeepLink(url));
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if ((event as string) === 'TOKEN_REFRESH_FAILED') {
@@ -104,6 +154,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       subscription.unsubscribe();
+      linkingSubscription.remove();
     };
   }, []);
 

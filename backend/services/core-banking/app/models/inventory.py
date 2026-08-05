@@ -122,6 +122,8 @@ class Product(Base):
     monthly_velocity: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     days_of_supply: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     trade_moq: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    # Distributor opts specific products into cross-tenant wholesale ordering
+    is_wholesale_listed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     # Marketplace compatibility fields
     unit_price_kobo: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
@@ -397,6 +399,10 @@ class TradeClient(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_id)
     owner_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     company_name: Mapped[str] = mapped_column(String, nullable=False)
+    # Set when this CRM contact represents another platform user placing a
+    # cross-tenant distributor order — lets order creation find-or-create the
+    # buyer's TradeClient record reliably instead of matching by name.
+    linked_user_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     vat_number: Mapped[str | None] = mapped_column(String, nullable=True)
     delivery_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     contact_phone: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -406,7 +412,8 @@ class TradeClient(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
-    owner = relationship("User")
+    owner = relationship("User", foreign_keys=[owner_id])
+    linked_user = relationship("User", foreign_keys=[linked_user_id])
 
 
 class TradeOrder(Base):
@@ -426,11 +433,17 @@ class TradeOrder(Base):
     payment_terms: Mapped[str] = mapped_column(String, default="immediate")  # immediate, net30
     total_kobo: Mapped[int] = mapped_column(BigInteger, default=0)
     sale_id: Mapped[str | None] = mapped_column(String, ForeignKey("sales_transactions.id", ondelete="SET NULL"), nullable=True)
+    # Set for cross-tenant distributor orders: owner_id is the distributor
+    # (whose stock this draws from), buyer_owner_id is who placed it. Null
+    # for ordinary same-tenant orders (owner invoicing their own customer).
+    buyer_owner_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     client = relationship("TradeClient")
     store = relationship("Store")
+    owner = relationship("User", foreign_keys=[owner_id])
+    buyer = relationship("User", foreign_keys=[buyer_owner_id])
     lines = relationship("TradeOrderLine", back_populates="order", cascade="all, delete-orphan")
 
 

@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AccountTypeId } from '@/config/accountTypes';
 import type { RootStackParamList } from '@/navigation/types';
+import { OTP_VERIFICATION_ENABLED } from '@/config/otpConfig';
 
 type RouteName = keyof RootStackParamList;
 
@@ -11,7 +12,7 @@ const STEP_SEQUENCES: Record<string, RouteName[]> = {
     'WorkerEmail',
     'WorkerPhone',
     'WorkerPassword',
-    'WorkerOTP',
+    ...(OTP_VERIFICATION_ENABLED ? (['WorkerOTP'] as RouteName[]) : []),
     'WorkerProfile',
     'WorkerEmployment',
     'WorkerIdentity',
