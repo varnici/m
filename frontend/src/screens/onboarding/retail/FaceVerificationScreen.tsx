@@ -25,12 +25,15 @@ const FaceVerificationScreen = () => {
       quality: 0.9,
       cameraType: ImagePicker.CameraType.front,
       allowsEditing: false,
+      base64: true,
     });
     setIsCapturing(false);
     if (!result.canceled && result.assets[0]) {
       const uri = result.assets[0].uri;
       setCapturedUri(uri);
-      updateData({ facePhotoUri: uri });
+      // facePhotoBase64 is what actually goes to the KYC provider — facePhotoUri
+      // is a local device path only, meaningless once this device is gone.
+      updateData({ facePhotoUri: uri, facePhotoBase64: result.assets[0].base64 ?? undefined });
     }
   };
 
@@ -116,7 +119,7 @@ const FaceVerificationScreen = () => {
         >
           <ShieldCheck size={16} color={colors.ventureroot.green} />
           <Text style={{ marginLeft: 8, fontSize: 12, fontWeight: '600', color: '#64748B' }}>
-            Liveness detection active
+            This photo will be matched against your ID after submission
           </Text>
         </View>
       </View>

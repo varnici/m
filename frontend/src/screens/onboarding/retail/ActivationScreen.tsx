@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import Toast from 'react-native-toast-message';
 import OnboardingShell, { OnboardingButton } from '@/components/onboarding/OnboardingShell';
 import { useOnboardingNav } from '@/hooks/useOnboardingNav';
 import { submitRetailOnboarding } from '@/services/onboardingSubmitService';
@@ -30,6 +31,16 @@ const ActivationScreen = () => {
 
       if (result.success) {
         setStatus('success');
+        if (result.kycMessage) {
+          // Toast persists across the goNext() navigation below — an inline
+          // banner on this screen would flash and vanish immediately.
+          Toast.show({
+            type: result.kycVerified ? 'success' : 'info',
+            text1: result.kycVerified ? 'Identity verified' : 'Identity verification pending',
+            text2: result.kycMessage,
+            visibilityTime: 5000,
+          });
+        }
         useOnboardingStore.getState().completeOnboarding();
         goNext();
       } else {

@@ -634,17 +634,6 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
-  async transformInventoryStock(data: {
-    parent_product_id: string;
-    quantity_to_break: number;
-    store_id: string;
-  }): Promise<any> {
-    const response = await this.fetchWithAuth('/v1/inventory/analytics/transform', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    return response.json();
-  }
 
   async getStores(): Promise<Store[]> {
     const response = await this.fetchWithAuth('/v1/inventory/stores');

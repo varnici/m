@@ -83,6 +83,10 @@ export interface Product {
   monthly_velocity?: number;
   days_of_supply?: number;
   trade_moq?: number;
+  /** Set when this product is sold as a pack/bag/carton of another product. */
+  parent_id?: string | null;
+  /** How many of the base-unit product one of these contains (e.g. 1 Bag = 50). */
+  conversion_factor?: number;
   is_active: boolean;
   total_quantity_on_hand: number;
   total_reserved_quantity: number;

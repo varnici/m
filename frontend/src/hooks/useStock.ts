@@ -254,33 +254,3 @@ export function useCommitStockReservation() {
   });
 }
 
-/**
- * useTransformStock - Break bulk into pieces
- */
-export function useTransformStock() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: {
-      parent_product_id: string;
-      quantity_to_break: number;
-      store_id: string;
-    }) => inventoryService.transformInventoryStock(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.stock() });
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.products() });
-      Toast.show({
-        type: 'success',
-        text1: 'Stock Transformed',
-        text2: 'Bulk items converted to units successfully',
-      });
-    },
-    onError: (error: Error) => {
-      Toast.show({
-        type: 'error',
-        text1: 'Transformation Failed',
-        text2: error.message,
-      });
-    },
-  });
-}

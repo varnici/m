@@ -57,6 +57,9 @@ class MerchantProfile(Base):
     gps_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     pos_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    kyc_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    kyc_result_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    kyc_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False,
         default=lambda: datetime.now(timezone.utc),

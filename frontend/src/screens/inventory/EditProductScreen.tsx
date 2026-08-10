@@ -7,6 +7,7 @@ import { useProductDetail, useUpdateProduct, useDeleteProduct } from '@/hooks/us
 import Toast from 'react-native-toast-message';
 import { CategoryPicker } from '@/components/inventory/CategoryPicker';
 import { ProductComplianceFields } from '@/components/inventory/ProductComplianceFields';
+import { PackagingPicker } from '@/components/inventory/PackagingPicker';
 
 const EditProductScreen = ({ navigation, route }: RootStackScreenProps<'EditProduct'>) => {
   const { productId } = route.params;
@@ -28,6 +29,10 @@ const EditProductScreen = ({ navigation, route }: RootStackScreenProps<'EditProd
   const [size, setSize] = useState('');
   const [imei, setImei] = useState('');
 
+  // Packaging (pack/bag/carton -> base product conversion)
+  const [parentId, setParentId] = useState<string | null>(null);
+  const [conversionFactor, setConversionFactor] = useState('1');
+
   const { data: product, isLoading: isLoadingProduct } = useProductDetail(productId);
   const { mutate: updateProduct, isPending } = useUpdateProduct(productId);
 
@@ -46,6 +51,8 @@ const EditProductScreen = ({ navigation, route }: RootStackScreenProps<'EditProd
       setBatchNumber(product.nafdac_number || '');
       setSize(product.size || '');
       setImei(product.imei || '');
+      setParentId(product.parent_id || null);
+      setConversionFactor(String(product.conversion_factor || 1));
     }
   }, [product]);
 
@@ -85,6 +92,8 @@ const EditProductScreen = ({ navigation, route }: RootStackScreenProps<'EditProd
       nafdac_number: batchNumber.trim() || undefined,
       size: size.trim() || undefined,
       imei: imei.trim() || undefined,
+      parent_id: parentId,
+      conversion_factor: parentId ? (parseInt(conversionFactor, 10) || 1) : 1,
     }, {
       onSuccess: () => {
         Toast.show({
@@ -226,6 +235,21 @@ const EditProductScreen = ({ navigation, route }: RootStackScreenProps<'EditProd
             onChangeSize={setSize}
             imei={imei}
             onChangeImei={setImei}
+          />
+        </View>
+
+        {/* Packaging Section */}
+        <View className="bg-white mx-4 mb-6 p-6 rounded-3xl border border-gray-100 shadow-sm">
+          <View className="flex-row items-center mb-4">
+             <Layers size={18} color="#0EA5E9" />
+             <Text className="text-gray-900 font-bold text-base ml-2">Packaging</Text>
+          </View>
+          <PackagingPicker
+            excludeProductId={productId}
+            parentId={parentId}
+            onChangeParentId={setParentId}
+            conversionFactor={conversionFactor}
+            onChangeConversionFactor={setConversionFactor}
           />
         </View>
 

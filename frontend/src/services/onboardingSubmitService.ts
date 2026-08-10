@@ -6,6 +6,8 @@ import type { AccountTypeId } from '@/config/accountTypes';
 interface SubmitResult {
   success: boolean;
   error?: string;
+  kycVerified?: boolean;
+  kycMessage?: string;
 }
 
 export async function submitWorkerOnboarding(
@@ -184,19 +186,32 @@ export async function submitRetailOnboarding(
       if (insertError) throw insertError;
     }
 
+    let kycVerified: boolean | undefined;
+    let kycMessage: string | undefined;
     try {
-      await onboardingApi.submitAllSteps('merchant_sme', [
+      const stepResults = await onboardingApi.submitAllSteps('merchant_sme', [
         { name: 'basic_info', data: { full_name: data.fullName, email: data.email, phone: data.phone } },
         { name: 'business_info', data: { business_name: data.businessName, inventory_category: data.primaryCategory } },
         { name: 'gps_location', data: { latitude: data.gpsLat ?? data.gpsPin?.latitude, longitude: data.gpsLng ?? data.gpsPin?.longitude } },
         { name: 'store_photos', data: { store_front_photo_url: data.shopFrontPhotoUri, face_id_photo_url: data.selfiePhotoUri } },
-        { name: 'bvn_verify', data: {} },
+        {
+          name: 'bvn_verify',
+          data: {
+            id_type: data.idType,
+            id_number: data.idNumber,
+            dob: data.dateOfBirth,
+            selfie_base64: data.facePhotoBase64,
+          },
+        },
       ]);
+      const kycStep = stepResults.find((r) => r.step_completed === 'bvn_verify');
+      kycVerified = kycStep?.kyc_verified ?? undefined;
+      kycMessage = kycStep?.kyc_message ?? undefined;
     } catch (apiErr) {
       console.warn('Backend onboarding sync error (non-fatal):', apiErr);
     }
 
-    return { success: true };
+    return { success: true, kycVerified, kycMessage };
   } catch (err: any) {
     console.error('Onboarding submission error:', err);
     return { success: false, error: err.message };

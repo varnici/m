@@ -193,6 +193,21 @@ class ProductService:
         product_out.trade_margin_pct = product.trade_margin_pct
         return product_out
 
+    def _validate_parent_id(self, parent_id: str) -> None:
+        """A pack/bag/carton listing's parent must be one of the caller's own
+        base-unit products, and can't itself be a pack (no multi-level
+        chains) — StockService's depletion/replenishment math only follows
+        one hop of parent_id, so a chain would silently stop converting
+        partway through instead of raising."""
+        parent = self.db.query(Product).filter(
+            Product.id == parent_id,
+            Product.owner_id == self.owner_id,
+        ).first()
+        if not parent:
+            raise ValueError("Base product not found for this packaging link")
+        if parent.parent_id:
+            raise ValueError("Base product cannot itself be a pack/bag of another product")
+
     def create_product(self, payload: ProductCreate) -> ProductOut:
         try:
             existing = self.db.query(Product).filter(
@@ -222,6 +237,9 @@ class ProductService:
                 )
                 if not cat_exists:
                     product_data["category_id"] = None
+
+            if product_data.get("parent_id"):
+                self._validate_parent_id(product_data["parent_id"])
 
             product = Product(owner_id=self.owner_id, **product_data)
             self.db.add(product)
@@ -500,6 +518,18 @@ class ProductService:
             )
             if not cat_exists:
                 update_data["category_id"] = None
+
+        if update_data.get("parent_id"):
+            if update_data["parent_id"] == product_id:
+                raise ValueError("A product cannot be its own packaging base")
+            has_children = self.db.query(Product).filter(
+                Product.parent_id == product_id
+            ).first()
+            if has_children:
+                raise ValueError(
+                    "This product already has its own pack/bag listings — it can't also become one"
+                )
+            self._validate_parent_id(update_data["parent_id"])
 
         for field, value in update_data.items():
             setattr(product, field, value)

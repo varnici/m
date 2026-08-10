@@ -8,6 +8,7 @@ Prefix: /v1/onboarding
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,6 +24,7 @@ from app.models.onboarding import (
     OnboardingProfile,
 )
 from app.models.user import User
+from app.services.kyc_service import get_kyc_provider
 
 router = APIRouter()
 
@@ -96,6 +98,8 @@ class StepResultOut(BaseModel):
     next_step: Optional[str]
     is_complete: bool
     message: str
+    kyc_verified: Optional[bool] = None
+    kyc_message: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +219,8 @@ def submit_step(step_name: str, payload: StepDataIn, user_id: str = Depends(get_
             raise HTTPException(status_code=400, detail=f"Invalid step '{step_name}' for {profile.account_type}")
 
         data = payload.data
+        kyc_verified: Optional[bool] = None
+        kyc_message: Optional[str] = None
 
         # ── Step handlers ──
         if step_name == "basic_info":
@@ -318,7 +324,40 @@ def submit_step(step_name: str, payload: StepDataIn, user_id: str = Depends(get_
             if lp:
                 lp.vehicle_docs_verified = True
 
-        elif step_name in ("bvn_verify", "nin_verify", "employer_verify", "salary_config"):
+        elif step_name == "bvn_verify":
+            # Only meaningful for merchant_sme — nine_to_five's own "bvn_verify"
+            # step (a separate step in that sequence) isn't wired to this
+            # handler's MerchantProfile lookup and falls through untouched.
+            mp = db.execute(
+                select(MerchantProfile).where(MerchantProfile.user_id == user_id)
+            ).scalar_one_or_none()
+            id_number = data.get("id_number")
+            selfie_base64 = data.get("selfie_base64")
+            if mp and id_number and selfie_base64:
+                result = get_kyc_provider().verify_biometric_kyc(
+                    selfie_base64=selfie_base64,
+                    id_type=data.get("id_type", "NIN"),
+                    id_number=id_number,
+                    first_name=data.get("first_name"),
+                    last_name=data.get("last_name"),
+                    dob=data.get("dob"),
+                    user_id=user_id,
+                )
+                mp.verified = result.verified
+                mp.kyc_confidence = result.confidence
+                mp.kyc_result_message = result.message
+                mp.kyc_verified_at = datetime.now(timezone.utc)
+                kyc_verified = result.verified
+                kyc_message = result.message
+            elif mp:
+                # "Complete KYC Later" path from KYCVerificationScreen, or no
+                # selfie captured — leave verified=False rather than block
+                # onboarding completion on it.
+                mp.kyc_result_message = "Identity verification skipped — id or selfie not provided."
+                kyc_verified = False
+                kyc_message = mp.kyc_result_message
+
+        elif step_name in ("nin_verify", "employer_verify", "salary_config"):
             pass
 
         _advance_step(db, profile, step_name)
@@ -340,4 +379,6 @@ def submit_step(step_name: str, payload: StepDataIn, user_id: str = Depends(get_
             next_step=next_step,
             is_complete=profile.is_complete,
             message=f"Step '{step_name}' completed successfully.",
+            kyc_verified=kyc_verified,
+            kyc_message=kyc_message,
         )

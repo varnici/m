@@ -14,6 +14,8 @@ export interface StepResult {
   next_step: string | null;
   is_complete: boolean;
   message: string;
+  kyc_verified?: boolean | null;
+  kyc_message?: string | null;
 }
 
 class OnboardingApiService extends BaseService {
@@ -41,11 +43,13 @@ class OnboardingApiService extends BaseService {
   async submitAllSteps(
     accountType: string,
     steps: Array<{ name: string; data: Record<string, any> }>,
-  ): Promise<void> {
+  ): Promise<StepResult[]> {
     await this.startOnboarding(accountType);
+    const results: StepResult[] = [];
     for (const step of steps) {
-      await this.submitStep(step.name, step.data);
+      results.push(await this.submitStep(step.name, step.data));
     }
+    return results;
   }
 }
 

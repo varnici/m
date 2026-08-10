@@ -101,11 +101,6 @@ logger = logging.getLogger(__name__)
 # REQUEST SCHEMAS
 # ============================================================================
 
-class StockTransform(BaseModel):
-    parent_product_id: str
-    quantity_to_break: int
-    store_id: str
-
 class StockTransferRequest(BaseModel):
     from_store_id: str
     to_store_id: str
@@ -417,7 +412,10 @@ def update_product(
 ):
     """Update product information."""
     service = ProductService(db, owner_id)
-    result = service.update_product(product_id, payload)
+    try:
+        result = service.update_product(product_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     activity = ActivityLogService(db, owner_id)
     changed_fields = payload.model_dump(exclude_unset=True)
@@ -912,20 +910,6 @@ def get_stock_levels(
     set_cache(cache_key, [l.model_dump() for l in levels], ttl=300)
     return levels
 
-@router.post("/analytics/transform")
-def transform_inventory_stock(
-    payload: StockTransform,
-    db: Session = Depends(get_db),
-    owner_id: str = Depends(get_current_user_id),
-):
-    """Break bulk packaging into unit pieces."""
-    service = InventoryServiceV2(db, owner_id)
-    service.transform_stock(
-        payload.parent_product_id,
-        payload.quantity_to_break,
-        payload.store_id
-    )
-    return {"status": "success", "message": "Transformation completed"}
 
 # ============================================================================
 # DOMAIN EVENT ENDPOINTS

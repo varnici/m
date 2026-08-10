@@ -8,6 +8,7 @@ import { useCreateProduct } from '@/hooks/useInventory';
 import Toast from 'react-native-toast-message';
 import { CategoryPicker } from '@/components/inventory/CategoryPicker';
 import { ProductComplianceFields } from '@/components/inventory/ProductComplianceFields';
+import { PackagingPicker } from '@/components/inventory/PackagingPicker';
 import { useBusinessProfile } from '@/hooks/useBusinessProfile';
 
 const AddProductScreen = ({ navigation, route }: RootStackScreenProps<'AddProduct'>) => {
@@ -31,6 +32,10 @@ const AddProductScreen = ({ navigation, route }: RootStackScreenProps<'AddProduc
   const [batchNumber, setBatchNumber] = useState('');
   const [size, setSize] = useState('');
   const [imei, setImei] = useState('');
+
+  // Packaging (pack/bag/carton -> base product conversion)
+  const [parentId, setParentId] = useState<string | null>(null);
+  const [conversionFactor, setConversionFactor] = useState('1');
 
   const { mutate: createProduct, isPending } = useCreateProduct();
 
@@ -79,6 +84,8 @@ const AddProductScreen = ({ navigation, route }: RootStackScreenProps<'AddProduc
       nafdac_number: batchNumber.trim() || undefined,
       size: size.trim() || undefined,
       imei: imei.trim() || undefined,
+      parent_id: parentId || undefined,
+      conversion_factor: parentId ? (parseInt(conversionFactor, 10) || 1) : undefined,
     }, {
       onSuccess: () => {
         Toast.show({
@@ -208,6 +215,20 @@ const AddProductScreen = ({ navigation, route }: RootStackScreenProps<'AddProduc
             onChangeSize={setSize}
             imei={imei}
             onChangeImei={setImei}
+          />
+        </View>
+
+        {/* Packaging Section */}
+        <View className="bg-white mx-4 mb-6 p-6 rounded-3xl border border-gray-100 shadow-sm">
+          <View className="flex-row items-center mb-4">
+             <Layers size={18} color="#0EA5E9" />
+             <Text className="text-gray-900 font-bold text-base ml-2">Packaging</Text>
+          </View>
+          <PackagingPicker
+            parentId={parentId}
+            onChangeParentId={setParentId}
+            conversionFactor={conversionFactor}
+            onChangeConversionFactor={setConversionFactor}
           />
         </View>
 

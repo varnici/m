@@ -7,9 +7,8 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Dimensions,
-  Alert,
 } from 'react-native';
-import { useProductDetail, useStockMovements, useTransformStock } from '@/hooks/useInventory';
+import { useProductDetail, useStockMovements } from '@/hooks/useInventory';
 import { useCategories } from '@/hooks/useCategories';
 import { Ionicons } from '@expo/vector-icons';
 import { Edit2 } from 'lucide-react-native';
@@ -75,29 +74,6 @@ export const ProductDetailScreen = ({ route, navigation }: any) => {
     };
   }, [product?.demand_forecast]);
 
-  const transformMutation = useTransformStock();
-
-  const handleTransform = (qty: number) => {
-    if (!product) return;
-    
-    Alert.alert(
-      'Break to Pieces',
-      `Are you sure you want to break ${qty} carton(s) into individual units?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: () => {
-            transformMutation.mutate({
-              parent_product_id: product.id,
-              quantity_to_break: qty,
-              store_id: product.stock_by_location[0]?.store_id || '',
-            });
-          },
-        },
-      ]
-    );
-  };
 
   if (isProductLoading) {
     return (
@@ -194,19 +170,15 @@ export const ProductDetailScreen = ({ route, navigation }: any) => {
               <View key={child.id} style={styles.childRow}>
                 <View style={styles.childInfo}>
                   <Text style={styles.childName}>{child.name}</Text>
-                  <Text style={styles.childSub}>1 {product.unit_of_measure} = {child.conversion_factor} {child.unit_of_measure}s</Text>
-                </View>
-                <TouchableOpacity 
-                  style={[styles.transformButton, transformMutation.isPending && { opacity: 0.5 }]}
-                  onPress={() => handleTransform(1)}
-                  disabled={transformMutation.isPending || product.total_quantity_on_hand < 1}
-                >
-                  <Text style={styles.transformButtonText}>
-                    {transformMutation.isPending ? 'Processing...' : `Break 1 ${product.unit_of_measure}`}
+                  <Text style={styles.childSub}>
+                    1 {child.unit_of_measure} = {child.conversion_factor} {product.unit_of_measure}{child.conversion_factor === 1 ? '' : 's'}
                   </Text>
-                </TouchableOpacity>
+                </View>
               </View>
             ))}
+            <Text style={styles.childSub}>
+              Selling or receiving stock against any of these updates this product's stock count automatically — no manual conversion needed.
+            </Text>
           </View>
         </>
       )}
@@ -610,16 +582,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     marginTop: 2,
-  },
-  transformButton: {
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  transformButtonText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
 });

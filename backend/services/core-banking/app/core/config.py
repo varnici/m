@@ -80,6 +80,13 @@ class Settings(BaseSettings):
     payment_webhook_secret: str = ""
     worker_cron_secret: str = ""
 
+    # ── Smile Identity (BVN/NIN-linked biometric KYC) ────────────────
+    # No defaults on purpose — kyc_service must fail closed rather than
+    # silently call Smile Identity's sandbox with a guessable default.
+    smile_identity_partner_id: str = ""
+    smile_identity_api_key: str = ""
+    smile_identity_env: str = "sandbox"   # 'sandbox' | 'production'
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value: object) -> object:

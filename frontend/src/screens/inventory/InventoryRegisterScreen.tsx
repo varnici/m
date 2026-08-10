@@ -146,11 +146,15 @@ const InventoryRegisterScreen = () => {
                   const margin = p.selling_price_kobo > 0
                     ? Math.round(((p.selling_price_kobo - p.cost_price_kobo) / p.selling_price_kobo) * 100)
                     : 0;
+                  const baseProduct = p.parent_id ? rows.find((r) => r.id === p.parent_id) : undefined;
+                  const unitLabel = baseProduct
+                    ? `${p.unit_of_measure} =${p.conversion_factor ?? 1}${baseProduct.unit_of_measure}`
+                    : p.unit_of_measure;
                   return (
                     <View key={p.id} className="flex-row items-center bg-white border-b border-gray-50" style={{ height: 56 }}>
                       <RegisterCell width={90} mono>{p.sku}</RegisterCell>
                       <RegisterCell width={70} align="right" bold>{balance.toLocaleString()}</RegisterCell>
-                      {view === 'full' && <RegisterCell width={70}>{p.unit_of_measure}</RegisterCell>}
+                      {view === 'full' && <RegisterCell width={70}>{unitLabel}</RegisterCell>}
                       {view === 'full' && <RegisterCell width={80} align="right">{p.minimum_stock_level}</RegisterCell>}
                       <View style={{ width: 90 }}>
                         <View className="px-2 py-1 rounded-full self-start" style={{ backgroundColor: s.color + '1A' }}>

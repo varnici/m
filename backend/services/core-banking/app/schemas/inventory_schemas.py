@@ -111,6 +111,14 @@ class ProductCreate(BaseModel):
     days_of_supply: int = Field(default=0, ge=0)
     trade_moq: int = Field(default=1, ge=1)
     is_wholesale_listed: bool = Field(default=False)
+    # Bulk/packaging: set parent_id to sell this product as a pack/bag/carton
+    # of an existing base-unit product. conversion_factor is how many of the
+    # base unit one of these contains (e.g. "Bag of Rice" -> parent_id =
+    # "Piece" product, conversion_factor = 50). Every purchase/sale recorded
+    # against this product is then auto-converted onto the base unit's real
+    # stock count (see StockService._handle_depletion/_handle_replenishment).
+    parent_id: Optional[str] = None
+    conversion_factor: int = Field(default=1, ge=1)
 
 
 class ProductUpdate(BaseModel):
@@ -141,6 +149,8 @@ class ProductUpdate(BaseModel):
     monthly_velocity: Optional[int] = None
     days_of_supply: Optional[int] = None
     trade_moq: Optional[int] = None
+    parent_id: Optional[str] = None
+    conversion_factor: Optional[int] = Field(default=None, ge=1)
 
 
 class StockLevelOut(BaseModel):
@@ -197,6 +207,8 @@ class ProductOut(BaseModel):
     monthly_velocity: int = 0
     days_of_supply: int = 0
     trade_moq: int = 1
+    parent_id: Optional[str] = None
+    conversion_factor: int = 1
     # Aggregated across stock levels (and, for the list endpoint, reservations) —
     # populated by ProductService, not stored directly on the Product row.
     total_quantity_on_hand: int = 0
@@ -205,7 +217,7 @@ class ProductOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("id", "owner_id", "category_id", mode="before")
+    @field_validator("id", "owner_id", "category_id", "parent_id", mode="before")
     @classmethod
     def _coerce_uuid_to_str(cls, v: Any) -> Any:
         if v is not None and not isinstance(v, str):
