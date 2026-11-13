@@ -1,11 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { distributorService, type DistributorOrderLine } from '@/services/distributorService';
+import Toast from 'react-native-toast-message';
+import {
+  distributorService,
+  type DistributorOrderLine,
+  type DistributorProfileUpdate,
+} from '@/services/distributorService';
 
 export function useMyDistributorProfile() {
   return useQuery({
     queryKey: ['distributor', 'me'],
     queryFn: () => distributorService.getMyProfile(),
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useUpdateMyDistributorProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: DistributorProfileUpdate) => distributorService.updateMyProfile(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['distributor', 'me'] });
+      Toast.show({ type: 'success', text1: 'Profile updated' });
+    },
+    onError: (error: any) => {
+      Toast.show({
+        type: 'error',
+        text1: 'Could not update profile',
+        text2: error.response?.data?.detail || error.message,
+      });
+    },
   });
 }
 

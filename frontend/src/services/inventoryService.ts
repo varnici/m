@@ -359,6 +359,11 @@ export class InventoryService extends BaseService {
     return response.json();
   }
 
+  async getTradeOrders(): Promise<TradeOrder[]> {
+    const response = await this.fetchWithAuth('/v1/inventory/trade-orders');
+    return response.json();
+  }
+
   async getTradeOrder(orderId: string): Promise<TradeOrder> {
     const response = await this.fetchWithAuth(`/v1/inventory/trade-orders/${orderId}`);
     return response.json();
@@ -381,6 +386,13 @@ export class InventoryService extends BaseService {
 
   async dispatchTradeOrder(orderId: string): Promise<TradeOrder> {
     const response = await this.fetchWithAuth(`/v1/inventory/trade-orders/${orderId}/dispatch`, {
+      method: 'POST',
+    });
+    return response.json();
+  }
+
+  async cancelTradeOrder(orderId: string): Promise<TradeOrder> {
+    const response = await this.fetchWithAuth(`/v1/inventory/trade-orders/${orderId}/cancel`, {
       method: 'POST',
     });
     return response.json();

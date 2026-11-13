@@ -6,6 +6,7 @@ from app.models.user import User
 from app.models.wallet import Wallet
 from app.models.inventory import SalesTransaction
 from app.models.savings import SavingsGoal, SavingsGoalStatus, SavingsTransaction, SavingsTransactionType, SavingsStreak
+from app.models.business_starter_kit import BusinessStarterKit
 from app.services.savings_service import SavingsService
 from app.schemas.savings_schemas import SavingsGoalCreate, SavingsTransactionCreate
 
@@ -95,4 +96,63 @@ def test_streak_logic(db_session: Session):
     
     dashboard = service.get_dashboard()
     assert dashboard["streak"].streak_count == 1
+
+
+# ── Business Starter Kit plans ───────────────────────────────────────────────
+# A "pay for a business idea over time" plan is just a SavingsGoal tagged
+# with starter_kit_id — these tests confirm that tagging works, is validated,
+# and rides on the same real deposit/ledger/completion machinery above.
+
+def test_create_goal_with_valid_starter_kit(db_session: Session):
+    kit = BusinessStarterKit(
+        slug="provision-store", name="Provision Store Starter Kit",
+        description="Stock and open a provision store.", business_category="retail",
+        icon_name="Store", total_cost_kobo=350000, suggested_duration_months=6,
+        items=[{"name": "Shelving", "quantity": 1, "estimated_cost_kobo": 350000}],
+    )
+    db_session.add(kit)
+    db_session.commit()
+
+    service = SavingsService(db_session, "test-user-123")
+    goal = service.create_goal(SavingsGoalCreate(
+        title="My Provision Store", category="business_starter",
+        target_amount_kobo=kit.total_cost_kobo, starter_kit_id=kit.id,
+    ))
+
+    assert goal.starter_kit_id == kit.id
+    assert goal.starter_kit.name == "Provision Store Starter Kit"
+
+
+def test_create_goal_with_unknown_starter_kit_rejected(db_session: Session):
+    service = SavingsService(db_session, "test-user-123")
+    with pytest.raises(ValueError):
+        service.create_goal(SavingsGoalCreate(
+            title="Bad Kit Plan", category="business_starter",
+            target_amount_kobo=100000, starter_kit_id="does-not-exist",
+        ))
+
+
+def test_starter_kit_plan_completes_via_real_deposit(db_session: Session):
+    kit = BusinessStarterKit(
+        slug="phone-repair", name="Phone Repair Starter Kit",
+        description="Tools and stock for a repair stand.", business_category="retail",
+        icon_name="Smartphone", total_cost_kobo=20000, suggested_duration_months=4,
+        items=[{"name": "Toolkit", "quantity": 1, "estimated_cost_kobo": 20000}],
+    )
+    db_session.add(kit)
+    db_session.commit()
+
+    service = SavingsService(db_session, "test-user-123")
+    goal = service.create_goal(SavingsGoalCreate(
+        title="My Repair Stand", category="business_starter",
+        target_amount_kobo=kit.total_cost_kobo, starter_kit_id=kit.id,
+    ))
+
+    service.record_transaction(SavingsTransactionCreate(
+        goal_id=goal.id, amount_kobo=20000, transaction_type=SavingsTransactionType.DEPOSIT.value,
+    ))
+
+    db_session.refresh(goal)
+    assert goal.status == SavingsGoalStatus.COMPLETED.value
+    assert goal.current_total_kobo == kit.total_cost_kobo
 

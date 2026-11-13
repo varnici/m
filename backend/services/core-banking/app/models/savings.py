@@ -70,12 +70,19 @@ class SavingsGoal(Base):
     
     target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String, nullable=True)
-    
+
+    # Set when this goal is a savings plan toward a curated
+    # BusinessStarterKit ("pay for a business idea over time") rather than a
+    # freeform goal — everything else (deposits, auto-sweep, ledger) is
+    # shared, unchanged machinery.
+    starter_kit_id: Mapped[str | None] = mapped_column(String, ForeignKey("business_starter_kits.id", ondelete="SET NULL"), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User")
     transactions = relationship("SavingsTransaction", back_populates="goal", cascade="all, delete-orphan")
+    starter_kit = relationship("BusinessStarterKit")
 
 
 class SavingsTransaction(Base):

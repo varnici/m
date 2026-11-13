@@ -36,12 +36,12 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru --loglevel warning
-    ports:
-      - "6379:6379"
+    command: >
+      redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru --loglevel warning
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set — refusing to start an unauthenticated production Redis}
     restart: always
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--no-auth-warning", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -66,6 +66,10 @@ services:
       PYTHONUNBUFFERED: '1'
       LOG_LEVEL: info
       WORKERS: '4'
+      # Overrides the plain (unauthenticated) REDIS_URL in .env.production —
+      # env_file values aren't interpolated, so the password has to be
+      # injected here where compose-level ${} substitution actually runs.
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
     env_file:
       - .env.production
     depends_on:
@@ -217,6 +221,10 @@ services:
       LOG_LEVEL: info
       WORKERS: '8'
       FORWARDED_ALLOW_IPS: '*'
+      # Overrides the plain (unauthenticated) REDIS_URL in .env.production —
+      # env_file values aren't interpolated, so the password has to be
+      # injected here where compose-level ${} substitution actually runs.
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
     env_file:
       - .env.production
     depends_on:

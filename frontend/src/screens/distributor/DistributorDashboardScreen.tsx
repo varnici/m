@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  Bell, ChevronRight, ShieldCheck, ShieldAlert, Package, Wallet, ClipboardList,
+  Bell, ChevronRight, ShieldCheck, ShieldAlert, Package, Wallet, ClipboardList, Users, Tag,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { RootStackNavigationProp } from '@/navigation/types';
@@ -10,16 +10,20 @@ import AppHeader from '@/components/ui/AppHeader';
 import { useInventoryDashboard } from '@/hooks/useInventory';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useMyDistributorProfile } from '@/hooks/useDistributorProfile';
+import { useTradeOrders } from '@/hooks/useTradeOrders';
 
 const DistributorDashboardScreen = () => {
   const navigation = useNavigation<RootStackNavigationProp<'DistributorHome'>>();
   const { data: dashboardData, isLoading: dashboardLoading, refetch: refetchDashboard } = useInventoryDashboard();
   const { data: notificationData, isFetching: notificationsFetching, refetch: refetchNotifications } = useNotifications();
   const { data: profile, isLoading: profileLoading } = useMyDistributorProfile();
+  const { data: orders = [] } = useTradeOrders();
 
   const stockValue = dashboardData?.total_inventory_value_kobo || 0;
   const recentNotifications = (notificationData?.items || []).slice(0, 4);
   const isRefreshing = dashboardLoading || notificationsFetching;
+  const ordersNeedingAction = orders.filter((o) => o.status === 'draft' || o.status === 'held');
+  const valueAtStake = ordersNeedingAction.reduce((t, o) => t + o.total_kobo, 0);
 
   return (
     <SafeAreaView className="flex-1 bg-background-page" edges={['bottom', 'left', 'right']}>
@@ -85,9 +89,25 @@ const DistributorDashboardScreen = () => {
             <ActivityIndicator size="large" color="#004D2C" />
           </View>
         ) : (
-          <View className="bg-white p-5 rounded-2xl border border-gray-100 mb-4">
-            <Text className="text-gray-400 text-[10px] font-bold uppercase mb-1">Warehouse stock value</Text>
-            <Text className="text-gray-900 text-3xl font-black">₦{(stockValue / 100).toLocaleString()}</Text>
+          <View className="flex-row gap-3 mb-4">
+            <View className="bg-white p-4 rounded-2xl border border-gray-100 flex-1">
+              <Text className="text-gray-400 text-[10px] font-bold uppercase mb-1">Warehouse stock value</Text>
+              <Text className="text-gray-900 text-xl font-black">₦{(stockValue / 100).toLocaleString()}</Text>
+            </View>
+            <TouchableOpacity
+              className={`p-4 rounded-2xl border flex-1 ${ordersNeedingAction.length > 0 ? 'bg-amber-50 border-amber-100' : 'bg-white border-gray-100'}`}
+              onPress={() => navigation.navigate('DistributorOrders')}
+            >
+              <Text className={`text-[10px] font-bold uppercase mb-1 ${ordersNeedingAction.length > 0 ? 'text-amber-700' : 'text-gray-400'}`}>
+                Needs your action
+              </Text>
+              <Text className={`text-xl font-black ${ordersNeedingAction.length > 0 ? 'text-amber-900' : 'text-gray-900'}`}>
+                {ordersNeedingAction.length} order{ordersNeedingAction.length === 1 ? '' : 's'}
+              </Text>
+              {valueAtStake > 0 && (
+                <Text className="text-amber-700 text-[10px] mt-0.5">₦{(valueAtStake / 100).toLocaleString()} reserved, unpaid</Text>
+              )}
+            </TouchableOpacity>
           </View>
         )}
 
@@ -95,6 +115,8 @@ const DistributorDashboardScreen = () => {
           {[
             { label: 'Inventory', icon: Package, route: 'InventoryManager' as const, tint: '#ECFDF5', color: '#059669' },
             { label: 'Orders', icon: ClipboardList, route: 'DistributorOrders' as const, tint: '#EFF6FF', color: '#2563EB' },
+            { label: 'Customers', icon: Users, route: 'DistributorCustomers' as const, tint: '#FEF3C7', color: '#B0730C' },
+            { label: 'Catalogue', icon: Tag, route: 'DistributorCatalogManage' as const, tint: '#F3E8FF', color: '#7E22CE' },
             { label: 'Wallet', icon: Wallet, route: 'Wallet' as const, tint: '#FDF4FF', color: '#A21CAF' },
           ].map((item) => (
             <TouchableOpacity

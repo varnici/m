@@ -83,6 +83,8 @@ export interface Product {
   monthly_velocity?: number;
   days_of_supply?: number;
   trade_moq?: number;
+  /** Opt-in: visible in another business's cross-tenant distributor catalog browse. */
+  is_wholesale_listed?: boolean;
   /** Set when this product is sold as a pack/bag/carton of another product. */
   parent_id?: string | null;
   /** How many of the base-unit product one of these contains (e.g. 1 Bag = 50). */
@@ -169,6 +171,8 @@ export interface TradeClient {
   contact_email?: string;
   default_payment_terms: 'immediate' | 'net30' | string;
   is_active: boolean;
+  /** Set when auto-created from a cross-tenant platform order; null for manually-added offline customers. */
+  linked_user_id?: string | null;
   created_at: string;
 }
 
@@ -196,6 +200,7 @@ export interface TradeOrderLineCreate {
 }
 
 export interface TradeOrder {
+  buyer_owner_id?: string | null;
   id: string;
   owner_id: string;
   client_id: string;

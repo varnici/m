@@ -86,4 +86,7 @@ export const inventoryKeys = {
   ledger: (skip: number, limit: number) => [...inventoryKeys.all, 'ledger', { skip, limit }],
   reconcile: (storeId?: string, productId?: string) => [...inventoryKeys.analytics(), 'reconcile', { storeId, productId }],
   dailyReport: (date: string, storeId?: string) => [...inventoryKeys.analytics(), 'daily-report', date, storeId],
+  tradeClients: () => [...inventoryKeys.all, 'trade-clients'],
+  tradeOrders: () => [...inventoryKeys.all, 'trade-orders'],
+  tradeOrderDetail: (id: string) => [...inventoryKeys.tradeOrders(), 'detail', id],
 };

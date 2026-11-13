@@ -36,3 +36,32 @@ class DistributorDirectoryEntryOut(DistributorProfileOut):
 class DistributorListOut(BaseModel):
     items: List[DistributorDirectoryEntryOut]
     total: int
+
+
+class DistributorSelfProfileOut(DistributorProfileOut):
+    """Everything DistributorProfileOut has, plus the private fields only
+    the distributor themself should see — never exposed in the directory
+    or to buyers (bank_name/account_number/tin are settlement details)."""
+    bank_name: Optional[str] = None
+    account_number: Optional[str] = None
+    tin: Optional[str] = None
+    verification_note: Optional[str] = None
+
+
+class DistributorProfileUpdate(BaseModel):
+    """A distributor editing their own profile post-onboarding. Deliberately
+    excludes cac_reg_number/cac_verified/verified — those require going
+    through re-verification, not a silent self-edit."""
+    company_name: Optional[str] = None
+    warehouse_address: Optional[str] = None
+    warehouse_lat: Optional[float] = None
+    warehouse_lng: Optional[float] = None
+    product_categories: Optional[str] = None
+    min_order_value_kobo: Optional[int] = None
+    bank_name: Optional[str] = None
+    account_number: Optional[str] = None
+
+
+class DistributorVerificationDecision(BaseModel):
+    approve: bool
+    note: Optional[str] = None

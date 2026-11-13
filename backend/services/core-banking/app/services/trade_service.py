@@ -9,6 +9,7 @@ from app.models import Product, TradeClient, TradeOrder, TradeOrderLine
 from app.schemas.inventory_schemas import (
     SalesTransactionCreate,
     SalesTransactionItemCreate,
+    StockReservationAction,
     StockReservationCreate,
     TradeClientCreate,
     TradeClientOut,
@@ -166,6 +167,31 @@ class TradeOrderService:
                 line.reservation_id = reservation.id
 
             order.status = "held"
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        self.db.refresh(order)
+        return self._to_out(order)
+
+    def cancel_order(self, order_id: str) -> TradeOrderOut:
+        """Release any reserved stock back to available and close the order.
+        Only legal from draft/held — a dispatched order has already become a
+        real sale (sale_id set) and must be reversed as a return, not
+        cancelled here."""
+        order = self.get_order(order_id)
+        if order.status not in ("draft", "held"):
+            raise ValueError(f"Cannot cancel order in status '{order.status}' — it has already been dispatched")
+
+        try:
+            for line in order.lines:
+                if line.reservation_id:
+                    self.stock_service.release_stock_reservation(
+                        line.reservation_id,
+                        StockReservationAction(action="cancel"),
+                        should_commit=False,
+                    )
+            order.status = "cancelled"
             self.db.commit()
         except Exception:
             self.db.rollback()

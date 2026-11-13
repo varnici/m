@@ -7,7 +7,8 @@ import {
   useColorScheme,
 } from 'react-native';
 import type { RootStackScreenProps } from '@/navigation/types';
-import { supabase } from '@/lib/supabase';
+import { passwordResetService } from '@/services/passwordResetService';
+import { validatePhone, formatPhoneInput } from '@/utils/validation';
 import {
   IndustrialPage,
   IndustrialText,
@@ -15,95 +16,44 @@ import {
   IndustrialCard,
   useIndustrialTheme,
 } from '@/components/ui/IndustrialComponents';
-import { ArrowLeft, Mail, CheckCircle } from 'lucide-react-native';
+import { ArrowLeft, Smartphone } from 'lucide-react-native';
 import { colors, spacing } from '@/theme/colors';
 
+const buildE164 = (raw: string) => {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('234') && digits.length === 13) return `+${digits}`;
+  const local = digits.startsWith('0') ? digits.slice(1) : digits;
+  return `+234${local}`;
+};
+
 const ForgotPasswordScreen = ({ navigation }: RootStackScreenProps<'ForgotPassword'>) => {
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [sent, setSent] = useState(false);
   const theme = useIndustrialTheme();
   const isDark = useColorScheme() === 'dark';
 
+  const phoneValidation = phone ? validatePhone(phone) : { valid: false };
+
   const handleSend = async () => {
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail) {
-      Alert.alert('Email required', 'Please enter your registered email address.');
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      Alert.alert('Invalid email', 'Please enter a valid email address.');
+    if (!phoneValidation.valid) {
+      Alert.alert('Invalid phone number', 'Enter a valid Nigerian phone number.');
       return;
     }
 
+    const e164Phone = buildE164(phone);
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-        redirectTo: 'ventureroot://reset-password',
-      });
-      if (error) throw error;
-      setSent(true);
+      await passwordResetService.requestReset(e164Phone);
+      // Always proceeds regardless of whether the number is registered —
+      // the backend deliberately gives the same response either way so
+      // this screen can't be used to check which phone numbers exist.
+      navigation.navigate('ResetPassword', { phone: e164Phone });
     } catch (err: any) {
-      Alert.alert('Could not send reset link', err.message || 'Please try again.');
+      Alert.alert('Could not send code', err.message || 'Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
-
-  if (sent) {
-    return (
-      <IndustrialPage>
-        <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 20 }}>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')} style={{ marginBottom: 32 }}>
-            <ArrowLeft size={24} color={theme.onSurface} />
-          </TouchableOpacity>
-
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 }}>
-            <View
-              style={{
-                width: 80, height: 80, borderRadius: 40,
-                backgroundColor: '#F0FDF4',
-                alignItems: 'center', justifyContent: 'center',
-                marginBottom: 24,
-              }}
-            >
-              <CheckCircle size={40} color={colors.ventureroot.green} />
-            </View>
-
-            <IndustrialText variant="h1" style={{ textAlign: 'center', marginBottom: 12 }}>
-              CHECK YOUR{'\n'}EMAIL
-            </IndustrialText>
-            <View style={{ width: 40, height: 4, backgroundColor: colors.ventureroot.industrial.primary, marginBottom: 20 }} />
-
-            <IndustrialText style={{ textAlign: 'center', opacity: 0.6, lineHeight: 22, paddingHorizontal: 16 }}>
-              We sent a password reset link to{'\n'}
-              <IndustrialText style={{ color: colors.ventureroot.industrial.primary, fontWeight: '700' }}>
-                {email.trim().toLowerCase()}
-              </IndustrialText>
-              {'\n\n'}
-              Open the link in your email to set a new password. Check your spam folder if you don't see it.
-            </IndustrialText>
-
-            <TouchableOpacity
-              onPress={() => { setSent(false); setEmail(''); }}
-              style={{ marginTop: 32 }}
-            >
-              <IndustrialText variant="label" style={{ color: colors.ventureroot.industrial.primary, opacity: 0.8 }}>
-                Use a different email
-              </IndustrialText>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ paddingBottom: spacing.lg }}>
-            <IndustrialButton
-              title="Back to Sign In"
-              onPress={() => navigation.navigate('Login')}
-            />
-          </View>
-        </View>
-      </IndustrialPage>
-    );
-  }
 
   return (
     <IndustrialPage>
@@ -123,12 +73,12 @@ const ForgotPasswordScreen = ({ navigation }: RootStackScreenProps<'ForgotPasswo
         </View>
 
         <IndustrialText style={{ opacity: 0.6, marginBottom: 32, lineHeight: 22 }}>
-          Enter the email address linked to your VentureRoot account and we'll send you a secure reset link.
+          Enter the phone number linked to your VentureRoot account and we'll text you a 6-digit code.
         </IndustrialText>
 
         <IndustrialCard variant="low" style={{ padding: 24 }}>
           <IndustrialText variant="label" style={{ marginBottom: 8, opacity: 0.6 }}>
-            EMAIL ADDRESS
+            PHONE NUMBER
           </IndustrialText>
           <View
             style={{
@@ -142,14 +92,14 @@ const ForgotPasswordScreen = ({ navigation }: RootStackScreenProps<'ForgotPasswo
               marginBottom: spacing.md,
             }}
           >
-            <Mail size={18} color={colors.ventureroot.industrial.primary} style={{ marginRight: 12 }} />
+            <Smartphone size={18} color={colors.ventureroot.industrial.primary} style={{ marginRight: 12 }} />
+            <IndustrialText style={{ marginRight: 8, fontWeight: '700' }}>+234</IndustrialText>
             <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@domain.com"
+              value={phone}
+              onChangeText={(t) => setPhone(formatPhoneInput(t))}
+              placeholder="801 234 5678"
               placeholderTextColor={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}
-              keyboardType="email-address"
-              autoCapitalize="none"
+              keyboardType="phone-pad"
               autoFocus
               returnKeyType="send"
               onSubmitEditing={handleSend}
@@ -158,9 +108,9 @@ const ForgotPasswordScreen = ({ navigation }: RootStackScreenProps<'ForgotPasswo
           </View>
 
           <IndustrialButton
-            title={isLoading ? 'SENDING...' : 'SEND RESET LINK'}
+            title={isLoading ? 'SENDING...' : 'SEND CODE'}
             onPress={handleSend}
-            disabled={isLoading || !email.trim()}
+            disabled={isLoading || !phoneValidation.valid}
           />
         </IndustrialCard>
 

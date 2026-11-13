@@ -22,7 +22,10 @@ def create_savings_goal(
     user_id: str = Depends(get_current_user_id)
 ):
     service = SavingsService(db, user_id)
-    return service.create_goal(payload)
+    try:
+        return service.create_goal(payload)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/goals", response_model=List[SavingsGoalResponse])
 def list_savings_goals(

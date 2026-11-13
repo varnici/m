@@ -104,6 +104,65 @@ def _send_sms_termii(phone: str, code: str) -> bool:
         return False
 
 
+def _send_sms_infobip(phone: str, code: str) -> bool:
+    """Returns True only if a real SMS was actually dispatched via Infobip —
+    see _send_sms_termii's docstring for why this distinction matters.
+
+    infobip_base_url is account-specific (shown in the Infobip portal next
+    to the API key) — there's no shared default, so an unset base URL is
+    treated the same as a missing API key: dev-log fallback in dev, hard
+    failure otherwise.
+    """
+    if not settings.infobip_api_key or not settings.infobip_base_url:
+        _dev_log("sms", phone, code, "Infobip key/base URL not configured")
+        if not _is_dev_mode():
+            raise RuntimeError("SMS is not configured on this server.")
+        return False
+
+    try:
+        message: dict = {
+            "destinations": [{"to": phone}],
+            "text": f"Your VentureRoot code is {code}. Valid 10 mins. Do not share.",
+        }
+        if settings.infobip_sender_id:
+            message["from"] = settings.infobip_sender_id
+
+        payload = {"messages": [message]}
+        headers = {
+            "Authorization": f"App {settings.infobip_api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        base = settings.infobip_base_url.rstrip("/")
+        with httpx.Client(timeout=10) as client:
+            resp = client.post(f"{base}/sms/2/text/advanced", json=payload, headers=headers)
+            if not resp.is_success:
+                raise RuntimeError(
+                    f"Infobip {resp.status_code}: {resp.text[:200]}"
+                )
+        return True
+    except Exception as exc:
+        _dev_log("sms", phone, code, f"Infobip error: {exc}")
+        if not _is_dev_mode():
+            raise
+        return False
+
+
+def _send_sms(phone: str, code: str) -> bool:
+    """Dispatches to whichever SMS provider is configured — the single
+    place send_otp/send_otp_multi call, so switching providers is a one-line
+    settings change (SMS_PROVIDER=termii|infobip) rather than a code change."""
+    provider = settings.sms_provider.lower()
+    if provider == "infobip":
+        return _send_sms_infobip(phone, code)
+    if provider == "termii":
+        return _send_sms_termii(phone, code)
+    _dev_log("sms", phone, code, f"SMS_PROVIDER={settings.sms_provider!r} — no real provider selected")
+    if not _is_dev_mode():
+        raise RuntimeError("SMS is not configured on this server.")
+    return False
+
+
 # ── Email via SMTP ────────────────────────────────────────────────────────────
 
 _PLACEHOLDER_PASSWORDS = {"your_gmail_app_password_here", "", "changeme", "your_password"}
@@ -201,7 +260,7 @@ def send_otp(
     db.commit()
 
     if channel == "sms":
-        _send_sms_termii(target, code)
+        _send_sms(target, code)
     else:
         _send_email_otp(target, code)
 
@@ -282,7 +341,7 @@ def send_otp_multi(
     result = {"sms": {"sent": False, "error": None}, "email": {"sent": False, "error": None}}
 
     try:
-        result["sms"]["sent"] = _send_sms_termii(phone, code)
+        result["sms"]["sent"] = _send_sms(phone, code)
     except Exception as exc:
         result["sms"]["error"] = str(exc)
 

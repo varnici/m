@@ -279,6 +279,44 @@ async def proxy_onboarding(path: str, request: Request, _sub: str = Depends(requ
     return await _proxy(request, settings.core_banking_url, f"v1/onboarding/{path}")
 
 
+@app.api_route("/v1/password-reset/{path:path}", methods=["POST"], include_in_schema=False)
+async def proxy_password_reset(path: str, request: Request):
+    # Deliberately no require_auth — a locked-out user has no token to
+    # present. Abuse is bounded by the per-endpoint rate limits in
+    # password_reset.py itself (5/hour request, 10/hour confirm).
+    return await _proxy(request, settings.core_banking_url, f"v1/password-reset/{path}")
+
+
+@app.api_route("/v1/notifications/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_notifications(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/notifications/{path}")
+
+
+@app.api_route("/v1/notifications", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_notifications_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/notifications")
+
+
+@app.api_route("/v1/distributors/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_distributors(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/distributors/{path}")
+
+
+@app.api_route("/v1/distributors", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_distributors_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/distributors")
+
+
+@app.api_route("/v1/business-starter-kits/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_business_starter_kits(path: str, request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, f"v1/business-starter-kits/{path}")
+
+
+@app.api_route("/v1/business-starter-kits", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def proxy_business_starter_kits_root(request: Request, _sub: str = Depends(require_auth)):
+    return await _proxy(request, settings.core_banking_url, "v1/business-starter-kits")
+
+
 @app.get("/v1/dashboard/{user_id}")
 async def get_dashboard_summary(user_id: str, _sub: str = Depends(require_auth)):
     """

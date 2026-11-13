@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, update, func
 
 from app.models.savings import SavingsGoal, SavingsTransaction, SavingsStreak, SavingsGoalStatus, SavingsTransactionStatus, SavingsTransactionType
+from app.models.business_starter_kit import BusinessStarterKit
 from app.models.inventory import SalesTransaction, Product
 from app.schemas.savings_schemas import (
     SavingsGoalCreate, SavingsGoalUpdate, SavingsGoalResponse,
@@ -22,6 +23,16 @@ class SavingsService:
         self.user_id = user_id
 
     def create_goal(self, payload: SavingsGoalCreate) -> SavingsGoal:
+        if payload.starter_kit_id:
+            kit = self.db.execute(
+                select(BusinessStarterKit).where(
+                    BusinessStarterKit.id == payload.starter_kit_id,
+                    BusinessStarterKit.is_active == True,
+                )
+            ).scalar_one_or_none()
+            if not kit:
+                raise ValueError("Business starter kit not found")
+
         goal = SavingsGoal(
             user_id=self.user_id,
             **payload.model_dump()

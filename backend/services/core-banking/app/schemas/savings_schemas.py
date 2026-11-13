@@ -4,6 +4,8 @@ from datetime import date, datetime
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.business_starter_kit_schemas import BusinessStarterKitOut
+
 
 class SavingsGoalBase(BaseModel):
     title: str
@@ -16,6 +18,7 @@ class SavingsGoalBase(BaseModel):
     is_auto_save_enabled: bool = False
     auto_save_amount_kobo: int = 0
     auto_save_frequency: Optional[str] = None
+    starter_kit_id: Optional[str] = None
 
 
 class SavingsGoalCreate(SavingsGoalBase):
@@ -43,6 +46,7 @@ class SavingsGoalResponse(SavingsGoalBase):
     created_at: datetime
     updated_at: datetime
     progress_percentage: float = 0.0
+    starter_kit: Optional[BusinessStarterKitOut] = None
 
     model_config = ConfigDict(from_attributes=True)
 

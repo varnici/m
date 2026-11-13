@@ -37,6 +37,15 @@ _SIMPLE_LEDGER_LEGS = {
     "sale_proceeds": (_CASH_POOL, _WALLET_LIABILITY),
     "savings_withdrawal": (_CASH_POOL, _WALLET_LIABILITY),
     "transfer_out": (_WALLET_LIABILITY, _CASH_POOL),
+    # A worker committing spendable balance to an investment/funding-round
+    # contribution — same shape as transfer_out (money leaves the liquid
+    # wallet), kept as its own type so transaction history/reporting can
+    # tell "sent to someone" apart from "committed to an investment".
+    "investment_commitment": (_WALLET_LIABILITY, _CASH_POOL),
+    # Dividend or withdrawal proceeds credited back to the wallet — same
+    # shape as topup/sale_proceeds (cash flows from the platform's pool
+    # into the wallet), kept distinct for the same reporting reason.
+    "investment_return": (_CASH_POOL, _WALLET_LIABILITY),
 }
 
 
@@ -118,9 +127,9 @@ def process_transaction(
         raise ValueError(f"Wallet not found for user {user_id}")
 
     # 2. Determine new balance depending on transaction type
-    if type in ("topup", "sale_proceeds", "loan_disbursement", "savings_withdrawal"):
+    if type in ("topup", "sale_proceeds", "loan_disbursement", "savings_withdrawal", "investment_return"):
         new_balance = wallet.balance_kobo + amount_kobo
-    elif type in ("transfer_out", "repayment_sweep"):
+    elif type in ("transfer_out", "repayment_sweep", "investment_commitment"):
         if wallet.balance_kobo < amount_kobo:
             raise ValueError(
                 f"Insufficient funds for {type}. Available: {wallet.balance_kobo} kobo, requested: {amount_kobo} kobo"

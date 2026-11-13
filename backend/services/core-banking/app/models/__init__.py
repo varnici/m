@@ -14,6 +14,7 @@ from app.models.inventory_domain import (
     InventoryReservationModel,
 )
 from app.models.savings import SavingsGoal, SavingsTransaction, SavingsStreak
+from app.models.business_starter_kit import BusinessStarterKit
 from app.models.artisan import Artisan, ArtisanBooking, ArtisanRating
 from app.models.transport import DriverProfile, TransportBooking, BookingTrackingPoint
 from app.models.sales_metrics import SalesMetrics
@@ -39,7 +40,7 @@ __all__ = [
     "InventorySnapshot", "ActivityLog",
     "TradeClient", "TradeOrder", "TradeOrderLine",
     "InventoryLedgerEntryModel", "InventoryIdempotencyKeyModel", "DomainOutboxMessageModel", "InventoryReservationModel",
-    "SavingsGoal", "SavingsTransaction", "SavingsStreak",
+    "SavingsGoal", "SavingsTransaction", "SavingsStreak", "BusinessStarterKit",
     "Artisan", "ArtisanBooking", "ArtisanRating", "DriverProfile",
     "TransportBooking", "BookingTrackingPoint", "SalesMetrics",
     "InventoryMetrics", "LoanMetrics", "LoanApplication", "LoanRepaymentSchedule",

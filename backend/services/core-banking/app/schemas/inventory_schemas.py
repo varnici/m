@@ -869,6 +869,10 @@ class TradeClientOut(BaseModel):
     contact_email: Optional[str] = None
     default_payment_terms: str
     is_active: bool
+    # Set only when this contact was auto-created from a cross-tenant
+    # platform order (see distributors.py::_find_or_create_buyer_client) —
+    # null for a distributor's own manually-entered offline customers.
+    linked_user_id: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -910,6 +914,10 @@ class TradeOrderOut(BaseModel):
     payment_terms: str
     total_kobo: int
     sale_id: Optional[str] = None
+    # Set only for cross-tenant orders placed by another platform business
+    # via POST /distributors/{id}/orders — null for same-tenant trade
+    # clients invoiced directly through the Trade Invoicing Desk.
+    buyer_owner_id: Optional[str] = None
     lines: List[TradeOrderLineOut] = []
     created_at: datetime
 

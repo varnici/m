@@ -19,6 +19,24 @@ export interface DistributorDirectoryEntry extends DistributorProfile {
   business_name?: string | null;
 }
 
+export interface DistributorSelfProfile extends DistributorProfile {
+  bank_name?: string | null;
+  account_number?: string | null;
+  tin?: string | null;
+  verification_note?: string | null;
+}
+
+export interface DistributorProfileUpdate {
+  company_name?: string;
+  warehouse_address?: string;
+  warehouse_lat?: number;
+  warehouse_lng?: number;
+  product_categories?: string;
+  min_order_value_kobo?: number;
+  bank_name?: string;
+  account_number?: string;
+}
+
 export interface DistributorListResponse {
   items: DistributorDirectoryEntry[];
   total: number;
@@ -64,7 +82,7 @@ export interface TradeOrder {
 }
 
 export class DistributorService extends BaseService {
-  async getMyProfile(): Promise<DistributorProfile | null> {
+  async getMyProfile(): Promise<DistributorSelfProfile | null> {
     try {
       const response = await this.fetchWithAuth('/v1/distributors/me');
       return response.json();
@@ -72,6 +90,14 @@ export class DistributorService extends BaseService {
       if ((err as Error & { status?: number }).status === 404) return null;
       throw err;
     }
+  }
+
+  async updateMyProfile(data: DistributorProfileUpdate): Promise<DistributorSelfProfile> {
+    const response = await this.fetchWithAuth('/v1/distributors/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return response.json();
   }
 
   async list(verifiedOnly = true, skip = 0, limit = 50): Promise<DistributorListResponse> {

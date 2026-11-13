@@ -91,6 +91,8 @@ class DistributorProfile(Base):
     bank_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     account_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    verification_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False,
         default=lambda: datetime.now(timezone.utc),

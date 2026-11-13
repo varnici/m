@@ -57,13 +57,33 @@ export class BaseService {
       ...options.headers,
     };
 
+    return this._doFetch(url, { ...options, headers });
+  }
+
+  /**
+   * Fetch with no auth — for endpoints a logged-out user must be able to
+   * call (registration, forgotten-password OTP request/confirm). Never add
+   * a user's own data lookups here; only pre-auth/recovery flows.
+   */
+  protected async fetchPublic(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<Response> {
+    const url = `${this.config.baseURL}${endpoint}`;
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+    return this._doFetch(url, { ...options, headers });
+  }
+
+  private async _doFetch(url: string, options: RequestInit): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
     try {
       const response = await fetch(url, {
         ...options,
-        headers,
         signal: controller.signal,
       });
 

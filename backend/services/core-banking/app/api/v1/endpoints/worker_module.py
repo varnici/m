@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.infrastructure.database import supabase_db_session as db_session, get_db
 from app.infrastructure.auth import get_current_user_id
+from app.services import wallet_service
 from app.services.ledger_service import LedgerService
 from app.services.fulfillment_ledger import FulfillmentLedger
 from app.services.notification_service import NotificationService
@@ -51,6 +52,45 @@ def _guard(fn):
             raise HTTPException(status_code=503, detail="Worker service temporarily unavailable")
 
     return wrapper
+
+
+def _mirror_to_wallet_ledger(*, user_id: str, type: str, amount_kobo: int, description: str, reference_id: str) -> None:
+    """Best-effort mirror of a Supabase-side worker-module money event into
+    core-banking's real Wallet balance + double-entry ledger.
+
+    Not part of the same DB transaction as the Supabase-side commit above it
+    (two separate databases — see _settle_funded_round, the original
+    precedent for this pattern). If this fails after the Supabase side
+    already committed, it's logged for manual reconciliation rather than
+    raised: rolling back a worker's already-confirmed investment/dividend/
+    withdrawal would be worse than a temporarily-unsynced wallet balance.
+
+    Requires the user to already have a Wallet row — auto-created by
+    get_current_user_id's first-touch sync (app/infrastructure/auth.py), so
+    true for any user who has reached this endpoint at all.
+    """
+    if amount_kobo <= 0:
+        return
+    try:
+        db_gen = get_db()
+        cb_db: Session = next(db_gen)
+        try:
+            wallet_service.process_transaction(
+                cb_db,
+                user_id=user_id,
+                type=type,
+                amount_kobo=amount_kobo,
+                description=description,
+                reference_id=reference_id,
+            )
+            cb_db.commit()
+        finally:
+            db_gen.close()
+    except Exception:
+        logger.exception(
+            "wallet ledger mirror failed: user=%s type=%s amount_kobo=%s ref=%s — needs manual reconciliation",
+            user_id, type, amount_kobo, reference_id,
+        )
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -627,6 +667,16 @@ def _settle_funded_round(*, round_id: str, cluster_id: str, distributor_order_id
                 related_entity_id=order.id,
                 metadata={"funding_round_id": round_id, "amount_kobo": goods_value_kobo},
             )
+            # LedgerService.record_transaction only flushes, it never commits
+            # (by design — callers may want several postings in one atomic
+            # unit). Without this, every ledger entry above is silently
+            # discarded on db_gen.close() the moment this session isn't
+            # sharing a connection with whoever reads it next — which is
+            # every real request in production (StaticPool-backed SQLite
+            # tests mask this because all sessions there share one
+            # connection). This was found while wiring the equivalent
+            # investment ledger postings below.
+            cb_db.commit()
         finally:
             db_gen.close()
     except Exception:
@@ -699,6 +749,14 @@ def contribute_to_funding_round(
             {"raised": new_raised, "status": new_status, "newly_funded": newly_funded, "rid": round_id},
         )
         db.commit()
+
+    _mirror_to_wallet_ledger(
+        user_id=user_id,
+        type="investment_commitment",
+        amount_kobo=payload.amount_kobo,
+        description=f"Contribution to funding round {round_id}",
+        reference_id=str(inv_row["id"]),
+    )
 
     if newly_funded:
         _settle_funded_round(
@@ -912,6 +970,20 @@ async def payments_webhook(
 
         db.commit()
 
+    # Real deposited money must also land in the worker's actual wallet, not
+    # just the Supabase-side savings_plans balance — this is what
+    # create_investment/contribute_to_funding_round later debit against, and
+    # without it every investment would fail with "insufficient funds" the
+    # moment its own wallet debit is added (the wallet would sit at ₦0
+    # forever otherwise, since nothing else credits it for this account type).
+    _mirror_to_wallet_ledger(
+        user_id=user_id,
+        type="topup",
+        amount_kobo=payload.amount_kobo,
+        description=f"Deposit received (ref {payload.reference})",
+        reference_id=payload.reference,
+    )
+
     return WebhookAckOut(
         received=True,
         user_id=user_id,
@@ -1004,26 +1076,34 @@ def create_investment(payload: CreateInvestmentIn, user_id: str = Depends(get_cu
         days_elapsed = (today - start).days
         days_remaining = max(0, (maturity - today).days)
 
-        return InvestmentDetailOut(
-            id=inv_id,
-            cluster_id=payload.cluster_id,
-            business_name=cluster["business_name"],
-            principal_amount=payload.amount,
-            dividends_earned=0.0,
-            total_collected=0.0,
-            status="active",
-            term_months=payload.term_months,
-            monthly_rate_pct=float(MONTHLY_RATE_PCT),
-            start_date=str(start),
-            maturity_date=str(maturity),
-            penalty_rate_pct=float(EARLY_WITHDRAWAL_PENALTY_PCT),
-            current_yield_pct=float(cluster["projected_monthly_roi"]),
-            created_at=str(row["created_at"]),
-            days_remaining=days_remaining,
-            is_matured=today >= maturity,
-            available_dividends=0.0,
-            dividend_records=[],
-        )
+    _mirror_to_wallet_ledger(
+        user_id=user_id,
+        type="investment_commitment",
+        amount_kobo=int(round(payload.amount * 100)),
+        description=f"Investment in {cluster['business_name']}",
+        reference_id=inv_id,
+    )
+
+    return InvestmentDetailOut(
+        id=inv_id,
+        cluster_id=payload.cluster_id,
+        business_name=cluster["business_name"],
+        principal_amount=payload.amount,
+        dividends_earned=0.0,
+        total_collected=0.0,
+        status="active",
+        term_months=payload.term_months,
+        monthly_rate_pct=float(MONTHLY_RATE_PCT),
+        start_date=str(start),
+        maturity_date=str(maturity),
+        penalty_rate_pct=float(EARLY_WITHDRAWAL_PENALTY_PCT),
+        current_yield_pct=float(cluster["projected_monthly_roi"]),
+        created_at=str(row["created_at"]),
+        days_remaining=days_remaining,
+        is_matured=today >= maturity,
+        available_dividends=0.0,
+        dividend_records=[],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1288,6 +1368,14 @@ def collect_dividends(investment_id: str, user_id: str = Depends(get_current_use
 
         db.commit()
 
+    _mirror_to_wallet_ledger(
+        user_id=user_id,
+        type="investment_return",
+        amount_kobo=int(round(total * 100)),
+        description=f"Dividend collected for investment {investment_id}",
+        reference_id=investment_id,
+    )
+
     return CollectDividendOut(
         investment_id=investment_id,
         collected_amount=total,
@@ -1374,6 +1462,14 @@ def withdraw_investment(investment_id: str, user_id: str = Depends(get_current_u
         )
 
         db.commit()
+
+    _mirror_to_wallet_ledger(
+        user_id=user_id,
+        type="investment_return",
+        amount_kobo=int(round(net_amount * 100)),
+        description=f"Investment withdrawal for {investment_id}" + (" (early)" if is_early else ""),
+        reference_id=investment_id,
+    )
 
     return WithdrawOut(
         investment_id=investment_id,

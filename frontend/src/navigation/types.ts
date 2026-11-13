@@ -7,7 +7,7 @@ export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
-  ResetPassword: undefined;
+  ResetPassword: { phone?: string } | undefined;
   EmailEntry: undefined;
   PhoneEntry: undefined;
   OtpEntry: { channel: 'email' | 'phone'; target: string; display?: string };
@@ -91,7 +91,7 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
-  ResetPassword: undefined;
+  ResetPassword: { phone?: string } | undefined;
   EmailEntry: undefined;
   PhoneEntry: undefined;
   OtpEntry: { channel: 'email' | 'phone'; target: string; display?: string };
@@ -126,6 +126,8 @@ export type RootStackParamList = {
   DistributorOrders: undefined;
   DistributorList: undefined;
   DistributorCatalog: { distributorId: string; distributorName?: string };
+  DistributorCatalogManage: undefined;
+  DistributorCustomers: undefined;
   FundTransferReceipt: { orderId: string };
   StockLodger: undefined;
   VoiceStock: undefined;

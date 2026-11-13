@@ -18,6 +18,8 @@ import DistributorDashboardScreen from '@/screens/distributor/DistributorDashboa
 import DistributorOrdersScreen from '@/screens/distributor/DistributorOrdersScreen';
 import DistributorListScreen from '@/screens/distributor/DistributorListScreen';
 import DistributorCatalogScreen from '@/screens/distributor/DistributorCatalogScreen';
+import DistributorCatalogManageScreen from '@/screens/distributor/DistributorCatalogManageScreen';
+import DistributorCustomersScreen from '@/screens/distributor/DistributorCustomersScreen';
 import FundTransferReceiptScreen from '@/screens/distributor/FundTransferReceiptScreen';
 import ComingSoonScreen from '@/screens/ComingSoonScreen';
 import RoleSelectionScreen from '@/screens/auth/RoleSelectionScreen';
@@ -160,7 +162,7 @@ function resolveMainScreen(accountType: string | null) {
     case 'distributor':
       return DistributorTabNavigator;
     default:
-      return MainTabNavigator;
+      return ComingSoonScreen;
   }
 }
 
@@ -324,6 +326,8 @@ const RootNavigator = () => {
           <Stack.Screen name="DistributorOrders" component={DistributorOrdersScreen} />
           <Stack.Screen name="DistributorList" component={DistributorListScreen} />
           <Stack.Screen name="DistributorCatalog" component={DistributorCatalogScreen} />
+          <Stack.Screen name="DistributorCatalogManage" component={DistributorCatalogManageScreen} />
+          <Stack.Screen name="DistributorCustomers" component={DistributorCustomersScreen} />
           <Stack.Screen name="FundTransferReceipt" component={FundTransferReceiptScreen} />
 
           <Stack.Screen name="BudgetBestDashboard" component={BudgetBestDashboard} />

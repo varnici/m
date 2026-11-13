@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
@@ -7,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_admin
 from app.infrastructure.database import get_db
 from app.infrastructure.auth import get_current_user_id
 from app.models.onboarding import DistributorProfile
@@ -16,6 +18,9 @@ from app.schemas.distributor_schemas import (
     DistributorDirectoryEntryOut,
     DistributorListOut,
     DistributorProfileOut,
+    DistributorProfileUpdate,
+    DistributorSelfProfileOut,
+    DistributorVerificationDecision,
 )
 from app.schemas.inventory_schemas import ProductOut, TradeOrderCreate, TradeOrderLineCreate, TradeOrderOut
 from app.services.notification_service import NotificationService
@@ -25,7 +30,7 @@ from app.services.trade_service import TradeOrderService
 router = APIRouter()
 
 
-@router.get("/me", response_model=DistributorProfileOut)
+@router.get("/me", response_model=DistributorSelfProfileOut)
 def get_my_distributor_profile(
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
@@ -35,7 +40,68 @@ def get_my_distributor_profile(
     ).scalar_one_or_none()
     if profile is None:
         raise HTTPException(status_code=404, detail="No distributor profile found for this account")
-    return DistributorProfileOut.model_validate(profile)
+    return DistributorSelfProfileOut.model_validate(profile)
+
+
+@router.put("/me", response_model=DistributorSelfProfileOut)
+def update_my_distributor_profile(
+    payload: DistributorProfileUpdate,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """A distributor editing their own operational details post-onboarding.
+    Deliberately cannot touch cac_reg_number/verified — those require
+    re-verification (POST /{id}/verify), not a silent self-edit."""
+    profile = db.execute(
+        select(DistributorProfile).where(DistributorProfile.user_id == user_id)
+    ).scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(status_code=404, detail="No distributor profile found for this account")
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(profile, field, value)
+    profile.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(profile)
+    return DistributorSelfProfileOut.model_validate(profile)
+
+
+@router.post("/{distributor_user_id}/verify", response_model=DistributorSelfProfileOut)
+def verify_distributor(
+    distributor_user_id: str,
+    payload: DistributorVerificationDecision,
+    db: Session = Depends(get_db),
+    _admin_id: str = Depends(require_admin),
+):
+    """Admin-only approve/reject of a distributor's onboarding. This is the
+    only code path that can ever set DistributorProfile.verified — without
+    it, no distributor can appear in the buyer directory or receive orders
+    (see GET / and POST /{id}/orders, both of which gate on verified=True)."""
+    profile = db.execute(
+        select(DistributorProfile).where(DistributorProfile.user_id == distributor_user_id)
+    ).scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(status_code=404, detail="No distributor profile found for this account")
+
+    profile.verified = payload.approve
+    profile.verification_note = payload.note
+    profile.verified_at = datetime.now(timezone.utc) if payload.approve else None
+    db.commit()
+    db.refresh(profile)
+
+    NotificationService(db).create(
+        user_id=distributor_user_id,
+        type="distributor_verification",
+        title="You're verified — start selling wholesale" if payload.approve else "Verification needs another look",
+        message=payload.note or (
+            "Your distributor account is verified. Buyers can now find you and order from your wholesale catalogue."
+            if payload.approve else
+            "We couldn't verify your distributor account yet. Check Settings for what's needed."
+        ),
+        related_entity_type="distributor_profile",
+        related_entity_id=profile.id,
+    )
+    return DistributorSelfProfileOut.model_validate(profile)
 
 
 @router.get("", response_model=DistributorListOut)

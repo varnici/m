@@ -736,6 +736,22 @@ def dispatch_trade_order(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+@router.post("/trade-orders/{order_id}/cancel", response_model=TradeOrderOut)
+def cancel_trade_order(
+    order_id: str,
+    db: Session = Depends(get_db),
+    owner_id: str = Depends(get_current_user_id),
+):
+    """Cancel a draft/held order and release any reserved stock. Not legal
+    once dispatched — that's a real sale and needs a return, not a cancel."""
+    service = TradeOrderService(db, owner_id)
+    try:
+        result = service.cancel_order(order_id)
+        invalidate_cache_pattern(f"inventory:cache:{owner_id}:*")
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
 @router.get("/analytics/ledger", response_model=List[LedgerEntry])
 def get_inventory_analytics_ledger(
     skip: int = 0,

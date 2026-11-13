@@ -10,6 +10,8 @@ from app.api.v1.endpoints.otp import router as otp_router
 from app.api.v1.endpoints.admin_metrics import router as admin_metrics_router
 from app.api.v1.endpoints.notifications import router as notifications_router
 from app.api.v1.endpoints.distributors import router as distributors_router
+from app.api.v1.endpoints.password_reset import router as password_reset_router
+from app.api.v1.endpoints.business_starter_kits import router as business_starter_kits_router
 
 api_router = APIRouter()
 api_router.include_router(users.router, prefix="/users", tags=["users"])
@@ -36,4 +38,6 @@ api_router.include_router(otp_router, prefix="/otp", tags=["otp"])
 api_router.include_router(admin_metrics_router, prefix="/admin/metrics", tags=["admin-metrics"])
 api_router.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(distributors_router, prefix="/distributors", tags=["distributors"])
+api_router.include_router(password_reset_router, prefix="/password-reset", tags=["password-reset"])
+api_router.include_router(business_starter_kits_router, prefix="/business-starter-kits", tags=["business-starter-kits"])
 

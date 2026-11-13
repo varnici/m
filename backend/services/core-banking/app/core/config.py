@@ -48,13 +48,21 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
 
     # ── SMS provider ──────────────────────────────────────────────
-    sms_provider: str = "mock"          # 'mock' | 'termii'
+    sms_provider: str = "mock"          # 'mock' | 'termii' | 'infobip'
 
     # ── Termii (Nigerian SMS provider) ────────────────────────────
     termii_api_key: str = ""
     termii_sender_id: str = "N-Alert"   # generic sender approved for all NG numbers
     termii_channel: str = "generic"     # 'generic' works without DND approval
     termii_base_url: str = "https://api.ng.termii.com/api"
+
+    # ── Infobip (SMS provider) ─────────────────────────────────────
+    infobip_api_key: str = ""
+    # Account-specific — shown in the Infobip portal right next to the API
+    # key (e.g. "https://xxxxxx.api.infobip.com"). No shared/default value
+    # exists; sending fails closed with a clear error if this is unset.
+    infobip_base_url: str = ""
+    infobip_sender_id: str = ""         # optional; omitted from the request if unset
 
     # ── Email (OTP & notifications) ───────────────────────────────
     smtp_host: str = "smtp.gmail.com"
